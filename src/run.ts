@@ -46,20 +46,20 @@ class UserWordList implements List {
 class MemoryBotUser implements BotUser {
   userId: number;
   private words: Word[];
-  private lists: List[];
+  private list: List[];
 
   constructor(userId: number) {
     this.userId = userId;
     this.words = [];
-    this.lists = [];
+    this.list = [];
   }
 
   async addWord(word: Word): Promise<void> {
     this.words.push(word);
   }
 
-  async addList(words: List): Promise<void> {
-    this.lists.push(words);
+  async addList(name: List): Promise<void> {
+    this.list.push(name);
   }
 
   async getWords(): Promise<Word[]> {
@@ -67,7 +67,7 @@ class MemoryBotUser implements BotUser {
   }
 
   async getLists(): Promise<List[]> {
-    return this.lists;
+    return this.list;
   }
 }
 
@@ -103,15 +103,7 @@ const getWordsFromMessage = (message: string) => message;
 const messageHandler = (database: BotDatabase) => async (
   ctx: TelegrafContext
 ) => {
-  // parse the message and add the word to the database
 
-  //list
-  // if (ctx.message?.text === '/newlist'){
-  // await ctx.reply(`What is a title for a new one?`)
-  // if
-  // const new_lists =
-
-  // }
 
   if (ctx.message?.from && ctx.message?.text) {
     let user = await database.getUser(ctx.message.from.id);
@@ -146,6 +138,12 @@ const sessionstorage: LocalSession<string> = new localStorage();
   bot.command('newlist', async (ctx: TelegrafContext) => {
     bot.use(LocalSession.storageMemory(new));
     await ctx.reply(`Tell me new title for one!`);
+    if(ctx.message?.from &&  ctx.message?.text){
+      let user = await database.getUser(ctx.message.from.id);
+
+      if (!user) user = await database.createUser(ctx.message.from.id);
+      await user.addList({name:getWordsFromMessage(ctx.message.text)})
+    }
 
     bot.on('message', (ctx) => {});
   });
