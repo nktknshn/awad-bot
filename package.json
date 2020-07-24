@@ -11,8 +11,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@telegraf/session": "^1.0.1",
     "node": "^14.4.0",
     "telegraf": "^3.38.0",
+    "telegraf-session-local": "^2.0.0",
     "typescript": "^3.9.5"
   },
   "devDependencies": {
