@@ -6,7 +6,7 @@ import CommentList from './CommentList';
 export default () => {
   const [posts, setPosts] = useState({});
   const fetchPosts = async () => {
-    const res = await axios.get('http://localhost:4000/posts');
+    const res = await axios.get('');
 
     setPosts(res.data);
   };
@@ -29,6 +29,37 @@ export default () => {
       </div>
     );
   });
-  return <div className = "d-flex flex-row flex-wrap justify-content-between" > 
-  {renderedPosts} </div> ;
+  return<> <div className = "d-flex flex-row flex-wrap justify-content-between" > 
+  {/* {renderedPosts}  */}</div>
+  
+
+  <section class="cardList">
+
+      <dl class="card">
+        <ol>
+          <li></li><li></li><li></li>
+        </ol>
+
+
+        <dt class="word">diligence</dt>
+        <dd>
+          <ol>
+            <li><p>/ˈdɪlɪdʒ(ə)ns/</p><button>icon</button></li>
+            <li><p>careful and persistent work or effort.</p></li>
+            <li>
+              <ul>
+              
+                <li><p>example1</p></li>
+                <li><p>example1</p></li>
+              </ul>
+            </li>
+            <li>
+              <p>tag1</p><p>tag2</p>
+            </li>
+          </ol>
+        </dd>
+
+      </dl>
+    </section></>
+  
 }

@@ -31,9 +31,6 @@ interface BotDatabase {
   createList(name: string): Promise<List | undefined>; //if the word is saved uncategorized it goes to default
 }
 
-interface BotSession {
-  createList(list: List): Promise<List>;
-}
 class UserWordList implements List {
   name: string;
   words: Word[];
