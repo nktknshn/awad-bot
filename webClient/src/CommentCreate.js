@@ -10,7 +10,7 @@ export default ({postId}) => {
   const onSubmit = async (event) => {
     event.preventDefault();
 
-    await axios.post(`http://localhost:4001/posts/${postId}/comments`, {
+    await axios.post(``, {
       content
     });
 
@@ -20,16 +20,19 @@ export default ({postId}) => {
   return ( 
   <div>
       <form onSubmit = { onSubmit} >
-      < div className = "form-group" >
+      <div className = "form-group" >
 
-      <label > NewComment </label>  <
-      input value = {
-        content
-      }
-      onChange = {
-        e => setContent(e.target.value)
-      }
-      className = "form-control" / >
-      </div> < button className = "btn btn-primary g" > submit < /button> < / form >
+      <label > NewComment </label>  
 
-      </div> )};
+      <input 
+        value = {content }
+        onChange = { e => setContent(e.target.value) }
+        className = "form-control" 
+      />
+
+      </div> 
+      < button className = "btn btn-primary g" > submit </button> 
+      </form>
+
+      </div> )
+      };

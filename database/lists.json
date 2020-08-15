@@ -1,0 +1,26 @@
+[
+	{
+		"ID" : "3422f",
+		"listName" : "newWords",
+		"owner": [
+			{
+				"ID" : "34324324",
+				"name" : "nikitos"
+			},
+			{
+				"ID" : "14324324",
+				"name" : "yaejin"
+			}
+		],
+		"words" : [
+			{
+			"ID" : "2f45f",
+			"word" : "word2",
+			"transcription" : "ˈdɪlɪdʒ(ə)ns",
+			"meanings": ["meaning1","meaning2"],
+			"examples": ["examples1","examples2","examples3"],
+			"tags": ["tag1","tag2","tag3"]
+		}
+	]
+	}
+]
