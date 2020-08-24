@@ -6,11 +6,11 @@ export default () => {
   return ( 
   <div className = "container" >
     <h1> Create a Card </h1> 
-    <PostCreate / >
+    <CardCreate / >
     <hr/>
     <h1> My Cards </h1> 
     <section className="cardList">
-    <PostList / >
+    <CardList / >
     </section>
   </div>
 

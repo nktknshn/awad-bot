@@ -1,6 +1,4 @@
-import React, {
-  useState
-} from 'react'
+import React, { useState} from 'react'
 import axios from 'axios';
 
 export default ({postId}) => {
@@ -22,7 +20,7 @@ export default ({postId}) => {
       <form onSubmit = { onSubmit} >
       <div className = "form-group" >
 
-      <label > NewComment </label>  
+      <label > Examples </label>  
 
       <input 
         value = {content }
@@ -31,7 +29,7 @@ export default ({postId}) => {
       />
 
       </div> 
-      < button className = "btn btn-primary g" > submit </button> 
+      < button className = "btn btn-primary g" > Add </button> 
       </form>
 
       </div> )
