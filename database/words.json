@@ -1,0 +1,18 @@
+[
+	{
+		"ID" : "efk3e",
+		"word" : "word1",
+		"transcription" : "ˈdɪlɪdʒ(ə)ns",
+		"meanings": ["meaning1","meaning2"],
+		"examples": ["examples1","examples2","examples3"],
+		"tags": ["tag1","tag2","tag3"]
+	},
+		{
+		"ID" : "2f45f",
+		"word" : "word2",
+		"transcription" : "ˈdɪlɪdʒ(ə)ns",
+		"meanings": ["meaning1","meaning2"],
+		"examples": ["examples1","examples2","examples3"],
+		"tags": ["tag1","tag2","tag3"]
+	}
+]
