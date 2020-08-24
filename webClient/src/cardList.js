@@ -1,58 +1,65 @@
 import React, {useState, useEffect} from 'react';
-import CommentCreate from './CommentCreate';
+import AddExample from './AddExample';
 import axios from 'axios';
-import CommentList from './CommentList';
+import ExampleList from './ExampletList';
 
 export default () => {
-  const [posts, setPosts] = useState({});
-  const fetchPosts = async () => {
+  const [cards, setCards] = useState({}); // 고유 아이디를 가진 객체들을 담는다
+  const fetchCards = async () => {
     const res = await axios.get('');
 
-    setPosts(res.data);
+    setCards(res.data);
   };
 
   useEffect(() => {
-    fetchPosts();
+    fetchCards();
   }, []);
 
-  const renderedPosts = Object.values(posts).map(post => {
+  const renderedCards = Object.values(cards).map(card => {
     return ( 
-    <div className = "card"
+    <div className = "cardBox"
       style = {
-        { width: '30%',marginBottom: '20px'}} key = {post.id}>
+        { width: '22%',marginBottom: '25px'}} key = {card.id}>
 
-      <div className = "card-body" >
-      <h3> {post.title} </h3> 
-      <CommentList postId={post.id} />
-      <CommentCreate postId = {post.id}/> 
+      <div className = "cardBody" >
+      <h3> {card.word} </h3> 
+      <ExampleList cardId={card.id} />
+      <AddExample cardId = {card.id}/> 
       </div>
       </div>
     );
   });
-  return<> <div className = "d-flex flex-row flex-wrap justify-content-between" > 
-  {/* {renderedPosts}  */}</div>
+  return<>
+   <div className = "d-flex flex-row flex-wrap justify-content-between" > 
+  {/* {renderedCards}  */}</div>
   
 
   <section class="cardList">
 
       <dl class="card">
         <ol>
-          <li></li><li></li><li></li>
+          <li></li><li></li><li></li> 
+          {/* 중요,편집,삭제버튼  */}
         </ol>
 
 
+        {/* 형태예시 */}
+        {/* 단어 */}
         <dt class="word">diligence</dt>
         <dd>
           <ol>
+            {/* 발음 /듣기*/}
             <li><p>/ˈdɪlɪdʒ(ə)ns/</p><button>icon</button></li>
+            {/* 뜻 */}
             <li><p>careful and persistent work or effort.</p></li>
             <li>
               <ul>
-              
+              {/* 예문은 단어카드 생성후 작성 */}
                 <li><p>example1</p></li>
                 <li><p>example1</p></li>
               </ul>
             </li>
+            {/* 태그는 단어카드 생성후 추가 */}
             <li>
               <p>tag1</p><p>tag2</p>
             </li>
