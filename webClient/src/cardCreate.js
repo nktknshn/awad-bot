@@ -18,7 +18,7 @@ export default()=>{
   return (
     <div>
       <form onSubmit = {onAdd}>
-        <div className = "createForm">
+        <div className = "formBox">
           <label>Word</label>
           <input 
           value = {word} 

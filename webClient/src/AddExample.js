@@ -1,12 +1,12 @@
 import React, { useState} from 'react'
 import axios from 'axios';
 
-export default ({postId}) => {
+export default ({cardId}) => {
 
   const [content, setContent] = useState('');
 
-  const onSubmit = async (event) => {
-    event.preventDefault();
+  const onSubmit = async (e) => {
+    e.preventDefault();
 
     await axios.post(``, {
       content
@@ -18,18 +18,18 @@ export default ({postId}) => {
   return ( 
   <div>
       <form onSubmit = { onSubmit} >
-      <div className = "form-group" >
+      <div className = "formBox" >
 
       <label > Examples </label>  
 
       <input 
         value = {content }
         onChange = { e => setContent(e.target.value) }
-        className = "form-control" 
+        className = "inputForm" 
       />
 
       </div> 
-      < button className = "btn btn-primary g" > Add </button> 
+      < button className = "btn right" > Add </button> 
       </form>
 
       </div> )
