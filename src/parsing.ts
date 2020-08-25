@@ -8,7 +8,6 @@ import * as utils from './utils'
 
 
 /* 
-
 the input can be
 asd asd ads
 #tag1 #tag2
@@ -28,10 +27,10 @@ sad
 
 and then filter words that are starting with the hash
 */
-export function parseTags(lines: string[]) {
+export function parseTags(lines: string[]): string[] {
     const listsOfWords: string[][] = lines.map(line => line.split(' '))
 
-    // now words is a list like
+    // now listsOfWords is a list like
     /* 
        [ [asd, asd, ads],
         [#tag1, #tag2],
@@ -41,7 +40,7 @@ export function parseTags(lines: string[]) {
     */
 
     // so we need to flatten it to a liner list. We need a function string[][] => string[]
-    const words = flattenList(listsOfWords)
+    const words: string[] = flattenList(listsOfWords)
 
     // now filter the tags
     return words.filter(word => word.startsWith('#'))
@@ -49,7 +48,6 @@ export function parseTags(lines: string[]) {
 }
 
 // it could also be written in a more functional way
-
 export const parseTagsLambda = (lines: string[]) =>
     flattenList(lines.map(line => line.split(' ')))
         .filter(word => word.startsWith('#'))
