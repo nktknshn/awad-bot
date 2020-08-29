@@ -1,6 +1,6 @@
 import React from 'react';
 import PostCreate from './PostCreate'
-import PostList from './PostList'
+import PostList from './cardList'
 
 export default () => {
   return ( 
