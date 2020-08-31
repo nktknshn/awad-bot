@@ -18,8 +18,7 @@ export default () => {
   const renderedCards = Object.values(cards).map(card => {
     return ( 
     <div className = "cardBox"
-      style = {
-        { width: '22%',marginBottom: '25px'}} key = {card.id}>
+      style = {{ width: '22%',marginBottom: '25px'}} key = {card.id}>
 
       <div className = "cardBody" >
       <h3> {card.word} </h3> 
