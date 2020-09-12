@@ -1,50 +1,50 @@
-import { Card } from './interfaces'
+import { Card, Meaning } from './interfaces'
 
-// using the {} I import certain things from utils module
 import { flattenList } from "./utils"
 
-// I could do it like this. importing the module as a namespace
-import * as utils from './utils'
+function stripSpaces(line: string) {
+    const m = line.match(/^[ \t]+/)
 
+    if (m) {
+        return line.slice(m[0].length)
+    }
 
-/* 
-the input can be
-asd asd ads
-#tag1 #tag2
-#tag3
-asd
-sad
+    return line
+}
 
-so let's make it first
-asd 
-asd 
-ads
-#tag1
-#tag2
-#tag3
-asd
-sad
-
-and then filter words that are starting with the hash
-*/
 export function parseTags(lines: string[]): string[] {
     const listsOfWords: string[][] = lines.map(line => line.split(' '))
-
-    // now listsOfWords is a list like
-    /* 
-       [ [asd, asd, ads],
-        [#tag1, #tag2],
-        [#tag3],
-        [asd],
-        [sad],]
-    */
-
-    // so we need to flatten it to a liner list. We need a function string[][] => string[]
     const words: string[] = flattenList(listsOfWords)
-
-    // now filter the tags
     return words.filter(word => word.startsWith('#'))
+}
 
+export function parseTranscription(lines: string[]): string | undefined {
+    const matches = lines.filter(line =>
+        line.startsWith('/') && line.endsWith('/'))
+
+    if (matches.length > 0)
+        return matches[0]
+}
+
+export function parseMeanings(lines: string[]): Meaning[] {
+    const result: Meaning[] = []
+
+    const [descriptionSymbol, exampleSymbol] = ['-', '=']
+
+    for (const line of lines) {
+        if (line.startsWith(descriptionSymbol)) {
+            result.push({
+                description: stripSpaces(line.slice(1)),
+                examples: []
+            })
+        }
+        else if (line.startsWith(exampleSymbol) && result.length > 0) {
+            result[result.length - 1].examples.push(
+                stripSpaces(line.slice(1)))
+        }
+    }
+
+    return result
 }
 
 // it could also be written in a more functional way
@@ -65,6 +65,7 @@ export function parseCard(message: string): Card | undefined {
     return {
         word,
         tags,
-        meanings: [],
+        transcription: parseTranscription(lines),
+        meanings: parseMeanings(lines),
     }
 }

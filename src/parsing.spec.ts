@@ -1,4 +1,5 @@
-import { parseTagsLambda as parseTags, parseCard } from './parsing'
+import { parseTagsLambda as parseTags, parseCard, parseMeanings, parseTranscription } from './parsing'
+import { Card } from './interfaces'
 
 
 test('parseTags', () => {
@@ -38,9 +39,72 @@ asf
 
 const card1 = `diligence
 #noun #gaming
+/ˈdi-lə-jən(t)s/
+
+- careful and persistent work or effort.
+= The new guy is very creative but I think he needs to develop the virtue of diligence
+
+- the quality of working carefully and with a lot of effort
+= She hoped that her diligence would be noticed at work.
+= The exhibition has been researched with extraordinary diligence.
+
 `
 
 test('parseCard', () => {
     expect(parseCard(card1)).toEqual(
-        { word: 'diligence', tags: [ '#noun', '#gaming' ], meanings: [] })
+        {
+
+            word: 'diligence',
+            transcription: '/ˈdi-lə-jən(t)s/',
+            tags: ['#noun', '#gaming'],
+            meanings: [
+                {
+                    description: 'careful and persistent work or effort.',
+                    examples: [
+                        'The new guy is very creative but I think he needs to develop the virtue of diligence'
+                    ]
+                },
+                {
+                    description: 'the quality of working carefully and with a lot of effort',
+                    examples: [
+                        'She hoped that her diligence would be noticed at work.',
+                        'The exhibition has been researched with extraordinary diligence.'
+                    ]
+                }
+            ]
+        } as Card)
+})
+
+
+test('parseMeanings', () => {
+    expect(
+        parseMeanings(`diligence
+The exhibition has been researched with extraordinary diligence.
+noun #gaming
+= blah blah
+`.split('\n'))
+    ).toEqual([
+        { description: 'blah blah', examples: [] }
+    ])
+
+    expect(
+        parseMeanings(`diligence
+#noun #gaming
+= blah blah
+- 1
+
+= abc
+- 2
+- 3
+
+= c
+sdf
+- 4
+-5
+`.split('\n'))
+    ).toEqual([
+        { description: 'blah blah', examples: ['1'] },
+        { description: 'abc', examples: ['2', '3'] },
+        { description: 'c', examples: ['4', '5'] },
+    ])
 })

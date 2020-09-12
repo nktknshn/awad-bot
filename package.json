@@ -5,21 +5,30 @@
   "main": "dist/run.js",
   "scripts": {
     "build": "./node_modules/.bin/tsc",
-    "start": "./node_modules/.bin/node dist/run.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start-bot": "./node_modules/.bin/node dist/bot.js",
+    "cli": "./node_modules/.bin/ts-node src/cli.ts",
+    "typeorm": "./node_modules/.bin/ts-node ./node_modules/typeorm/cli.js",
+    "test": "jest"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "commander": "^6.1.0",
+    "debug": "^4.1.1",
     "node": "^14.4.0",
+    "pg": "^8.3.3",
     "purify-ts": "^0.16.0-beta.5",
-    "telegraf": "^3.38.0"
+    "telegraf": "^3.38.0",
+    "typeorm": "^0.2.26"
   },
   "devDependencies": {
-    "@types/jest": "^26.0.7",
+    "@types/commander": "^2.12.2",
+    "@types/debug": "^4.1.5",
+    "@types/jest": "^26.0.13",
     "@types/node": "^14.0.14",
     "jest": "^26.1.0",
     "ts-jest": "^26.1.4",
+    "ts-node": "^9.0.0",
     "typescript": "^3.9.7"
   }
 }
