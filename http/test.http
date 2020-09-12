@@ -1,0 +1,42 @@
+# VSCode extension: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+
+###
+GET http://localhost:3010/users HTTP/1.1
+
+###
+GET http://localhost:3010/words HTTP/1.1
+
+###
+POST http://localhost:3010/users
+Content-Type: application/json
+
+{"id": "999"}
+
+###
+POST http://localhost:3010/words
+Content-Type: application/json
+
+{
+    "userId": "999",
+    "theword": "word2",
+    "tags": [],
+    "meanings": []
+}
+
+###
+PUT http://localhost:3010/words
+Content-Type: application/json
+
+{
+    "userId": "999",
+    "theword": "word2",
+    "tags": ["#newtag", "#tag2"],
+    "meanings": [
+        {
+            "description": "description4",
+            "examples": ["doewsnt matter"]
+        }
+    ],
+    "id": 8
+}
+

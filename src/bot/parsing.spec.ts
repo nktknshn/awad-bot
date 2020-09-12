@@ -1,5 +1,5 @@
 import { parseTagsLambda as parseTags, parseCard, parseMeanings, parseTranscription } from './parsing'
-import { Card } from './interfaces'
+import { Card } from '../interfaces'
 
 
 test('parseTags', () => {
@@ -37,7 +37,7 @@ asf
 })
 
 
-const card1 = `diligence
+const card1 = `- diligence
 #noun #gaming
 /ˈdi-lə-jən(t)s/
 

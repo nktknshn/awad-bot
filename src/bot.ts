@@ -1,78 +1,56 @@
 import { Telegraf } from 'telegraf'
 import { TelegrafContext } from 'telegraf/typings/context'
 import { throws } from 'assert'
+import { createConnection, Connection } from 'typeorm'
+import { UserEntity } from './database/entity/user'
+import { WordEntity } from './database/entity/word'
+import Debug from 'debug'
+import { parseCard } from './bot/parsing'
 
-interface Word {
-    word: string
-    description?: string
-    examples?: string[]
-}
+Debug.enable('awad-bot')
+const log = Debug('awad-bot')
 
-interface BotUser {
-    userId: number
-    
-    addWord(word: Word): Promise<void>
-    getWords(): Promise<Word[]>
-}
-
-interface BotDatabase {
-    getUser(userId: number): Promise<BotUser | undefined>,
-    createUser(userId: number): Promise<BotUser>,
-}
-
-
-class MemoryBotUser implements BotUser {
-    userId: number
-    private words: Word[]
-
-    constructor(userId: number) {
-        this.userId = userId
-        this.words = []
-    }
-
-    async addWord(word: Word): Promise<void> {
-        this.words.push(word)
-    }
-
-    async getWords(): Promise<Word[]> {
-        return this.words
-    }
-    
-}
-
-class MemoryDatabase implements BotDatabase {
-    
-    users: MemoryBotUser[]
-
-    constructor() {
-        this.users = []
-    }
-
-    async getUser(userId: number): Promise<BotUser | undefined> {
-        return this.users.find(user => user.userId == userId)
-    }
-    async createUser(userId: number): Promise<BotUser> {
-        const user = new MemoryBotUser(userId)
-        this.users.push(user)
-        return user
-    }
-}
-
-const messageHandler = (database: BotDatabase) => async (ctx: TelegrafContext) => {
+const messageHandler = (connection: Connection) => async (ctx: TelegrafContext) => {
     // parse the message and add the word to the database
 
-    if (ctx.message?.from && ctx.message?.text) {
-        let user = await database.getUser(ctx.message.from.id)
+    const users = connection.getRepository(UserEntity)
+    const words = connection.getRepository(WordEntity)
 
-        if(!user) 
-            user = await database.createUser(ctx.message.from.id)
-        
-        await user.addWord({word: ctx.message.text})
-        const new_words = await user.getWords()
+    if (!ctx.message?.text)
+        return
 
-        await ctx.reply(`${ctx.message.from.username} added ${ctx.message.text}`)
-        await ctx.reply(`His words are ${new_words.map(w => w.word).join(', ')}`)
+    if (!ctx.message?.from)
+        return
+
+    const userid = ctx.message.from.id
+    const text = ctx.message.text
+
+    const card = parseCard(text)
+
+    if(!card)
+        return
+
+    let user = await users.findOne(userid)
+
+    if (!user) {
+        user = new UserEntity()
+        user.id = String(userid)
+        user = await users.save(user)
+        log(`User created: ${userid}`)
     }
+
+    const wordEntity = new WordEntity()
+
+    wordEntity.theword = card.word
+    wordEntity.tags = card.tags
+    wordEntity.meanings = card.meanings
+    wordEntity.transcription = card.transcription
+    wordEntity.userId = user.id
+
+    await words.save(wordEntity)
+
+    await ctx.reply(`Word saved`)
+
 }
 
 async function main() {
@@ -82,15 +60,11 @@ async function main() {
         return
     }
 
-    const database: BotDatabase = new MemoryDatabase()
+    const connection = await createConnection()
+
     const bot = new Telegraf(process.env.BOT_TOKEN)
 
-    // bot.start(async (ctx) => await ctx.reply('Welcome!'))
-    // bot.help(async (ctx) => await ctx.reply('Send me a sticker'))
-    // bot.on('sticker', async (ctx) => await ctx.reply('👍'))
-    // bot.hears('hi', ctx => ctx.reply('sasi'))
-    // bot.on('sticker', async (ctx) => await ctx.reply('👍'))
-    bot.on('message', messageHandler(database))
+    bot.on('message', messageHandler(connection))
 
     console.log('Starting the bot...')
 

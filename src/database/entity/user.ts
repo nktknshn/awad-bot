@@ -7,7 +7,7 @@ import { WordEntity } from './word';
 
 @Entity({ name: 'user' })
 export class UserEntity extends BaseEntity {
-    @PrimaryColumn("text")
+    @PrimaryColumn()
     id!: string;
 
     @OneToMany(type => WordEntity, word => word.user, { eager: true })

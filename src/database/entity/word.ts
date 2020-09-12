@@ -19,7 +19,7 @@ export class WordEntity extends BaseEntity {
     theword!: string
 
     @Column("text", { nullable: true })
-    transcription!: string
+    transcription?: string
 
     @Column("text", { array: true })
     tags!: string[]

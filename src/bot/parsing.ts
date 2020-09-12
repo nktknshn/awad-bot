@@ -1,4 +1,4 @@
-import { Card, Meaning } from './interfaces'
+import { Card, Meaning } from '../interfaces'
 
 import { flattenList } from "./utils"
 
@@ -55,8 +55,12 @@ export const parseTagsLambda = (lines: string[]) =>
 
 export function parseCard(message: string): Card | undefined {
     const lines = message.split('\n')
-    const word = lines[0]
+    let word = lines[0]
 
+    if (word.startsWith('-'))
+        word = stripSpaces(word.slice(1))
+    else
+        return
     // so let's parse tags
 
     // starting from the second line
@@ -66,6 +70,6 @@ export function parseCard(message: string): Card | undefined {
         word,
         tags,
         transcription: parseTranscription(lines),
-        meanings: parseMeanings(lines),
+        meanings: parseMeanings(lines.slice(1)),
     }
 }
