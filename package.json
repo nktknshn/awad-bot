@@ -5,7 +5,7 @@
   "main": "dist/run.js",
   "scripts": {
     "build": "./node_modules/.bin/tsc",
-    "start-bot": "./node_modules/.bin/ts-node src/bot.ts",
+    "start-bot": "DEBUG=awad-bot ./node_modules/.bin/ts-node src/bot.ts",
     "start-backend": "./node_modules/.bin/ts-node src/web-server.ts run",
     "cli": "./node_modules/.bin/ts-node src/cli.ts",
     "typeorm": "./node_modules/.bin/ts-node ./node_modules/typeorm/cli.js",
@@ -20,6 +20,7 @@
     "@nestjs/typeorm": "^7.1.3",
     "commander": "^6.1.0",
     "debug": "^4.1.1",
+    "fast-deep-equal": "^3.1.3",
     "node": "^14.4.0",
     "pg": "^8.3.3",
     "purify-ts": "^0.16.0-beta.5",

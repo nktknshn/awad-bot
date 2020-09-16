@@ -1,5 +1,5 @@
 import { parseTagsLambda as parseTags, parseCard, parseMeanings, parseTranscription } from './parsing'
-import { Card } from '../interfaces'
+import { Card } from './interfaces'
 
 
 test('parseTags', () => {

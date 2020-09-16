@@ -3,7 +3,7 @@ import {
     Repository,
     ManyToOne
 } from 'typeorm';
-import { Meaning } from '../../interfaces';
+import { Meaning } from '../../bot/interfaces';
 import { UserEntity } from './user';
 
 

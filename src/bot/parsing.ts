@@ -1,4 +1,4 @@
-import { Card, Meaning } from '../interfaces'
+import { Card, Meaning } from './interfaces'
 
 import { flattenList } from "./utils"
 
