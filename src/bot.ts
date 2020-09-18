@@ -24,12 +24,12 @@ function MainMenu(props: {
     const buttons: Row[] = [
         [
             ['My words', 'words'],
-            ['Tags', 'tags'],
+            // ['Tags', 'tags'],
             ['Statistics', 'stats'],
             ['Random word', 'random']],
         [
             ['Train', 'train'],
-            ['Settings', 'settings'],
+            // ['Settings', 'settings'],
             ['Minimize', 'main'],
         ]
     ]
@@ -66,7 +66,7 @@ async function renderUI(props: {
         })
     ]
 
-    switch (props.path) {
+    switch (props.path) { 
         case 'words':
             return [
                 ...header,
@@ -179,7 +179,7 @@ export const messageHandler =
 
         if (!messageText)
             return
-
+            
         let user = await users.findOne(chatId)
 
         if (!user) {

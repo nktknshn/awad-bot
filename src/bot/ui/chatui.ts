@@ -199,7 +199,12 @@ export class ChatUI<S> {
                         }
                     }
                 }
-                await ctx.answerCbQuery()
+
+                try {
+                    await ctx.answerCbQuery()
+                } catch(e) {
+                    log(e)
+                }
             }
         }
     }
