@@ -6,11 +6,13 @@ import { Card, Statistics, WordsListMessage } from './bot/components'
 import { Trainer, TrainerState } from './bot/components/trainer'
 import { Card as ICard } from './bot/interfaces'
 import { parseCard } from './bot/parsing'
-import { Buttons, ChatUI, OnInput, Root, Row, Types } from './bot/ui/chatui'
+import { Root, Row, Element } from './bot/ui/chatui/types'
+import { Buttons, OnInput } from './bot/ui/chatui/elements'
 import { getRandom, parseCommand } from './bot/utils'
 import { UserEntity } from './database/entity/user'
 import { WordEntity } from './database/entity/word'
 import { async } from 'rxjs'
+import { ChatUI } from './bot/ui/chatui/chatui'
 
 Debug.enable('awad-bot')
 const log = Debug('awad-bot')
@@ -49,7 +51,7 @@ async function renderUI(props: {
     onRedirect: (path: string) => Promise<void>,
     onCard: (c: ICard) => Promise<void>,
     onTrainerUpdated: (trainer: TrainerState) => Promise<void>,
-}): Promise<Types.Element[]> {
+}): Promise<Element[]> {
 
     const { user, trainer, onRedirect, onTrainerUpdated } = props
 
@@ -186,13 +188,14 @@ export const messageHandler =
             user = new UserEntity()
             user.id = String(chatId)
             user = await users.save(user)
+            user = await users.findOne(chatId)
             log(`User created: ${chatId}`)
         }
 
 
         if (!(chatId in chatsUI)) {
             chatsUI[chatId] = new ChatUI<ChatState>(
-                telegram, chatId, getRoot(connection), initialState(user)
+                telegram, chatId, getRoot(connection), initialState(user!)
             )
         }
 

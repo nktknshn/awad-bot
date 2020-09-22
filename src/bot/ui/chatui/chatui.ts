@@ -3,132 +3,47 @@ import { Telegram } from 'telegraf'
 import { TelegrafContext } from 'telegraf/typings/context'
 import { IncomingMessage, Message as TelegramMessage, ExtraReplyMessage } from 'telegraf/typings/telegram-types'
 import { isArray, isBoolean } from 'util'
-import { flattenList, makeKeyboardRows } from './util'
+import { flattenList, makeKeyboardRows } from '../util'
 import deq from 'fast-deep-equal'
-
+import {Callback, Root, InputHandler, ButtonElement, Element, Message, RootFactory} from './types'
+import { StateFactory } from '../chat'
 
 Debug.enable('awad-bot')
 const log = Debug('awad-bot')
 
-
-export namespace Types {
-
-    export type Element = Message | InputHandler
-
-    export interface Message {
-        kind: 'message'
-        text: string,
-        extra?: ExtraReplyMessage,
-        render<S>(chatUI: ChatUI<S>, targetMessage?: TelegramMessage): Promise<TelegramMessage>,
-        callbacks: [string, Callback][]
-    }
-
-    export interface InputHandler {
-        kind: 'input',
-        callback: Callback
-    }
-}
-
-export function Read(props: {
-    text: string,
-    onInput: Callback
-}) {
-    return [
-        Message(props.text),
-        OnInput(props.onInput)
-    ]
-}
-
-export function OnInput(callback: Callback): Types.InputHandler {
-    return {
-        kind: 'input',
-        callback
-    }
-}
-
-function constructMessage(
-    text: string,
-    extra?: ExtraReplyMessage,
-    callbacks?: [string, Callback][]
-): Types.Message {
-
-    text = text || '<empty>'
-
-    return {
-        kind: 'message',
-        text,
-        extra,
-        async render<S>(chatUI: ChatUI<S>, target?: TelegramMessage) {
-            if (target) {
-                const ret = await chatUI.telegram
-                    .editMessageText(
-                        chatUI.chatId,
-                        target.message_id,
-                        undefined,
-                        text,
-                        extra)
-
-                if (!isBoolean(ret))
-                    return ret
-            }
-
-            return await chatUI.telegram.sendMessage(
-                chatUI.chatId,
-                this.text,
-                extra)
-        },
-        callbacks: callbacks ?? []
-    }
-}
-
-export function Message(
-    text: (string | string[]),
-    onDelete?: () => void,
-    onReply?: () => void,
-): Types.Message {
-    return constructMessage(isArray(text) ? text.join('\n') : text)
-}
-
-export type ButtonElement = string | [string, string]
-export type Row = ButtonElement[]
-
-export function Buttons<S>(
-    text: string | string[],
-    rows: Row[],
-    callback: Callback): Types.Message {
-
-    const rowsData = rows.map(row =>
-        row.map(v => isArray(v) ? v : [v, v] as [string, string])
-    )
-
-    return constructMessage(
-        isArray(text) ? text.join('\n') : text,
-        makeKeyboardRows(rowsData).extra(),
-        flattenList(rowsData).map(([_, data]) => [data, callback])
-    )
-}
-
-export function SelectionRow(
-    row: string[],
-    selectedIdx?: number,
-    onClick?: () => void
+export function createChatFactory<S>(
+    stateFactory: StateFactory<S>,
+    rootFactory: RootFactory<S>,
 ) {
-    return row
+    return async function (ctx: TelegrafContext) {
+        const chatId = ctx.chat?.id
+
+        if (!chatId) {
+            return
+        }
+
+        const state = await stateFactory(ctx)
+        const root = await rootFactory(ctx)
+
+        if (state === undefined)
+            return
+
+        const chat = new ChatUI<S>(ctx.telegram, chatId, root, state)
+
+        return chat
+    }
 }
 
-export type Root<S> = (state: S, updateState: ((s: Partial<S>) => Promise<void>)) => Promise<Types.Element[]>
-
-export type Callback = (data: string) => Promise<void | Types.Element | Types.Element[]>
 
 export class ChatUI<S> {
     telegram: Telegram
     chatId: number
 
-    renderedElements: [Types.Message, (TelegramMessage | IncomingMessage)][]
+    renderedElements: [Message, (TelegramMessage | IncomingMessage)][]
     // userMessages: IncomingMessage[]
 
     callbacks: [string, Callback][]
-    inputHandlers: Types.InputHandler[]
+    inputHandlers: InputHandler[]
 
     state: S
     root: Root<S>
@@ -184,9 +99,10 @@ export class ChatUI<S> {
         if (!this.renderedElements.length) {
             await this.update()
         }
-
+        let processed = false
         for (const [data, callback] of this.callbacks) {
             if (data == action) {
+                processed = true
                 const elements = await callback(action)
 
                 if (isArray(elements)) {
@@ -207,6 +123,9 @@ export class ChatUI<S> {
                 }
             }
         }
+
+        if(!processed)
+            await ctx.deleteMessage(ctx.callbackQuery?.message?.message_id)
     }
 
     async update() {
@@ -218,9 +137,9 @@ export class ChatUI<S> {
         )
     }
 
-    async render(elements: Types.Element[]) {
+    async render(elements: Element[]) {
 
-        let rendered: [Types.Message, (TelegramMessage | IncomingMessage)][] = []
+        let rendered: [Message, (TelegramMessage | IncomingMessage)][] = []
         this.callbacks = []
         this.inputHandlers = []
 
@@ -255,12 +174,6 @@ export class ChatUI<S> {
 
     }
 
-    // async fullChar() {
-    //     const chat = await this.telegram.getChat(this.chatId)
-
-    //     // this.telegram.dele
-    // }
-
     async clear(messages: TelegramMessage[]) {
         for (const el of messages) {
             try {
@@ -270,20 +183,5 @@ export class ChatUI<S> {
                 continue
             }
         }
-
-        // for (const el of this.userMessages) {
-        //     try {
-        //         await this.telegram.deleteMessage(this.chatId, el.message_id)
-        //     } catch (e) {
-        //         console.error(e);
-        //         continue
-        //     }
-
-        // }
-
-        // this.elements = []
-        // this.userMessages = []
-        // this.callbacks = []
-        // this.inputHandlers = []
     }
 }

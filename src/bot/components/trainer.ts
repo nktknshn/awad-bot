@@ -1,9 +1,10 @@
 import { UserEntity } from "../../database/entity/user"
-import { Types, Buttons, Callback, Message } from "../ui/chatui"
+import { Buttons, Message } from "../ui/chatui/elements"
 import { WordEntity } from "../../database/entity/word"
 import { array, shuffle, parseCallbackData, takeRandom, takeLast } from "../utils"
 import { Card } from "."
 import { flattenList } from "../ui/util"
+import { Callback, Element } from "../ui/chatui/types"
 
 export interface TrainerCard {
     correctWord: WordEntity,
@@ -20,7 +21,7 @@ export function Trainer({ user, trainer, onUpdated, onRedirect }: {
     trainer: TrainerState,
     onRedirect: (path: string) => ReturnType<Callback>,
     onUpdated: (trainer: TrainerState) => ReturnType<Callback>
-}): Types.Element[] {
+}): Element[] {
 
     const wordsWithMeanings = user.words.filter(_ => _.meanings.length)
     const wordsToTrain: WordEntity[] = takeRandom(wordsWithMeanings, 5)
@@ -72,7 +73,7 @@ export function Trainer({ user, trainer, onUpdated, onRedirect }: {
     ]
 }
 
-export function AnsweredTrainerCard({ correctWord, wrongs, answer }: TrainerCard): Types.Element[] {
+export function AnsweredTrainerCard({ correctWord, wrongs, answer }: TrainerCard): Element[] {
     return [
         Message(
             [
@@ -90,7 +91,7 @@ export function TrainerCard({ correctWord, wrongs, answer, onCorrect, onWrong }:
     TrainerCard & {
         onCorrect(): ReturnType<Callback>,
         onWrong(wordId: number): ReturnType<Callback>,
-    }): Types.Element[] {
+    }): Element[] {
 
     const options = array(shuffle([...wrongs, correctWord]))
 
