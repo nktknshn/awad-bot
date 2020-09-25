@@ -82,18 +82,18 @@ export default () => {
 
         {/* 형태예시 */}
         {/* 단어 */}
-        <dt class="word">diligence</dt>
+        <dt class="word">terminology</dt>
         <dd>
           <ol>
             {/* 발음 /듣기*/}
-            <li><p class="trans">/ˈdɪlɪdʒ(ə)ns/</p></li>
+            <li><p class="trans"></p></li>
             {/* 뜻 */}
-            <li class="meaning"><p >careful and persistent work or effort.</p><p >careful and persistent work or effort.</p></li>
+            <li class="meaning"><p >the bodyof terms used with a particular technical application in a subject of study, profession etc.</p></li>
             <li>
               <ul class="exList">
               {/* 예문은 단어카드 생성후 작성 */}
-                <li><p>example1</p></li>
-                <li><p>example1</p></li>
+                <li><p>the terminology of computer science</p></li>
+                <li><p> knowing the terminology expands understanding of the mechanisms.</p></li>
               </ul>
             </li>
             {/* 태그는 단어카드 생성후 추가 */}
@@ -143,7 +143,69 @@ export default () => {
         </dd>
 
       </dl>
+      
+      <dl class="card">
+        {/* <ol>
+          <li></li><li></li><li></li> 
+          {/* 중요,편집,삭제버튼  </ol> */ }
 
+
+        {/* 형태예시 */}
+        {/* 단어 */}
+        <dt class="word">scant</dt>
+        <dd>
+          <ol>
+            {/* 발음 /듣기*/}
+            <li><p class="trans"></p></li>
+            {/* 뜻 */}
+            <li><p class="meaning"> barely sufficient in amount or quantity; not abundant; almost inadequate</p></li>
+          
+            <li><p class="meaning">careful and persistent work or effort.</p></li>
+            <li>
+              <ul class="exList">
+              {/* 예문은 단어카드 생성후 작성 */}
+                <li><p>a scant amount</p></li>
+                <li><p>example1</p></li>
+              </ul>
+            </li>
+            {/* 태그는 단어카드 생성후 추가 */}
+            <li class="tags">
+              <p>tag1</p><p>tag2</p>
+            </li>
+          </ol>
+        </dd>
+
+      </dl>
+
+      <dl class="card">
+        {/* <ol>
+          <li></li><li></li><li></li> 
+          {/* 중요,편집,삭제버튼  </ol> */ }
+
+
+        {/* 형태예시 */}
+        {/* 단어 */}
+        <dt class="word">vibrant</dt>
+        <dd>
+          <ol>
+            {/* 발음 /듣기*/}
+            <li><p class="trans"></p></li>
+            {/* 뜻 */}
+            <li><p class="meaning"> full of energy and life. energetic, exciting, and full of enthusiasm</p></li>
+            <li>
+              <ul class="exList">
+              {/* 예문은 단어카드 생성후 작성 */}
+                <li><p>I moved here from my village which wasn't that vibrant</p></li>
+              </ul>
+            </li>
+            {/* 태그는 단어카드 생성후 추가 */}
+            <li class="tags">
+              <p>tag1</p><p>tag2</p>
+            </li>
+          </ol>
+        </dd>
+
+      </dl>
     </section></>
   
 }

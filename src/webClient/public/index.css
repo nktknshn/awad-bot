@@ -7,6 +7,8 @@ header {
   width: 100%;
 background-color: antiquewhite;}
 nav {
+  position: absolute;
+  z-index: -1;
   display: flow-root;
   width: 100%;
   background: aliceblue;
@@ -56,4 +58,13 @@ footer p {
   list-style: none;
   padding: 17px 100px;
   margin-top: 10px;
+}
+
+.formBox{
+  margin: 0 auto;
+  width: 600px;
+}
+.container form{
+  width: 700px;
+  margin: 0 auto;
 }
