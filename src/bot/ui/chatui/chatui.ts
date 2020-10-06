@@ -99,10 +99,8 @@ export class ChatUI<S> {
         if (!this.renderedElements.length) {
             await this.update()
         }
-        let processed = false
         for (const [data, callback] of this.callbacks) {
             if (data == action) {
-                processed = true
                 const elements = await callback(action)
 
                 if (isArray(elements)) {
@@ -124,8 +122,21 @@ export class ChatUI<S> {
             }
         }
 
-        if(!processed)
-            await ctx.deleteMessage(ctx.callbackQuery?.message?.message_id)
+
+        const found = this.renderedElements.find(([msg, rndrd]) =>  rndrd.message_id == ctx.callbackQuery?.message?.message_id)
+
+        if(!found) {
+            try {
+                await ctx.deleteMessage(ctx.callbackQuery?.message?.message_id)
+            } catch(e) {
+                await ctx.telegram.editMessageText(
+                    ctx.chat?.id,
+                    ctx.callbackQuery?.message?.message_id,
+                    undefined,
+                    '🐈'
+                )
+            }
+        }
     }
 
     async update() {

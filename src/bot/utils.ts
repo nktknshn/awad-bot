@@ -16,20 +16,6 @@ export function getRandom<T>(items: T[]) {
     return items[Math.floor(Math.random() * items.length)]
 }
 
-export function makeCardText(w: WordEntity): string {
-    return [
-        `- ${w.theword}`,
-        w.tags.join(' '),
-        w.transcription ?? '',
-        w.meanings.map(({ description, examples }) =>
-            [
-                `- ${description}`,
-                ...examples.map(e => `= ${e}`),
-                ''
-            ].join('\n')
-        ).join('\n')
-    ].join('\n')
-}
 
 export function* shuffle<T>(items: T[]) {
     const copy = [...items]

@@ -24,11 +24,11 @@ Content-Type: application/json
 }
 
 ###
-PUT http://localhost:3010/words
+POST http://kanash.in:3010/words
 Content-Type: application/json
 
 {
-    "userId": "999",
+    "userId": "121757789",
     "theword": "word2",
     "tags": ["#newtag", "#tag2"],
     "meanings": [
@@ -37,6 +37,6 @@ Content-Type: application/json
             "examples": ["doewsnt matter"]
         }
     ],
-    "id": 8
+    "id": 3
 }
 

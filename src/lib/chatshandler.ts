@@ -1,11 +1,20 @@
 import Debug from 'debug'
 import { TelegrafContext } from "telegraf/typings/context"
-import { Chat, ChatFactory } from '../../bot3/lib/chatshandler'
+
+export type ChatFactory = (ctx: TelegrafContext) => Promise<Chat | undefined>
+
+export interface Chat {
+    handleMessage(ctx: TelegrafContext): Promise<unknown>
+    handleAction(ctx: TelegrafContext): Promise<unknown>
+}
+
+type Dict<V> = { [key: string]: V }
+type DictNumber<V> = { [key: number]: V }
 
 
 export class ChatsHandler {
     chats: { [chatId: number]: Chat } = {}
-    pendingChats: {[chatId: number]: Promise<Chat | undefined>} = {}
+    pendingChats: DictNumber<Promise<Chat | undefined>> = {}
 
     constructor(
         readonly chatFactory: ChatFactory,
@@ -18,7 +27,7 @@ export class ChatsHandler {
         this.logger(`getChat(${ctx.chat?.id})`)
 
         const chatId = ctx.chat?.id
-        
+
         if (!chatId)
             return
 
@@ -28,7 +37,7 @@ export class ChatsHandler {
 
         this.logger(`getChat(${ctx.chat?.id}): creating new chat`)
 
-        if(this.pendingChats[chatId])
+        if (this.pendingChats[chatId])
             return this.pendingChats[chatId]
 
         this.pendingChats[chatId] = this.chatFactory(ctx)
@@ -51,13 +60,14 @@ export class ChatsHandler {
 
     async messageHandler(ctx: TelegrafContext) {
         const chatId = ctx.chat?.id
+        const messageId = ctx.message?.message_id
         const messageText = ctx.message?.text
         const username = ctx.chat?.username
 
         if (!chatId)
             return
 
-        this.logger(`messageHandler(${chatId})[${username}] - ${messageText}`)
+        this.logger(`messageHandler(${chatId})[${username}] - ${messageId} - ${messageText}`)
 
         const chat = await this.getChat(ctx)
 
@@ -66,7 +76,9 @@ export class ChatsHandler {
             return
         }
 
+        this.logger(`chatId=${chatId} starting handleMessage for ${messageId}`)
         await chat.handleMessage(ctx)
+        this.logger(`chatId=${chatId} finished handleMessage for ${messageId}`)
 
     }
 
@@ -85,8 +97,10 @@ export class ChatsHandler {
             this.logger('error creating chat')
             return
         }
-
+        this.logger(`chatId=${chatId} starting handleAction`)
         await chat.handleAction(ctx)
+        this.logger(`chatId=${chatId} finished handleAction`)
+
     }
 
 }

@@ -11,7 +11,6 @@ import { Buttons, OnInput } from './bot/ui/chatui/elements'
 import { getRandom, parseCommand } from './bot/utils'
 import { UserEntity } from './database/entity/user'
 import { WordEntity } from './database/entity/word'
-import { async } from 'rxjs'
 import { ChatUI } from './bot/ui/chatui/chatui'
 
 Debug.enable('awad-bot')
@@ -224,8 +223,20 @@ export const actionHandler =
         if (!chatId)
             return
 
+        let user = await users.findOne(chatId)
+
+        if (!user) {
+            user = new UserEntity()
+            user.id = String(chatId)
+            user = await users.save(user)
+            user = await users.findOne(chatId)
+            log(`User created: ${chatId}`)
+        }
+
         if (!(chatId in chatsUI)) {
-            return
+            chatsUI[chatId] = new ChatUI<ChatState>(
+                telegram, chatId, getRoot(connection), initialState(user!)
+            )
         }
 
         let chatUI = chatsUI[chatId];

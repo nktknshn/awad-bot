@@ -1,6 +1,10 @@
+import { WordEntity } from '../database/entity/word'
 import { Card, Meaning } from './interfaces'
 
 import { flattenList } from "./utils"
+
+export const [thewordSymbol, descriptionSymbol, exampleSymbol] = ['>', '=', '-']
+
 
 function stripSpaces(line: string) {
     const m = line.match(/^[ \t]+/)
@@ -29,8 +33,6 @@ export function parseTranscription(lines: string[]): string | undefined {
 export function parseMeanings(lines: string[]): Meaning[] {
     const result: Meaning[] = []
 
-    const [descriptionSymbol, exampleSymbol] = ['-', '=']
-
     for (const line of lines) {
         if (line.startsWith(descriptionSymbol)) {
             result.push({
@@ -57,7 +59,7 @@ export function parseCard(message: string): Card | undefined {
     const lines = message.split('\n')
     let word = lines[0]
 
-    if (word.startsWith('-'))
+    if (word.startsWith(thewordSymbol))
         word = stripSpaces(word.slice(1))
     else
         return
@@ -72,4 +74,37 @@ export function parseCard(message: string): Card | undefined {
         transcription: parseTranscription(lines),
         meanings: parseMeanings(lines.slice(1)),
     }
+}
+
+export type CardUpdate =  Pick<Card, 'tags' | 'meanings'> 
+
+export function parseExample(message: string): string | undefined {
+    if(message.startsWith(exampleSymbol)) {
+        return stripSpaces(message.slice(1))
+    }
+}
+
+export function parseCardUpdate(message: string): CardUpdate {
+    const lines = message.split('\n')
+    const tags = parseTags(lines)
+    const meanings = parseMeanings(lines)
+
+    return {
+        tags, meanings
+    }
+} 
+
+export function makeCardText(w: WordEntity): string {
+    return [
+        `${thewordSymbol} ${w.theword}`,
+        w.tags.join(' '),
+        w.transcription ?? '',
+        w.meanings.map(({ description, examples }) =>
+            [
+                `${descriptionSymbol} ${description}`,
+                ...examples.map(e => `${exampleSymbol} ${e}`),
+                ''
+            ].join('\n')
+        ).join('\n')
+    ].join('\n')
 }
