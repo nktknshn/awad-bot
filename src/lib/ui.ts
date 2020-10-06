@@ -5,7 +5,7 @@ import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, Element, InputH
 import { Renderer } from './render';
 import { ComponentGenerator, FileElement, InputHandlerData } from "./types";
 import { parseFromContext } from './bot-util'
-import { enumerate, lastItem, pairs } from './util';
+import { emptyMessage, enumerate, lastItem, pairs } from './util';
 
 const isFalse = (v: any): v is false => typeof v === 'boolean' && v == false
 const isTrue = (v: any): v is true => typeof v === 'boolean' && v == true
@@ -84,9 +84,20 @@ export class UI {
             _ => _.message.message_id == repliedTo
         )
 
+        console.log(`this.renderedElements`);
         for (const el of this.renderedElements) {
             if (el instanceof BotMessage) {
+                console.log(`BotMessage(${el.textMessage.text})`);
+            } else {
+                console.log(`${el.constructor.name}`);
+            }
+        }
+
+        for (const el of this.renderedElements) {
+            if (el instanceof BotMessage) {
+                console.log(`Checking BotMessage(${el.textMessage.text})`);
                 if (await el.textMessage.callback(action)) {
+                    console.log(`Callbacked`);
                     await ctx.answerCbQuery()
                 }
             }
@@ -125,15 +136,15 @@ export class UI {
 
             console.log('Rendering Started')
 
-            if (keyboards.length) {
-                const textMessages =
-                    filterTextMessages(messages)
-                        .filter(m => m.buttons.length == 0)
+            // if (keyboards.length) {
+            //     const textMessages =
+            //         filterTextMessages(messages)
+            //             .filter(m => m.buttons.length == 0)
 
-                textMessages[0].addKeyboardButton(
-                    lastItem(keyboards)!
-                )
-            }
+            //     textMessages[0].addKeyboardButton(
+            //         lastItem(keyboards)!
+            //     )
+            // }
 
             for (const el of [...messages, ...handlers, ...effects]) {
                 const els = await this.processElement(el)
@@ -148,6 +159,7 @@ export class UI {
             this.isRendering = false
 
             const lastRender = lastItem(this.renderQueue)
+            
             if (lastRender) {
                 this.renderQueue = []
                 await this.renderGenerator(lastRender)
@@ -177,20 +189,21 @@ export class UI {
                         updatable.textMessage.getExtra(),
                         element.getExtra())
                 ) {
-                    rendered.push(updatable)
+                    rendered.push(new BotMessage(
+                        element, updatable.message
+                    ))
                 } else {
-                    console.log(updatable.textMessage.keyboardButtons);
-                    console.log(updatable.textMessage.keyboardButtons.length > 0);
+                    // console.log(updatable.textMessage.keyboardButtons);
+                    // console.log(updatable.textMessage.keyboardButtons.length > 0);
 
                     rendered.push(
                         new BotMessage(
                             element,
                             await this.renderer.message(
-                                element.text ?? '<empty>',
+                                element.text ?? emptyMessage,
                                 element.getExtra(),
                                 updatable.message,
-                                element.keyboardButtons.length > 0 ||
-                                updatable.textMessage.keyboardButtons.length > 0
+                                false
                             )
                         )
                     )
@@ -204,7 +217,7 @@ export class UI {
                     new BotMessage(
                         element,
                         await this.renderer.message(
-                            element.text ?? '<empty>',
+                            element.text ?? emptyMessage,
                             element.getExtra()
                         )
                     )

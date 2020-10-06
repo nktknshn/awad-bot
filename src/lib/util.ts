@@ -1,6 +1,8 @@
 import * as url from 'url'
 import * as querystring from 'querystring'
+import { replicate } from 'fp-ts/Array'
 
+export const emptyMessage = '🐻'
 
 export function randomItem<T>(items: T[]) {
     return items[Math.floor(Math.random() * items.length)];
@@ -25,6 +27,8 @@ export function randomAnimal() {
         ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒", "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉", "🦇", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐚", "🐞", "🐜", "🕷", "🕸", "🐢", "🐍", "🦎", "🦂", "🦀", "🦑", "🐙", "🦐", "🐠", "🐟", "🐡", "🐬", "🦈", "🐳", "🐋", "🐊", "🐆", "🐅", "🐃", "🐂", "🐄", "🦌", "🐪", "🐫", "🐘", "🦏", "🦍", "🐎", "🐖", "🐐", "🐏", "🐑", "🐕", "🐩", "🐈", "🐓", "🦃", "🕊", "🐇", "🐁", "🐀", "🐿", "🐾", "🐉", "🐲", "🌵", "🎄", "🌲", "🌳", "🌴", "🌱", "🌿", "☘️", "🍀", "🎍", "🎋", "🍃", "🍂", "🍁", "🍄", "🌾", "💐", "🌷", "🌹", "🥀", "🌻", "🌼", "🌸", "🌺", "🌎", "🌍", "🌏", "🌕", "🌖", "🌗", "🌘", "🌑", "🌒", "🌓", "🌔", "🌚", "🌝", "🌞", "🌛", "🌜", "🌙", "💫", "⭐️", "🌟", "✨", "⚡️", "🔥", "💥", "☄", "☀️", "🌤", "⛅️", "🌥", "🌦", "🌈", "☁️", "🌧", "⛈", "🌩", "🌨", "☃️", "⛄️", "❄️", "🌬", "💨", "🌪", "🌫", "🌊", "💧", "💦", "☔️", "🦓", "🦒", "🦔", "🦕", "🦖"]
     )
 }
+
+export type PathQuery = querystring.ParsedUrlQuery
 
 export function parsePath(pathString: string) {
     const { pathname, query } = url.parse(pathString)
@@ -95,3 +99,22 @@ export function enumerate<T>(items: T[]): [number, T][] {
 // export function filterInstances<T>(list: (T | any)[]): T[] {
 //     return list.filter(_ => _ instanceof T)
 // }
+
+export function textColumns(col1: string[], col2: string[], col1Width = 20): string[] {
+
+    // const col1Width = 30
+    // const col2Width = 30
+
+    let result = []
+
+    for (const [text1, text2] of zip(col1, col2)) {
+        result.push(
+            [
+                text1 ?? '',
+                replicate(col1Width - (text1?.length ?? 0), '.').join(''),
+                text2 ?? ''
+            ].join(''))
+    }
+
+    return result
+}

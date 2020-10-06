@@ -25,8 +25,9 @@ export function getServices(connection: Connection) {
         },
         async updateWord(word: WordEntity, update: CardUpdate & {}) {
             await words.update(word.id, {
-                meanings: [...word.meanings, ...update.meanings],
-                tags: [...word.tags, ...update.tags]
+                meanings: [...word.meanings, ...(update.meanings ?? [])],
+                tags: [...word.tags, ...(update.tags ?? [])],
+                theword: update.word ?? word.theword
             })
         }
     }

@@ -67,7 +67,7 @@ export const createRenderer = (ctx: TelegrafContext): Renderer => ({
                     targetMessage.message_id,
                     undefined,
                     text,
-                    extra
+                    {...extra, parse_mode: 'HTML'}
                 )
 
                 if (typeof ret !== 'boolean')
@@ -75,7 +75,7 @@ export const createRenderer = (ctx: TelegrafContext): Renderer => ({
             }
         }
 
-        return await ctx.reply(text, extra)
+        return await ctx.replyWithHTML(text, extra)
     },
     async delete(messageId: number) {
         console.log(`renderer.delete(${messageId})`)

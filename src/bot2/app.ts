@@ -1,18 +1,19 @@
 import { Card } from "../bot/interfaces";
-import { CardUpdate, parseCard, parseCardUpdate, parseExample, makeCardText } from "../bot/parsing";
+import { CardUpdate, parseCard, parseCardUpdate, parseExample, makeCardText, exampleSymbol, descriptionSymbol } from "../bot/parsing";
 import { parseCommand, range } from "../bot/utils";
 import { UserEntity } from "../database/entity/user";
 import { WordEntity } from "../database/entity/word";
-import { buttonsRow, effect, input, message, messagePart, nextMessage } from "../lib/helpers";
+import { button, buttonsRow, effect, input, message, messagePart, nextMessage, radioRow } from "../lib/helpers";
 import { Keyboard } from "../lib/types";
 import { UI } from "../lib/ui";
-import { lastItem, parsePath } from "../lib/util";
+import { lastItem, parsePath, PathQuery, textColumns, zip } from "../lib/util";
 import { Services } from "./services";
 import { createStore, RootState } from "./store";
 import { redirect } from "./store/path";
 import { TrainerState, updateTrainer } from "./store/trainer";
 import { addWord, saveWord, updateWord, addExample, deleteWord } from "./store/user";
 import { Trainer } from "./trainer";
+import { splitAt } from 'fp-ts/Array'
 
 // type GetProps<A extends keyof AppProps> = Pick<AppProps, A>
 type GetProps<
@@ -37,6 +38,7 @@ type AppActions = {
     onReplaceWord: (word: WordEntity, card: Card) => Promise<any>,
     onAddExample: (word: WordEntity, example: string) => Promise<any>,
     onDeleteWord: (word: WordEntity) => Promise<any>,
+    onUpdateSettings: (settings: Partial<AppSettings>) => Promise<any>,
 }
 
 const messages: Record<string, string> = {
@@ -44,6 +46,7 @@ const messages: Record<string, string> = {
     'bad_card': '❌ Bad card',
     'not_found': '❌ Word wasn\'t found',
     'word_removed': '👌 Word removed',
+    'not_ready': '❌ The component isn\'t ready yet',
 }
 
 export function stateToProps(store: ReturnType<typeof createStore>, ui: UI, services: Services): AppProps {
@@ -65,7 +68,8 @@ export function stateToProps(store: ReturnType<typeof createStore>, ui: UI, serv
             store.dispatch(saveWord({ word, card })),
         onAddExample: async (word, example) =>
             store.dispatch(addExample({ word, example })),
-        onDeleteWord: word => store.dispatch(deleteWord(word))
+        onDeleteWord: word => store.dispatch(deleteWord(word)),
+        onUpdateSettings: async settings => store.dispatch(updateSettings(settings)),
     }
 }
 
@@ -87,46 +91,67 @@ function* AppInput({ onRedirect, onCard }: GetProps<'onRedirect', 'onCard'>) {
     })
 }
 
+export function* Settings({
+    settings, onUpdateSettings
+}: GetProps<'settings', 'onUpdateSettings'>) {
+    yield message(`columns: ${settings.columns}`)
+    yield radioRow(['1', '2'], (idx, data) =>
+        onUpdateSettings({ columns: (idx + 1) as (1 | 2) }),
+        String(settings.columns))
+}
+
+
 export function* App({
-    user, path, trainer,
-    onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer, onAddExample, onDeleteWord
+    user, path, trainer, settings,
+    onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer, onAddExample, onDeleteWord, onUpdateSettings
 }: AppProps) {
     const { pathname, query } = parsePath(path)
-    const titleMessage = query ? String(query['message']) : undefined
+    const titleMessage = query && 'message' in query
+        ? String(query['message'])
+        : undefined
+
+    console.log(`Rendering App ${pathname} ${JSON.stringify(query)}`);
 
     if (!user) {
         yield message('Loading profile...')
         return
     }
 
-    if (pathname == 'trainer') {
-        yield Trainer({ user, trainer, onRedirect, onUpdated: onUpdatedTrainer })
-    } else {
+    if (pathname == 'main') {
         yield AppInput({ onRedirect, onCard })
         yield MainMenu({ user, titleMessage, onRedirect })
+    }
+    else if (pathname == 'stats') {
+        yield effect(() => onRedirect('main?message=not_ready'))
+    }
+    else if (pathname == 'random') {
+        yield effect(() => onRedirect('main?message=not_ready'))
+    }
+    else if (pathname == 'trainer') {
+        yield Trainer({ user, trainer, onRedirect, onUpdated: onUpdatedTrainer })
+    }
+    else if (pathname == 'settings') {
+        yield Settings({ settings, onUpdateSettings })
+        yield button('Back', () => onRedirect('main'))
+    }
+    else if (pathname == 'words') {
+        yield AppInput({ onRedirect, onCard })
+        yield WordsList({ words: user.words, columns: settings.columns })
+        yield button('Back', () => onRedirect('main'))
+    }
+    else if (pathname && parseCommand(pathname)) {
+        const [cmdPath, id] = parseCommand(pathname)!
+        if (cmdPath == 'w') {
+            const word = user.words.find(w => w.id == id)
+            if (word) {
+                console.log(`Card page for ${word.id}`);
 
-        if (pathname == 'words') {
-            yield WordsList({ user })
-        }
-        else if (pathname == 'stats') {
-            yield messagePart('Stats')
-            yield nextMessage()
-            yield messagePart('Yes')
-            yield messagePart('Yes2')
-        }
-        else if (pathname && parseCommand(pathname)) {
-            const [path, id] = parseCommand(pathname)!
-            if (path == 'w') {
-                const word = user.words.find(w => w.id == id)
-                if (word) {
-                    yield WordsList({ user })
-                    yield messagePart('')
-                    yield messagePart('Copy the following card, make changes and send it back to edit the card:')
-                    yield nextMessage()
-                    yield CardPage({ user, word, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect })
-                } else {
-                    yield effect(() => onRedirect('main?message=not_found'))
-                }
+                yield AppInput({ onRedirect, onCard })
+                yield WordsList({ words: user.words, columns: settings.columns })
+                yield button('Back', () => onRedirect('main'))
+                yield CardPage({ user, word, query, path: pathname, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect })
+            } else {
+                yield effect(() => onRedirect('main?message=not_found'))
             }
         }
     }
@@ -141,9 +166,8 @@ function* CardPageInput({
             return
         }
 
-        if (messageText == 'Delete') {
-            await onDeleteWord(word)
-                .then(() => onRedirect('words?message=word_removed'))
+        if (messageText.startsWith('/')) {
+            return await next()
         }
 
         const card = parseCard(messageText)
@@ -160,38 +184,94 @@ function* CardPageInput({
             await onAddExample(word, example!)
             return
         }
-        else {
-            const { tags, meanings } = parseCardUpdate(messageText)
-
-            if (tags.length || meanings.length) {
-                await onUpdateWord(word, { tags, meanings })
-                return true
-            } else
-                return await next()
+        else if (parseCardUpdate(messageText)) {
+            const { tags, meanings } = parseCardUpdate(messageText)!
+            await onUpdateWord(word, { tags, meanings })
+            return true
+        }
+        else if (!word.meanings.length) {
+            await onUpdateWord(word, {
+                tags: word.tags,
+                meanings: [{
+                    description: messageText,
+                    examples: [],
+                }]
+            })
+            return true
+        } else if (word.meanings.length) {
+            await onAddExample(word, messageText)
+            return true
+        } else {
+            return await next()
         }
     })
 }
 
 function* CardPage({
-    user, word,
+    user, word, path, query,
     onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: GetProps<'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity }) {
+}: GetProps<'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity, query?: PathQuery, path: string }) {
 
     yield CardPageInput({
         word,
         onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
     })
+    yield nextMessage()
+    yield messagePart('')
+    // yield messagePart('<pre>Copy the following card, make changes and send it back to edit the card.</pre>')
+    yield messagePart(`<b>${word.theword}</b>`)
+    yield nextMessage()
+
+    const deleteConfirmation = query && query['delete']
+    const rename = query && query['rename']
 
     yield buttonsRow(
-        ['Add to trainer', 'Pin', 'Delete'],
+        [
+            'Add to trainer',
+            'Pin',
+            'Rename',
+            deleteConfirmation ? '❗ Yes, delete!' : 'Delete'
+        ],
         async (idx, data) => {
+
+            data == 'Rename' &&
+                await onRedirect(`${path}?rename=1`)
+
             data == 'Delete' &&
-                await onDeleteWord(word)
-                    .then(() => onRedirect('words?message=word_removed'))
+                await onRedirect(`${path}?delete=1`)
+
+            data == '❗ Yes, delete!' &&
+                await onRedirect('words?message=word_removed')
+                    .then(() => onDeleteWord(word))
         }
     )
-    yield message(makeCardText(word))
-    // yield new Keyboard('Delete', false)
+
+    yield Card({ word })
+
+    if (rename) {
+        yield input(({ messageText }) =>
+            onUpdateWord(word, { word: messageText }).then(() => onRedirect(`${path}`)))
+        yield message('Enter new word: ')
+        yield button('Cancel', () => onRedirect(`${path}`))
+    }
+
+}
+
+function* Card({ word }: { word: WordEntity }) {
+    yield messagePart(`><b> ${word.theword}</b>`)
+
+    if (word.tags.length)
+        yield messagePart(word.tags.join(' '))
+
+    if (word.transcription)
+        yield messagePart(word.transcription)
+
+    for (const meaning of word.meanings) {
+        yield messagePart('')
+        yield messagePart(`${descriptionSymbol} ${meaning.description}`)
+        for (const example of meaning.examples)
+            yield messagePart(`<i>${exampleSymbol} ${example}</i>`)
+    }
 }
 
 
@@ -204,32 +284,69 @@ function* MainMenu({ user, onRedirect, titleMessage }: {
         titleMessage ? `${messages[titleMessage]}` : ``,
         `Hello, You have ${user.words.length} words in your database.`
     ])
+
     yield buttonsRow([
         ['My words', 'words'],
         // ['Tags', 'tags'],
-        ['Statistics', 'stats'],
-        ['Random word', 'random']],
+        // ['Statistics', 'stats'],
+        // ['Random word', 'random'],
+        ['Train', 'trainer'],
+    ],
         (_, path) => onRedirect(path))
 
     yield buttonsRow(
         [
-            ['Train', 'trainer'],
-            // ['Settings', 'settings'],
+            ['Settings', 'settings'],
             ['Minimize', 'main'],
         ],
         (_, path) => onRedirect(path)
     )
 }
 
-function* WordsList({ user }: {
-    user: UserEntity
+import { sortBy } from 'fp-ts/Array'
+import { ord, ordString } from 'fp-ts/Ord'
+import { AppSettings, setColumns, updateSettings } from "./store/settings";
+
+export function* WordsList({ words, columns = 1 }: {
+    words: WordEntity[]
+    columns?: 1 | 2
 }) {
-    const words = [...user.words]
-    yield message(
-        words.sort((a, b) => a.theword.localeCompare(b.theword)).map(
-            w => `${w.theword}\t/w_${w.id}`
-        )
+    words = [...words]
+
+    const sortByWord = sortBy(
+        [ord.contramap(ordString, (w: WordEntity) => w.theword)]
     )
+    const sorted = sortByWord(words)
+
+    if (columns == 1) {
+        yield message(
+            sorted.map(w =>
+                `<code>${textColumns([w.theword], [`</code>`], 20).join('')}/w_${w.id}`)
+        )
+    } else {
+
+        const [left, right] = splitAt(Math.ceil(sorted.length / 2))(sorted)
+
+        for (const [leftString, rightString] of zip(
+            left.map(w =>
+                `<code>${textColumns([w.theword], [`</code>`], 20).join('')}/w_${w.id}`),
+            right.map(w =>
+                `<code>${textColumns([w.theword], [`</code>`], 20).join('')}/w_${w.id}`)
+        )) {
+            yield messagePart(
+                `${leftString ?? ''}       ${rightString ?? ''}`
+                // `${textColumns([w.theword + '<code> '], [`</code>`]).join('')}/w_${w.id}`
+                // `<code>${w.theword}</code> /w_123`
+            )
+            // yield messagePart(`${w.theword} /w_${w.id}`)
+        }
+    }
+
+    // yield message(
+    //     words.sort((a, b) => a.theword.localeCompare(b.theword)).map(
+    //         w => `${w.theword}\t/w_${w.id}`
+    //     )
+    // )
     // for(const word of user.words) {
     // yield message(`${word.theword}`)
     // }

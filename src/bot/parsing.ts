@@ -76,7 +76,7 @@ export function parseCard(message: string): Card | undefined {
     }
 }
 
-export type CardUpdate =  Pick<Card, 'tags' | 'meanings'> 
+export type CardUpdate =  Partial<Pick<Card, 'tags' | 'meanings' | 'word'> >
 
 export function parseExample(message: string): string | undefined {
     if(message.startsWith(exampleSymbol)) {
@@ -84,10 +84,13 @@ export function parseExample(message: string): string | undefined {
     }
 }
 
-export function parseCardUpdate(message: string): CardUpdate {
+export function parseCardUpdate(message: string): CardUpdate | undefined {
     const lines = message.split('\n')
     const tags = parseTags(lines)
     const meanings = parseMeanings(lines)
+
+    if(!tags.length && !meanings.length)
+        return
 
     return {
         tags, meanings

@@ -3,6 +3,7 @@ import { flattenList, makeKeyboardRows } from "../util"
 import { Callback, Message, InputHandler, Row } from './types'
 import { IncomingMessage, Message as TelegramMessage, ExtraReplyMessage } from 'telegraf/typings/telegram-types'
 import { ChatUI } from './chatui'
+import { emptyMessage } from "../../../lib/util"
 
 export function Read(props: {
     text: string,
@@ -51,7 +52,7 @@ export function constructMessage(
     callbacks?: [string, Callback][]
 ): Message {
 
-    text = text || '<empty>'
+    text = text || emptyMessage
 
     return {
         kind: 'message',

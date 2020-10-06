@@ -4,7 +4,7 @@ import { componentToMessagesAndHandlers } from "./component"
 import { RenderedElement, ActionsHandler, BotMessage, TextMessage, InputHandler } from "./elements"
 import { Renderer } from "./render"
 import { ComponentGenerator } from "./types"
-import { zip } from "./util"
+import { emptyMessage, zip } from "./util"
 
 type SpawnedComponent = {
     elements: RenderedElement[],
@@ -65,7 +65,7 @@ export class LinearUI {
                 }
 
                 const message = await this.renderer.message(
-                    el.text ? el.text : '<empty>',
+                    el.text ? el.text : emptyMessage,
                     el.getExtra(),
                     spawnedEl?.message
                 )
@@ -88,7 +88,7 @@ export class LinearUI {
 
             for (const h of this.spawnedComponent.handlers.reverse()) {
                 if (h instanceof InputHandler) {
-                    if (await h.callback(parsed) !== false) {
+                    if (await h.callback(parsed,) !== false) {
                         await this.renderer.delete(ctx.message?.message_id!)
                     }
                     break
