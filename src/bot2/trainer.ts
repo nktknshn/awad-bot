@@ -35,7 +35,7 @@ export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
     )
 
     const cards = 
-        [...takeLast(trainer.cards, 3), card]
+        [...takeLast(trainer.cards, 10), card]
         .map(card =>
             card.answer
                 ? AnsweredTrainerCard(card)

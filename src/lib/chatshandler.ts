@@ -67,6 +67,9 @@ export class ChatsHandler {
         if (!chatId)
             return
 
+        if(ctx.chat?.type != 'private')
+            return
+
         this.logger(`messageHandler(${chatId})[${username}] - ${messageId} - ${messageText}`)
 
         const chat = await this.getChat(ctx)
@@ -87,6 +90,9 @@ export class ChatsHandler {
         const username = ctx.chat?.username
 
         if (!chatId)
+            return
+
+        if(ctx.chat?.type != 'private')
             return
 
         this.logger(`actionHandler(${chatId}[${username}])`)

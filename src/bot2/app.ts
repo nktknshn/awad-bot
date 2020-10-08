@@ -134,7 +134,7 @@ export function* App({
         yield Settings({ settings, onUpdateSettings })
         yield button('Back', () => onRedirect('main'))
     }
-    else if (pathname == 'words') {
+    else if (pathname == 'words' || pathname == '/words') {
         yield AppInput({ onRedirect, onCard })
         yield WordsList({ words: user.words, columns: settings.columns })
         yield button('Back', () => onRedirect('main'))
@@ -148,7 +148,7 @@ export function* App({
 
                 yield AppInput({ onRedirect, onCard })
                 yield WordsList({ words: user.words, columns: settings.columns })
-                yield button('Back', () => onRedirect('main'))
+                yield button('Back', () => onRedirect('/words'))
                 yield CardPage({ user, word, query, path: pathname, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect })
             } else {
                 yield effect(() => onRedirect('main?message=not_found'))
@@ -198,10 +198,12 @@ function* CardPageInput({
                 }]
             })
             return true
-        } else if (word.meanings.length) {
+        } 
+        else if (word.meanings.length) {
             await onAddExample(word, messageText)
             return true
-        } else {
+        } 
+        else {
             return await next()
         }
     })

@@ -6,6 +6,7 @@ import { Renderer } from './render';
 import { ComponentGenerator, FileElement, InputHandlerData } from "./types";
 import { parseFromContext } from './bot-util'
 import { emptyMessage, enumerate, lastItem, pairs } from './util';
+import { Actions, getTask } from './rendertask';
 
 const isFalse = (v: any): v is false => typeof v === 'boolean' && v == false
 const isTrue = (v: any): v is true => typeof v === 'boolean' && v == true
@@ -84,20 +85,20 @@ export class UI {
             _ => _.message.message_id == repliedTo
         )
 
-        console.log(`this.renderedElements`);
+        // console.log(`this.renderedElements`);
         for (const el of this.renderedElements) {
             if (el instanceof BotMessage) {
-                console.log(`BotMessage(${el.textMessage.text})`);
+                // console.log(`BotMessage(${el.textMessage.text})`);
             } else {
-                console.log(`${el.constructor.name}`);
+                // console.log(`${el.constructor.name}`);
             }
         }
 
         for (const el of this.renderedElements) {
             if (el instanceof BotMessage) {
-                console.log(`Checking BotMessage(${el.textMessage.text})`);
+                // console.log(`Checking BotMessage(${el.textMessage.text})`);
                 if (await el.textMessage.callback(action)) {
-                    console.log(`Callbacked`);
+                    // console.log(`Callbacked`);
                     await ctx.answerCbQuery()
                 }
             }
@@ -134,6 +135,9 @@ export class UI {
             if (!messages.length)
                 console.error(`Empty messages!`)
 
+            console.log(`effects: ${effects}`);
+
+           
             console.log('Rendering Started')
 
             // if (keyboards.length) {
@@ -146,20 +150,80 @@ export class UI {
             //     )
             // }
 
-            for (const el of [...messages, ...handlers, ...effects]) {
-                const els = await this.processElement(el)
-                rendered = [...rendered, ...els]
+
+            const actions = getTask(this.renderedElements, messages)
+
+            for (const action of actions) {
+                console.log(`action: ${action.constructor.name}`);
             }
 
-            await this.clear(this.renderedElements)
+            for (const action of actions) {
+
+                if (action instanceof Actions.Create) {
+                    if (action.newElement instanceof TextMessage)
+                        rendered.push(
+                            new BotMessage(
+                                action.newElement,
+                                await this.renderer.message(
+                                    action.newElement.text ?? emptyMessage,
+                                    action.newElement.getExtra()
+                                )
+                            )
+                        )
+                    else if (action.newElement instanceof FileElement)
+                        rendered.push(
+                            new BotDocumentMessage(
+                                action.newElement,
+                                await this.renderer.file(action.newElement.file)
+                            )
+                        )
+                }
+                else if (action instanceof Actions.Leave) {
+                    if (action.newElement instanceof TextMessage)
+                        rendered.push(new BotMessage(
+                            action.newElement, action.element.message
+                        ))
+                    // else if (action.newElement instanceof FileElement)
+                    //     rendered.push(new BotDocumentMessage(
+                    //         action.newElement, action.element.message
+                    //     ))
+                }
+                else if (action instanceof Actions.Remove) {
+                    this.renderer.delete(action.element.message.message_id)
+                }
+                else if (action instanceof Actions.Replace) {
+                    if (action.newElement instanceof TextMessage)
+                        rendered.push(
+                            new BotMessage(
+                                action.newElement,
+                                await this.renderer.message(
+                                    action.newElement.text ?? emptyMessage,
+                                    action.newElement.getExtra(),
+                                    action.element.message,
+                                    false
+                                )
+                            )
+                        )
+                }
+            }
+
+            for (const handler of handlers) {
+                if (handler instanceof InputHandler)
+                    this.inputHandlers.push(handler)
+            }
+
             this.renderedElements = rendered
 
             console.log('Rendering Finished')
 
+            for (const effect of effects) {
+                await effect.callback()
+            }
+
             this.isRendering = false
 
             const lastRender = lastItem(this.renderQueue)
-            
+
             if (lastRender) {
                 this.renderQueue = []
                 await this.renderGenerator(lastRender)
@@ -167,85 +231,85 @@ export class UI {
         }
     }
 
-    async processElement(element: Element) {
-        let rendered: RenderedElement[] = []
+    // async processElement(element: Element) {
+    //     let rendered: RenderedElement[] = []
 
-        console.log(`processElement ${element.constructor.name}`)
+    //     console.log(`processElement ${element.constructor.name}`)
 
-        if (element instanceof TextMessage) {
-            let updatable = this.renderedElements.shift()
+    //     if (element instanceof TextMessage) {
+    //         let updatable = this.renderedElements.shift()
 
-            // if(updatable instanceof UserMessage)
-            //     updatable = this.renderedElements.shift()
-            // while (updatable instanceof UserMessage) {
-            //     rendered.push(updatable)
-            //     updatable = this.renderedElements.shift()
-            // }
+    //         // if(updatable instanceof UserMessage)
+    //         //     updatable = this.renderedElements.shift()
+    //         // while (updatable instanceof UserMessage) {
+    //         //     rendered.push(updatable)
+    //         //     updatable = this.renderedElements.shift()
+    //         // }
 
-            if (updatable && updatable instanceof BotMessage) {
+    //         if (updatable && updatable instanceof BotMessage) {
 
-                if (updatable.textMessage.text == element.text
-                    && deq(
-                        updatable.textMessage.getExtra(),
-                        element.getExtra())
-                ) {
-                    rendered.push(new BotMessage(
-                        element, updatable.message
-                    ))
-                } else {
-                    // console.log(updatable.textMessage.keyboardButtons);
-                    // console.log(updatable.textMessage.keyboardButtons.length > 0);
+    //             if (updatable.textMessage.text == element.text
+    //                 && deq(
+    //                     updatable.textMessage.getExtra(),
+    //                     element.getExtra())
+    //             ) {
+    //                 rendered.push(new BotMessage(
+    //                     element, updatable.message
+    //                 ))
+    //             } else {
+    //                 // console.log(updatable.textMessage.keyboardButtons);
+    //                 // console.log(updatable.textMessage.keyboardButtons.length > 0);
 
-                    rendered.push(
-                        new BotMessage(
-                            element,
-                            await this.renderer.message(
-                                element.text ?? emptyMessage,
-                                element.getExtra(),
-                                updatable.message,
-                                false
-                            )
-                        )
-                    )
-                }
-            }
-            else {
-                if (updatable && updatable instanceof BotDocumentMessage)
-                    await this.renderer.delete(updatable.message.message_id)
+    //                 rendered.push(
+    //                     new BotMessage(
+    //                         element,
+    //                         await this.renderer.message(
+    //                             element.text ?? emptyMessage,
+    //                             element.getExtra(),
+    //                             updatable.message,
+    //                             false
+    //                         )
+    //                     )
+    //                 )
+    //             }
+    //         }
+    //         else {
+    //             if (updatable && updatable instanceof BotDocumentMessage)
+    //                 await this.renderer.delete(updatable.message.message_id)
 
-                rendered.push(
-                    new BotMessage(
-                        element,
-                        await this.renderer.message(
-                            element.text ?? emptyMessage,
-                            element.getExtra()
-                        )
-                    )
-                )
-            }
-        }
-        else if (element instanceof FileElement) {
-            rendered.push(
-                new BotDocumentMessage(
-                    element,
-                    await this.renderer.file(element.file)
-                )
-            )
-        }
-        else if (element instanceof InputHandler) {
-            this.inputHandler = element
-            this.inputHandlers.push(element)
-        }
-        else if (element instanceof ActionsHandler) {
-            this.actionHandler = element
-        }
-        else if (element instanceof Effect) {
-            await element.callback()
-        }
+    //             rendered.push(
+    //                 new BotMessage(
+    //                     element,
+    //                     await this.renderer.message(
+    //                         element.text ?? emptyMessage,
+    //                         element.getExtra()
+    //                     )
+    //                 )
+    //             )
+    //         }
+    //     }
+    //     else if (element instanceof FileElement) {
+    //         rendered.push(
+    //             new BotDocumentMessage(
+    //                 element,
+    //                 await this.renderer.file(element.file)
+    //             )
+    //         )
+    //     }
+    //     else if (element instanceof InputHandler) {
+    //         this.inputHandler = element
+    //         this.inputHandlers.push(element)
+    //     }
+    //     else if (element instanceof ActionsHandler) {
+    //         this.actionHandler = element
+    //     }
+    //     else if (element instanceof Effect) {
+    //         await element.callback()
+    //     }
 
-        return rendered
+    //     return rendered
 
-    }
+    // }
 
     async deleteAll() {
         await this.clear()

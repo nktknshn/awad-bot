@@ -17,14 +17,14 @@ function word(dto: Partial<WordEntity>) {
 }
 
 
-test('textColumns', () => {
+// test('textColumns', () => {
 
-    console.log(textColumns(
-        ['apt', 'dilate', 'minute', 'ointment', 'scant', 'some new word'],
-        ['/w_11', '/w_12', '/w_11', '/w_11', '/w_13', '/w_15'],
-    ));
+//     console.log(textColumns(
+//         ['apt', 'dilate', 'minute', 'ointment', 'scant', 'some new word'],
+//         ['/w_11', '/w_12', '/w_11', '/w_11', '/w_13', '/w_15'],
+//     ));
 
-})
+// })
 
 
 

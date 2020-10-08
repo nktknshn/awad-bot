@@ -42,6 +42,10 @@ export const createChat = (services: Services): ChatFactory => async ctx => {
 
     return new QueuedChat({
         async handleMessage(ctx) {
+
+            if(ctx.chat?.type != 'private')
+                return
+
             console.log(`handleMessage ${ctx.message?.text}`)
 
             if (ctx.message?.message_id) {
@@ -60,6 +64,10 @@ export const createChat = (services: Services): ChatFactory => async ctx => {
             }
         },
         async handleAction(ctx) {
+
+            if(ctx.chat?.type != 'private')
+                return
+                
             console.log(`handleAction ${ctx.match![0]}`)
             await ui.handleAction(ctx)
         },

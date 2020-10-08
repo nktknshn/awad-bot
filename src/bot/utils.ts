@@ -69,7 +69,7 @@ export function parseCommand(text: string) {
     if (text[0] != '/')
         return
 
-    if (text[1] == 'w') {
+    if (text[1] == 'w' && text[2] == '_') {
         const id = Number.parseInt(text.slice(3))
         return ['w', id] as const
     }

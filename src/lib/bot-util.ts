@@ -62,7 +62,7 @@ export function getLocation(line: string): [number, number] | undefined {
     }
 }
 
-export function areSame(a: TextMessage, b: TextMessage) {
+export function areSameTextMessages(a: TextMessage, b: TextMessage) {
     return a.text == b.text
         && deq(
             a.getExtra(),

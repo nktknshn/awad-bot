@@ -2,7 +2,7 @@ import { ActionsHandler, Effect, InputHandler, TextMessage } from "./elements"
 import { TextElement, ButtonElement, ButtonsRowElement, ComponentGenerator, RequestLocationButton, FileElement, Keyboard, ComponentElement, TextElementPart, NextMessage } from "./types"
 import { lastItem } from "./util"
 
-type MsgType = (TextMessage | Effect | FileElement)
+export type MsgType = (TextMessage | FileElement)
 
 export function componentToElements(component: ComponentGenerator) {
     let elementsList: ComponentElement[] = []
@@ -22,6 +22,9 @@ export function componentToElements(component: ComponentGenerator) {
 }
 
 export function componentToMessagesAndHandlers(component: ComponentGenerator) {
+
+    console.log(`componentToMessagesAndHandlers`);
+
 
     let messages: MsgType[] = []
     let handlers: (InputHandler | ActionsHandler)[] = []
@@ -90,7 +93,8 @@ export function componentToMessagesAndHandlers(component: ComponentGenerator) {
             continue
         }
         else if (compel instanceof Effect) {
-            messages.push(compel)
+            // messages.push(compel)
+            effects.push(compel)
             continue
         }
         else if (compel instanceof FileElement) {

@@ -1,5 +1,5 @@
 import { TelegrafContext } from "telegraf/typings/context"
-import { areSame, parseFromContext } from "./bot-util"
+import { areSameTextMessages, parseFromContext } from "./bot-util"
 import { componentToMessagesAndHandlers } from "./component"
 import { RenderedElement, ActionsHandler, BotMessage, TextMessage, InputHandler } from "./elements"
 import { Renderer } from "./render"
@@ -58,7 +58,7 @@ export class LinearUI {
             if (el instanceof TextMessage) {
 
                 if (spawnedEl instanceof BotMessage
-                    && areSame(spawnedEl.textMessage, el)
+                    && areSameTextMessages(spawnedEl.textMessage, el)
                 ) {
                     spawnedComponent.elements.push(spawnedEl)
                     continue
