@@ -13,14 +13,14 @@ Content-Type: application/json
 {"id": "999"}
 
 ###
-POST http://localhost:3010/words
+POST http://kanash.in:3010/words
 Content-Type: application/json
 
 {
-    "userId": "999",
+    "userId": "121757789",
     "theword": "word2",
-    "tags": [],
-    "meanings": []
+    "meanings": [],
+    "tags": []
 }
 
 ###

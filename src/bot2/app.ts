@@ -6,7 +6,7 @@ import { WordEntity } from "../database/entity/word";
 import { button, buttonsRow, effect, input, message, messagePart, nextMessage, radioRow } from "../lib/helpers";
 import { Keyboard } from "../lib/types";
 import { UI } from "../lib/ui";
-import { lastItem, parsePath, PathQuery, textColumns, zip } from "../lib/util";
+import { Getter, lastItem, parsePath, PathQuery, textColumns, zip } from "../lib/util";
 import { Services } from "./services";
 import { createStore, RootState } from "./store";
 import { redirect } from "./store/path";
@@ -14,19 +14,6 @@ import { TrainerState, updateTrainer } from "./store/trainer";
 import { addWord, saveWord, updateWord, addExample, deleteWord } from "./store/user";
 import { Trainer } from "./trainer";
 import { splitAt } from 'fp-ts/Array'
-
-// type GetProps<A extends keyof AppProps> = Pick<AppProps, A>
-type GetProps<
-    A extends keyof AppProps,
-    B extends keyof AppProps = never,
-    C extends keyof AppProps = never,
-    D extends keyof AppProps = never,
-    E extends keyof AppProps = never,
-    F extends keyof AppProps = never,
-    G extends keyof AppProps = never,
-    H extends keyof AppProps = never,
-    I extends keyof AppProps = never,
-    > = Pick<AppProps, A | B | C | D | E | F | G | H | I>
 
 type AppProps = RootState & AppActions
 
@@ -73,7 +60,7 @@ export function stateToProps(store: ReturnType<typeof createStore>, ui: UI, serv
     }
 }
 
-function* AppInput({ onRedirect, onCard }: GetProps<'onRedirect', 'onCard'>) {
+function* AppInput({ onRedirect, onCard }: Getter<AppProps, 'onRedirect', 'onCard'>) {
     yield input(async ({ messageText }) => {
         if (!messageText)
             return
@@ -93,7 +80,7 @@ function* AppInput({ onRedirect, onCard }: GetProps<'onRedirect', 'onCard'>) {
 
 export function* Settings({
     settings, onUpdateSettings
-}: GetProps<'settings', 'onUpdateSettings'>) {
+}: Getter<AppProps, 'settings', 'onUpdateSettings'>) {
     yield message(`columns: ${settings.columns}`)
     yield radioRow(['1', '2'], (idx, data) =>
         onUpdateSettings({ columns: (idx + 1) as (1 | 2) }),
@@ -148,7 +135,7 @@ export function* App({
 
                 yield AppInput({ onRedirect, onCard })
                 yield WordsList({ words: user.words, columns: settings.columns })
-                yield button('Back', () => onRedirect('/words'))
+                yield button('Back', () => onRedirect('main'))
                 yield CardPage({ user, word, query, path: pathname, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect })
             } else {
                 yield effect(() => onRedirect('main?message=not_found'))
@@ -160,7 +147,7 @@ export function* App({
 function* CardPageInput({
     word,
     onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: GetProps<'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity }) {
+}: Getter<AppProps, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity }) {
     yield input(async ({ messageText }, next) => {
         if (!messageText) {
             return
@@ -198,11 +185,11 @@ function* CardPageInput({
                 }]
             })
             return true
-        } 
+        }
         else if (word.meanings.length) {
             await onAddExample(word, messageText)
             return true
-        } 
+        }
         else {
             return await next()
         }
@@ -212,7 +199,7 @@ function* CardPageInput({
 function* CardPage({
     user, word, path, query,
     onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: GetProps<'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity, query?: PathQuery, path: string }) {
+}: Getter<AppProps, 'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity, query?: PathQuery, path: string }) {
 
     yield CardPageInput({
         word,

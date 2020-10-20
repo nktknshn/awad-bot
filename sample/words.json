@@ -1,0 +1,246 @@
+[
+    {
+        "userId": "121757789",
+        "theword": "apt",
+        "transcription": "/apt/",
+        "tags": [
+            "#adjective"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "the dependency injection is apt in complex software"
+                ],
+                "description": "appropriate or suitable in the circumstances."
+            },
+            {
+                "examples": [
+                    "Lazy people are apt to be fat"
+                ],
+                "description": "having a tendency to do something."
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "to get on with",
+        "transcription": null,
+        "tags": [
+            "#phrasalverb"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "\"Get on with it, motherfuckers\" - Stringer Bell",
+                    "I hope to get on with the bot as soon as I finish the main project"
+                ],
+                "description": "to start or continue doing something, especially work"
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "scant",
+        "transcription": null,
+        "tags": [
+            "#adjective",
+            "#shorties"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "a scant amount",
+                    "a scant two hours; a scant cupful.",
+                    "to do scant justice."
+                ],
+                "description": "barely sufficient in amount or quantity; not abundant; almost inadequate"
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "minute ",
+        "transcription": "/maɪˈnjuːt/",
+        "tags": [
+            "#adjective"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "The chances of success were minute."
+                ],
+                "description": "very small "
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "glossy",
+        "transcription": null,
+        "tags": [
+            "#adjective"
+        ],
+        "meanings": [
+            {
+                "examples": [],
+                "description": "shiny and smooth"
+            },
+            {
+                "examples": [],
+                "description": "superficially attractive, stylish, and suggesting wealth."
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "to stumble upon",
+        "transcription": null,
+        "tags": [],
+        "meanings": [
+            {
+                "examples": [
+                    "i realized that i wanted to learn the words and the idioms i had often stumbled upon and hadn't learned their meaning yet"
+                ],
+                "description": "To discover or find something by accident"
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "obsolete",
+        "transcription": null,
+        "tags": [],
+        "meanings": [
+            {
+                "examples": [
+                    "obsolete code",
+                    "obsolete hardware"
+                ],
+                "description": "no longer produced or used; out of date."
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "to top it off",
+        "transcription": null,
+        "tags": [],
+        "meanings": []
+    },
+    {
+        "userId": "121757789",
+        "theword": "to dilate",
+        "transcription": null,
+        "tags": [
+            "#verb"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "her pupils were dilated"
+                ],
+                "description": "to (cause a part of the body to) become wider or further open"
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "austere",
+        "transcription": "/ɑːˈstɪr/",
+        "tags": [
+            "#adjective"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "Glück is best known for lyric poems of linguistic precision and austere tone",
+                    "an austere childhood during the war"
+                ],
+                "description": "very simple, with only the things that are absolutely necessary, especially because of severe limits on money or goods:"
+            },
+            {
+                "examples": [],
+                "description": "synonyms: bleak, hard, harhs comfortless"
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "apparently",
+        "transcription": null,
+        "tags": [
+            "#adverb"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "apparently the amount of effort he put in the library was scant",
+                    "The code was obsolete apparently"
+                ],
+                "description": "as far as one knows or can see."
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "to flummox",
+        "transcription": null,
+        "tags": [
+            "#verb"
+        ],
+        "meanings": [
+            {
+                "examples": [],
+                "description": "to bewilder; confound; confuse."
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "exorbitant",
+        "transcription": "/ɪɡˈzːɔr.bə.t̬ənt/",
+        "tags": [
+            "#adjective"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "I drank an exorbitant amount of alcohol yesterday"
+                ],
+                "description": "exceeding proper limits; extravagant; excessive or unduly high."
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "flummoxed",
+        "transcription": null,
+        "tags": [
+            "#rare",
+            "#adjective"
+        ],
+        "meanings": [
+            {
+                "examples": [
+                    "I was flummoxed as hell trying to write a redux store",
+                    "The exorbitant complexity of the code flummoxes me"
+                ],
+                "description": "completely unable to understand"
+            }
+        ]
+    },
+    {
+        "userId": "121757789",
+        "theword": "ointment",
+        "transcription": null,
+        "tags": [],
+        "meanings": [
+            {
+                "examples": [
+                    "ointment for a burn"
+                ],
+                "description": "мазь"
+            }
+        ]
+    }
+]

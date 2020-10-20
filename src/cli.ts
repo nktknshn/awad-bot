@@ -7,8 +7,8 @@ import { exit } from 'process';
 import { readStdin } from './cli/utils';
 
 const getEntity = {
-    'word': WordEntity,
-    'user': UserEntity
+    'words': WordEntity,
+    'users': UserEntity
 }
 
 async function main() {

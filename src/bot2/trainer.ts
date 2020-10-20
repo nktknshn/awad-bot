@@ -9,6 +9,11 @@ import { ComponentGenerator } from "../lib/types"
 import { TrainerCard, TrainerState } from "./store/trainer"
 
 
+function trainer(word: WordEntity) {
+
+}
+
+
 export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
     user: UserEntity,
     trainer: TrainerState,
@@ -35,7 +40,7 @@ export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
     )
 
     const cards = 
-        [...takeLast(trainer.cards, 10), card]
+        [...takeLast(trainer.cards, 5), card]
         .map(card =>
             card.answer
                 ? AnsweredTrainerCard(card)
@@ -64,11 +69,11 @@ export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
 export function* AnsweredTrainerCard({ correctWord, wrongs, answer }: TrainerCard): ComponentGenerator {
     yield message(
         [
+            correctWord.id == answer ? '👌 Correct' : '❌ Wrong',
+            ' ',
             correctWord.meanings[0].description,
             ' - ',
             [correctWord, ...wrongs].find(_ => _.id == answer)!.theword,
-            ' - ',
-            correctWord.id == answer ? '👌 Correct' : '❌ Wrong'
         ].join('')
     )
 }
