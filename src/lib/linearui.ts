@@ -88,7 +88,7 @@ export class LinearUI {
 
             for (const h of this.spawnedComponent.handlers.reverse()) {
                 if (h instanceof InputHandler) {
-                    if (await h.callback(parsed,) !== false) {
+                    if (await h.callback(parsed, async () => {}) !== false) {
                         await this.renderer.delete(ctx.message?.message_id!)
                     }
                     break

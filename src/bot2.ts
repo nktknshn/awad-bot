@@ -1,7 +1,7 @@
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
 import { createConnection } from "typeorm"
-import { createChat } from "./bot2/chat"
+import { createChatCreator } from "./bot2/chat"
 import { getServices } from "./bot2/services"
 import { ChatsHandler } from "./lib/chatshandler"
 
@@ -18,7 +18,7 @@ async function main() {
     const services = getServices(connection)
 
     const chats = new ChatsHandler(
-        createChat(services)
+        createChatCreator(services)
     )
 
     bot.on('message', chats.messageHandler.bind(chats))

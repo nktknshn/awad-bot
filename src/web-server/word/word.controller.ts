@@ -1,6 +1,5 @@
 import { Controller, Logger, Get, Post, Body, Delete, Param, Put, BadRequestException } from "@nestjs/common";
 import { WordEntityService, WordDto } from './word.service'
-import { throws } from "assert";
 
 @Controller('words')
 export class WordController {

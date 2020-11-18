@@ -60,6 +60,18 @@ export function stateToProps(store: ReturnType<typeof createStore>, ui: UI, serv
     }
 }
 
+// function useState<T>(initialValue: T): [() => T, (value: T) => void] {
+
+//     return [
+//         () => initialValue,
+//         value => { initialValue = value }
+//     ]
+// }
+
+// function* NestedMenu() {
+//     const [getState, setState] = useState(0)
+// }
+
 function* AppInput({ onRedirect, onCard }: Getter<AppProps, 'onRedirect', 'onCard'>) {
     yield input(async ({ messageText }) => {
         if (!messageText)
@@ -75,7 +87,8 @@ function* AppInput({ onRedirect, onCard }: Getter<AppProps, 'onRedirect', 'onCar
         }
         else
             await onRedirect('main?message=bad_card')
-    })
+    });
+
 }
 
 export function* Settings({

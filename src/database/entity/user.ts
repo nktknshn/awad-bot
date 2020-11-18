@@ -17,7 +17,7 @@ export class UserEntity extends BaseEntity {
         { nullable: false, default: () => 'CURRENT_TIMESTAMP' })
     created!: Date
 
-    @Column('int', { array: true, nullable: true })
+    @Column('int', { array: true, nullable: false, default: [] })
     renderedMessagesIds: number[] = []
 }
 

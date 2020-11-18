@@ -30,11 +30,11 @@ class RemoteBackend {
     constructor(public readonly url: string) { }
 
     public get(entity: string): Promise<Result> {
-        log(`${this.url}/${entity}`)
         return axios.get(`${this.url}/${entity}`)
             .then(res => success(res.data))
             .catch(e => error(e.response.status, e.response.statusText))
     }
+    
     public post(entity: string, data: any): Promise<Result> {
         return axios.post(`${this.url}/${entity}`, data)
             .then(res => success(res.data))

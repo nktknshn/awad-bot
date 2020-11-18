@@ -39,27 +39,6 @@ export const createRenderer = (ctx: TelegrafContext): Renderer => ({
                 await this.delete(targetMessage.message_id)
             }
             else {
-
-                // if (extra?.reply_markup && 'keyboard' in extra.reply_markup) {
-                //     console.log('removing reply markup');
-
-                //     // await ctx.telegram.editMessageText(
-                //     //     ctx.chat?.id!,
-                //     //     targetMessage.message_id,
-                //     //     undefined,
-                //     //     targetMessage.text!,
-                //     //     Markup.removeKeyboard().extra()
-                //     // )
-                //     // await ctx.telegram.editMessageReplyMarkup(
-                //     //     ctx.chat?.id!,
-                //     //     targetMessage.message_id,
-                //     //     undefined,
-                //     //     JSON.stringify(Markup.removeKeyboard().extra())
-                //     const cleaningMessage =
-                //         await ctx.reply(text, Markup.removeKeyboard().extra())
-
-                //     // )
-                // }
                 console.log(JSON.stringify(extra));
                 
                 const ret = await ctx.telegram.editMessageText(
