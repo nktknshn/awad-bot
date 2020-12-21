@@ -1,21 +1,28 @@
 import { Card } from "../bot/interfaces";
-import { CardUpdate, parseCard, parseCardUpdate, parseExample, makeCardText, exampleSymbol, descriptionSymbol } from "../bot/parsing";
+import { CardUpdate, parseCard, parseCardUpdate, parseExample, makeCardText, isEnglishWord, createCardFromWord } from "../bot/parsing";
 import { parseCommand, range } from "../bot/utils";
 import { UserEntity } from "../database/entity/user";
 import { WordEntity } from "../database/entity/word";
-import { button, buttonsRow, effect, input, message, messagePart, nextMessage, radioRow } from "../lib/helpers";
-import { Keyboard } from "../lib/types";
+import { button, buttonsRow, effect, input, message, nextMessage, radioRow } from "../lib/helpers";
 import { UI } from "../lib/ui";
-import { Getter, lastItem, parsePath, PathQuery, textColumns, zip } from "../lib/util";
+import { Getter, lastItem, parsePath, PathQuery } from "../lib/util";
 import { Services } from "./services";
 import { createStore, RootState } from "./store";
 import { redirect } from "./store/path";
 import { TrainerState, updateTrainer } from "./store/trainer";
 import { addWord, saveWord, updateWord, addExample, deleteWord } from "./store/user";
 import { Trainer } from "./trainer";
-import { splitAt } from 'fp-ts/Array'
+import { AppSettings, setColumns, updateSettings } from "./store/settings";
+// import { Card as CardComponent } from "./components/Card";
+import { CardPage } from "./components/CardPage";
+import { WordsList } from "./components/WordsList";
+import { Settings } from "./components/Settings";
+import { ComponentGenerator } from "../lib/types";
+import { useState } from "./mystore/state";
+import { CheckList } from "../lib/components/checklist";
+import { toggleIndex } from "./store/misc";
 
-type AppProps = RootState & AppActions
+export type AppProps = RootState & AppActions
 
 type AppActions = {
     onRedirect: (path: string) => Promise<any>
@@ -26,6 +33,7 @@ type AppActions = {
     onAddExample: (word: WordEntity, example: string) => Promise<any>,
     onDeleteWord: (word: WordEntity) => Promise<any>,
     onUpdateSettings: (settings: Partial<AppSettings>) => Promise<any>,
+    onToggleOption: (idx: number) => Promise<any>,
 }
 
 const messages: Record<string, string> = {
@@ -57,25 +65,20 @@ export function stateToProps(store: ReturnType<typeof createStore>, ui: UI, serv
             store.dispatch(addExample({ word, example })),
         onDeleteWord: word => store.dispatch(deleteWord(word)),
         onUpdateSettings: async settings => store.dispatch(updateSettings(settings)),
+
+        onToggleOption: async idx => store.dispatch(toggleIndex(idx)),
     }
 }
-
-// function useState<T>(initialValue: T): [() => T, (value: T) => void] {
-
-//     return [
-//         () => initialValue,
-//         value => { initialValue = value }
-//     ]
-// }
-
-// function* NestedMenu() {
-//     const [getState, setState] = useState(0)
-// }
 
 function* AppInput({ onRedirect, onCard }: Getter<AppProps, 'onRedirect', 'onCard'>) {
     yield input(async ({ messageText }) => {
         if (!messageText)
             return
+
+        if (isEnglishWord(messageText)) {
+            await onCard(createCardFromWord(messageText))
+            return
+        }
 
         const card = parseCard(messageText)
 
@@ -91,20 +94,17 @@ function* AppInput({ onRedirect, onCard }: Getter<AppProps, 'onRedirect', 'onCar
 
 }
 
-export function* Settings({
-    settings, onUpdateSettings
-}: Getter<AppProps, 'settings', 'onUpdateSettings'>) {
-    yield message(`columns: ${settings.columns}`)
-    yield radioRow(['1', '2'], (idx, data) =>
-        onUpdateSettings({ columns: (idx + 1) as (1 | 2) }),
-        String(settings.columns))
-}
-
+// function component<P>(comp: (props: P) => ComponentGenerator, props: P) {
+//     // comp.name
+//     return comp(props)
+// }
 
 export function* App({
-    user, path, trainer, settings,
-    onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer, onAddExample, onDeleteWord, onUpdateSettings
+    user, path, trainer, settings, misc,
+    onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer, 
+    onAddExample, onDeleteWord, onUpdateSettings, onToggleOption
 }: AppProps) {
+    
     const { pathname, query } = parsePath(path)
     const titleMessage = query && 'message' in query
         ? String(query['message'])
@@ -118,8 +118,26 @@ export function* App({
     }
 
     if (pathname == 'main') {
+        // yield component(AppInput, { onRedirect, onCard })
+
         yield AppInput({ onRedirect, onCard })
         yield MainMenu({ user, titleMessage, onRedirect })
+    }
+    else if (pathname == 'components') {
+        yield CheckList({
+            items: [
+                'option one',
+                'second option',
+                'and third one',
+                'also 4th',
+                'lenovo thinkpad'
+            ],
+            selectedIds: misc.selectedIds,
+            onClick: async index => {
+                await onToggleOption(index)
+            }
+        })
+        yield button('Back', () => onRedirect('main'))
     }
     else if (pathname == 'stats') {
         yield effect(() => onRedirect('main?message=not_ready'))
@@ -137,6 +155,7 @@ export function* App({
     else if (pathname == 'words' || pathname == '/words') {
         yield AppInput({ onRedirect, onCard })
         yield WordsList({ words: user.words, columns: settings.columns })
+        yield WordsListSettings({ showFilters: true })
         yield button('Back', () => onRedirect('main'))
     }
     else if (pathname && parseCommand(pathname)) {
@@ -148,131 +167,16 @@ export function* App({
 
                 yield AppInput({ onRedirect, onCard })
                 yield WordsList({ words: user.words, columns: settings.columns })
-                yield button('Back', () => onRedirect('main'))
-                yield CardPage({ user, word, query, path: pathname, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect })
+                yield button('Back', () => onRedirect('words'))
+                yield CardPage({
+                    user, word, query, path: pathname,
+                    onReplaceWord, onUpdateWord, onAddExample,
+                    onDeleteWord, onRedirect
+                })
             } else {
                 yield effect(() => onRedirect('main?message=not_found'))
             }
         }
-    }
-}
-
-function* CardPageInput({
-    word,
-    onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppProps, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity }) {
-    yield input(async ({ messageText }, next) => {
-        if (!messageText) {
-            return
-        }
-
-        if (messageText.startsWith('/')) {
-            return await next()
-        }
-
-        const card = parseCard(messageText)
-
-        if (card && card.word == word.theword) {
-            await onReplaceWord(word, card)
-            return
-        }
-        else if (card) {
-            return await next()
-        }
-        else if (parseExample(messageText)) {
-            const example = parseExample(messageText)
-            await onAddExample(word, example!)
-            return
-        }
-        else if (parseCardUpdate(messageText)) {
-            const { tags, meanings } = parseCardUpdate(messageText)!
-            await onUpdateWord(word, { tags, meanings })
-            return true
-        }
-        else if (!word.meanings.length) {
-            await onUpdateWord(word, {
-                tags: word.tags,
-                meanings: [{
-                    description: messageText,
-                    examples: [],
-                }]
-            })
-            return true
-        }
-        else if (word.meanings.length) {
-            await onAddExample(word, messageText)
-            return true
-        }
-        else {
-            return await next()
-        }
-    })
-}
-
-function* CardPage({
-    user, word, path, query,
-    onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppProps, 'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity, query?: PathQuery, path: string }) {
-
-    yield CardPageInput({
-        word,
-        onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
-    })
-    yield nextMessage()
-    yield messagePart('')
-    // yield messagePart('<pre>Copy the following card, make changes and send it back to edit the card.</pre>')
-    yield messagePart(`<b>${word.theword}</b>`)
-    yield nextMessage()
-
-    const deleteConfirmation = query && query['delete']
-    const rename = query && query['rename']
-
-    yield buttonsRow(
-        [
-            'Add to trainer',
-            'Pin',
-            'Rename',
-            deleteConfirmation ? '❗ Yes, delete!' : 'Delete'
-        ],
-        async (idx, data) => {
-
-            data == 'Rename' &&
-                await onRedirect(`${path}?rename=1`)
-
-            data == 'Delete' &&
-                await onRedirect(`${path}?delete=1`)
-
-            data == '❗ Yes, delete!' &&
-                await onRedirect('words?message=word_removed')
-                    .then(() => onDeleteWord(word))
-        }
-    )
-
-    yield Card({ word })
-
-    if (rename) {
-        yield input(({ messageText }) =>
-            onUpdateWord(word, { word: messageText }).then(() => onRedirect(`${path}`)))
-        yield message('Enter new word: ')
-        yield button('Cancel', () => onRedirect(`${path}`))
-    }
-
-}
-
-function* Card({ word }: { word: WordEntity }) {
-    yield messagePart(`><b> ${word.theword}</b>`)
-
-    if (word.tags.length)
-        yield messagePart(word.tags.join(' '))
-
-    if (word.transcription)
-        yield messagePart(word.transcription)
-
-    for (const meaning of word.meanings) {
-        yield messagePart('')
-        yield messagePart(`${descriptionSymbol} ${meaning.description}`)
-        for (const example of meaning.examples)
-            yield messagePart(`<i>${exampleSymbol} ${example}</i>`)
     }
 }
 
@@ -289,6 +193,7 @@ function* MainMenu({ user, onRedirect, titleMessage }: {
 
     yield buttonsRow([
         ['My words', 'words'],
+        ['Components', 'components'],
         // ['Tags', 'tags'],
         // ['Statistics', 'stats'],
         // ['Random word', 'random'],
@@ -305,52 +210,40 @@ function* MainMenu({ user, onRedirect, titleMessage }: {
     )
 }
 
-import { sortBy } from 'fp-ts/Array'
-import { ord, ordString } from 'fp-ts/Ord'
-import { AppSettings, setColumns, updateSettings } from "./store/settings";
 
-export function* WordsList({ words, columns = 1 }: {
-    words: WordEntity[]
-    columns?: 1 | 2
-}) {
-    words = [...words]
+type WordsListSettingsProps = {
+    showFilters: boolean
+}
 
-    const sortByWord = sortBy(
-        [ord.contramap(ordString, (w: WordEntity) => w.theword)]
-    )
-    const sorted = sortByWord(words)
+export function* WordsListSettings({ showFilters = true }: WordsListSettingsProps) {
 
-    if (columns == 1) {
-        yield message(
-            sorted.map(w =>
-                `<code>${textColumns([w.theword], [`</code>`], 20).join('')}/w_${w.id}`)
-        )
-    } else {
+    // const [showFilters, setShowFilters] = useState(false)
+    // const [page, setPage] = useState(0)
 
-        const [left, right] = splitAt(Math.ceil(sorted.length / 2))(sorted)
+    // if (showFilters())
+    //     yield message('FILTERS')
 
-        for (const [leftString, rightString] of zip(
-            left.map(w =>
-                `<code>${textColumns([w.theword], [`</code>`], 20).join('')}/w_${w.id}`),
-            right.map(w =>
-                `<code>${textColumns([w.theword], [`</code>`], 20).join('')}/w_${w.id}`)
-        )) {
-            yield messagePart(
-                `${leftString ?? ''}       ${rightString ?? ''}`
-                // `${textColumns([w.theword + '<code> '], [`</code>`]).join('')}/w_${w.id}`
-                // `<code>${w.theword}</code> /w_123`
-            )
-            // yield messagePart(`${w.theword} /w_${w.id}`)
-        }
+    if (showFilters) {
+        yield WordListFilters({ enabledFilter: 'All' })
     }
+}
 
-    // yield message(
-    //     words.sort((a, b) => a.theword.localeCompare(b.theword)).map(
-    //         w => `${w.theword}\t/w_${w.id}`
-    //     )
-    // )
-    // for(const word of user.words) {
-    // yield message(`${word.theword}`)
-    // }
+type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
 
+type WordListFiltersProps = {
+    enabledFilter: WordListFiltersType
+}
+
+export function* WordListFilters({
+    enabledFilter
+}: WordListFiltersProps) {
+    yield radioRow(
+        [
+            'All', 'No meanings', 'By tag'
+        ],
+        async (idx, data) => {
+
+        },
+        enabledFilter
+    )
 }

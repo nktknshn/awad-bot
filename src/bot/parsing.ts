@@ -5,6 +5,9 @@ import { flattenList } from "./utils"
 
 export const [thewordSymbol, descriptionSymbol, exampleSymbol] = ['>', '=', '-']
 
+export function isEnglishWord(input: string) {
+    return /^[a-zA-Z]/.test(input)
+}
 
 function stripSpaces(line: string) {
     const m = line.match(/^[ \t]+/)
@@ -54,6 +57,14 @@ export const parseTagsLambda = (lines: string[]) =>
     flattenList(lines.map(line => line.split(' ')))
         .filter(word => word.startsWith('#'))
 
+
+export function createCardFromWord(word: string): Card {
+    return {
+        word,
+        meanings: [],
+        tags: []
+    }
+}
 
 export function parseCard(message: string): Card | undefined {
     const lines = message.split('\n')

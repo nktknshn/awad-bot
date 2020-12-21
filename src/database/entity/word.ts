@@ -5,28 +5,36 @@ import {
 } from 'typeorm';
 import { Meaning } from '../../bot/interfaces';
 import { UserEntity } from './user';
+import { ObjectType, Field, ID } from "type-graphql";
 
 
 @Entity({ name: 'word' })
+@ObjectType()
 export class WordEntity extends BaseEntity {
+    @Field(() => ID)
     @PrimaryGeneratedColumn()
     id!: number;
 
+    @Field(() => String)
     @Column("text")
     userId!: string;
 
+    @Field(() => String)
     @Column("text", { nullable: false })
     theword!: string
 
+    @Field(() => String)
     @Column("text", { nullable: true })
     transcription?: string
 
+    @Field(() => [String])
     @Column("text", { array: true })
     tags!: string[]
 
     @Column("jsonb")
     meanings!: Meaning[]
 
+    @Field(() => Date)
     @Column('timestamp with time zone',
         { nullable: false, default: () => 'CURRENT_TIMESTAMP' })
     created!: Date

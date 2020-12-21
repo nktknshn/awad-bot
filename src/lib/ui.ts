@@ -36,7 +36,18 @@ export class UI {
     async handleMessage(ctx: TelegrafContext) {
         let deleteMessage = true
 
-        async function callHandler(idx: number, inputHandlers: InputHandler[], data: InputHandlerData): Promise<void | boolean> {
+        async function callHandler(
+            idx: number,
+            inputHandlers: InputHandler[],
+            data: InputHandlerData
+        ): Promise<void | boolean> {
+
+            console.log(`callHandler(${idx})`);
+            
+            if(idx > inputHandlers.length - 1) {
+                return
+            }
+
             return inputHandlers[idx].callback(
                 data,
                 () => callHandler(idx + 1, inputHandlers, data)
@@ -87,7 +98,7 @@ export class UI {
 
         // console.log(`this.renderedElements`);
         for (const el of this.renderedElements) {
-            if (el instanceof BotMessage) {
+            if (el.kind === 'BotMessage') {
                 // console.log(`BotMessage(${el.textMessage.text})`);
             } else {
                 // console.log(`${el.constructor.name}`);
@@ -95,7 +106,7 @@ export class UI {
         }
 
         for (const el of this.renderedElements) {
-            if (el instanceof BotMessage) {
+            if (el.kind ===  'BotMessage') {
                 // console.log(`Checking BotMessage(${el.textMessage.text})`);
                 if (await el.textMessage.callback(action)) {
                     // console.log(`Callbacked`);
@@ -104,7 +115,7 @@ export class UI {
             }
         }
 
-        if (callbackTo && callbackTo instanceof BotMessage) {
+        if (callbackTo && callbackTo.kind === 'BotMessage') {
             // callbackTo.textMessage.callback(action)
             // await ctx.answerCbQuery()
 
@@ -130,14 +141,18 @@ export class UI {
         } else {
             this.isRendering = true
 
-            const { messages, handlers, effects, keyboards } = componentToMessagesAndHandlers(component)
+            const {
+                messages,
+                handlers,
+                effects,
+                keyboards
+            } = componentToMessagesAndHandlers(component)
 
             if (!messages.length)
                 console.error(`Empty messages!`)
 
             console.log(`effects: ${effects}`);
 
-           
             console.log('Rendering Started')
 
             // if (keyboards.length) {
@@ -150,7 +165,6 @@ export class UI {
             //     )
             // }
 
-
             const actions = getTask(this.renderedElements, messages)
 
             for (const action of actions) {
@@ -159,8 +173,8 @@ export class UI {
 
             for (const action of actions) {
 
-                if (action instanceof Actions.Create) {
-                    if (action.newElement instanceof TextMessage)
+                if (action.kind === 'Create') {
+                    if (action.newElement.kind === 'TextMessage')
                         rendered.push(
                             new BotMessage(
                                 action.newElement,
@@ -170,7 +184,7 @@ export class UI {
                                 )
                             )
                         )
-                    else if (action.newElement instanceof FileElement)
+                    else if (action.newElement.kind === 'FileElement')
                         rendered.push(
                             new BotDocumentMessage(
                                 action.newElement,
@@ -178,8 +192,8 @@ export class UI {
                             )
                         )
                 }
-                else if (action instanceof Actions.Leave) {
-                    if (action.newElement instanceof TextMessage)
+                else if (action.kind === 'Keep') {
+                    if (action.newElement.kind === 'TextMessage')
                         rendered.push(new BotMessage(
                             action.newElement, action.element.message
                         ))
@@ -188,11 +202,11 @@ export class UI {
                     //         action.newElement, action.element.message
                     //     ))
                 }
-                else if (action instanceof Actions.Remove) {
+                else if (action.kind === 'Remove') {
                     this.renderer.delete(action.element.message.message_id)
                 }
-                else if (action instanceof Actions.Replace) {
-                    if (action.newElement instanceof TextMessage)
+                else if (action.kind === 'Replace') {
+                    if (action.newElement.kind === 'TextMessage')
                         rendered.push(
                             new BotMessage(
                                 action.newElement,
@@ -208,7 +222,7 @@ export class UI {
             }
 
             for (const handler of handlers) {
-                if (handler instanceof InputHandler)
+                if (handler.kind === 'InputHandler')
                     this.inputHandlers.push(handler)
             }
 

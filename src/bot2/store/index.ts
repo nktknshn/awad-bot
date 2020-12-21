@@ -5,6 +5,7 @@ import pathReducer from './path'
 import trainerReducer from './trainer'
 import userReducer from './user'
 import settingsReducer from './settings'
+import miscReducer from './misc'
 import thunk from 'redux-thunk';
 
 // type Actions = 
@@ -14,6 +15,7 @@ const rootReducer = combineReducers({
     path: pathReducer,
     trainer: trainerReducer,
     settings: settingsReducer,
+    misc: miscReducer
 })
 
 export type RootState = ReturnType<typeof rootReducer>

@@ -5,7 +5,10 @@ import { enumerateListOfLists, flattenList } from "./util"
 
 export type Element = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
 
+type Kinds = 'TextMessage' | 'InputHandler' | 'ActionsHandler' | 'Effect' | 'FileElement'
+
 export class Effect {
+    kind: 'Effect' = 'Effect'
     constructor(
         readonly callback: () => Promise<void>
     ) { }
@@ -13,13 +16,14 @@ export class Effect {
 
 
 export class TextMessage {
+    kind: 'TextMessage' = 'TextMessage'
     constructor(
         readonly text?: string,
         readonly buttons: ButtonElement[][] = [],
         readonly keyboardButtons: (RequestLocationButton | Keyboard)[] = [],
         readonly isComplete = false
     ) { }
-    
+
     complete() {
         return new TextMessage(
             this.text,
@@ -92,47 +96,45 @@ export class TextMessage {
 
 
 export class ActionsHandler {
+    kind: 'ActionsHandler' = 'ActionsHandler'
     constructor(
         readonly callback: (input: string) => Promise<void>
-    ) {
-
-    }
+    ) { }
 }
 
+
+
 export class InputHandler {
+    kind: 'InputHandler' = 'InputHandler'
     constructor(
         readonly callback: (
             input: InputHandlerData,
             next: () => Promise<boolean | void>
         ) => Promise<boolean | void>
-    ) {
-    }
+    ) { }
 }
 
 export type RenderedElement = UserMessage | BotMessage | BotDocumentMessage
 
 export class UserMessage {
+    kind: 'UserMessage' = 'UserMessage'
     constructor(
         readonly message: IncomingMessage,
-    ) {
-
-    }
+    ) { }
 }
 
 export class BotMessage {
+    kind: 'BotMessage' = 'BotMessage'
     constructor(
         readonly textMessage: TextMessage,
         readonly message: Message,
-    ) {
-
-    }
+    ) { }
 }
 
 export class BotDocumentMessage {
+    kind: 'BotDocumentMessage'= 'BotDocumentMessage'
     constructor(
         readonly element: FileElement,
         readonly message: MessageDocument,
-    ) {
-
-    }
+    ) { }
 }

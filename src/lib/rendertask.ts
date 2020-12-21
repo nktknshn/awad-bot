@@ -93,22 +93,26 @@ function compareFunc(a: RenderedElement, b: MsgType) {
 }
 
 export namespace Actions {
-    export class Leave {
+    export class Keep {
+        kind: 'Keep' = 'Keep'
         constructor(readonly element: RenderedElement, readonly newElement: MsgType) { }
     }
     export class Replace {
+        kind: 'Replace' = 'Replace'
         constructor(readonly element: RenderedElement, readonly newElement: MsgType) { }
     }
     export class Remove {
+        kind: 'Remove' = 'Remove'
         constructor(readonly element: RenderedElement) { }
     }
     export class Create {
+        kind: 'Create' = 'Create'
         constructor(readonly newElement: MsgType) { }
     }
 }
 
 
-export type Actions = Actions.Leave | Actions.Replace | Actions.Remove | Actions.Create
+export type Actions = Actions.Keep | Actions.Replace | Actions.Remove | Actions.Create
 
 export function getTask(renderedElements: RenderedElement[], nextElements: MsgType[]) {
 
@@ -119,7 +123,7 @@ export function getTask(renderedElements: RenderedElement[], nextElements: MsgTy
         nextElements,
         compareFunc,
         (leaveThis, leaveThat) => {
-            actions.push(new Actions.Leave(leaveThis, leaveThat))
+            actions.push(new Actions.Keep(leaveThis, leaveThat))
         },
         (replaceThis, withThat) => {
             actions.push(new Actions.Replace(replaceThis, withThat))
@@ -134,55 +138,3 @@ export function getTask(renderedElements: RenderedElement[], nextElements: MsgTy
 
     return actions
 }
-
-// export async function renderGenerator(
-//     renderedElements: RenderedElement[] = [],
-//     messages: MsgType[],
-// ) {
-//     renderedElements = [...renderedElements]
-
-//     const inputHandlers: InputHandler[] = []
-//     const nextRenderedElements = []
-
-//     const actions = getTask(renderedElements, messages)
-
-//     return actions
-//     // for (const renderable of messages) {
-//     //     if (renderable instanceof TextMessage) {
-//     //         nextRenderedElements.push(renderable)
-//     //     }
-//     //     else if (renderable instanceof FileElement) {
-//     //         nextRenderedElements.push(renderable)
-//     //     }
-//     // }
-
-//     // for(const nextElement of nextRenderedElements) {
-//     // for(const renderedElement of renderedElements) {
-//     // if (renderedElement instanceof BotMessage) {
-//     //     if(areSame(renderedElement.textMessage, nextElement)) {
-//     //     }
-//     // }
-//     // if(areSame(renderedElement.message, nextElement)) {
-
-//     // }
-//     // }
-//     // }
-
-//     // for (const el of [...messages, ...handlers, ...effects]) {
-//     //     if (el instanceof TextMessage) {
-
-//     //     }
-//     //     else if (el instanceof FileElement) {
-
-//     //     }
-//     //     else if (el instanceof InputHandler) {
-//     //         inputHandlers.push(el)
-//     //     }
-//     //     else if (el instanceof ActionsHandler) {
-
-//     //     }
-//     //     else if (el instanceof Effect) {
-//     //         await el.callback()
-//     //     }
-//     // }
-// }

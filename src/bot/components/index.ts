@@ -1,7 +1,7 @@
 import { WordEntity } from "../../database/entity/word"
 import { UserEntity } from "../../database/entity/user"
-import { makeCardText } from "../utils"
 import { Message } from "../ui/chatui/elements"
+import { makeCardText } from "../parsing"
 
 export function WordsListMessage(props: { words: WordEntity[] }) {
     return [

@@ -18,13 +18,13 @@ export const createChatCreator = (services: Services): ChatFactory =>
         const ui = new UI(renderer)
         const renderFunc = createRenderFunc(ui, App)
 
+        const store = createStore(services)
         let user = await services.getUser(ctx.chat?.id!)
 
         if (!user) {
             user = await services.createUser(dtoFromCtx(ctx))
         }
 
-        const store = createStore(services)
         const update = () => renderFunc(stateToProps(store, ui, services))
 
         if (user.renderedMessagesIds && user.renderedMessagesIds.length) {

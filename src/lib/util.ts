@@ -142,3 +142,38 @@ export function textColumns(col1: string[], col2: string[], col1Width = 20): str
 
     return result
 }
+
+export function partitate<T>(
+    items: T[],
+    predicate: (v: T) => boolean
+) {
+    let left = []
+    let right = []
+
+    for (const v of items) {
+        if (predicate(v))
+            left.push(v)
+        else
+            right.push(v)
+    }
+
+    return [left, right] as const
+}
+
+// export function contains() {
+// 
+// }
+
+export function toggleItem<T>(items: T[], item: T) {
+    const _items = [...items]
+
+    const idx = _items.indexOf(item)
+
+    if(idx > -1) {
+        _items.splice(idx, 1)
+    } else {
+        _items.push(item)
+    }
+
+    return _items
+}
