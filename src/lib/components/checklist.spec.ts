@@ -1,6 +1,6 @@
 import { CheckList, CheckListBody } from "./checklist"
 import { ComponentGenerator } from "../types"
-import { componentToElements, componentToMessagesAndHandlers } from "../component"
+import { componentToElements, elementsToMessagesAndHandlers } from "../component"
 
 
 function componentToArray(comp: ComponentGenerator) {
@@ -26,7 +26,7 @@ test('checklist', () => {
     })
     
     console.log(
-        componentToMessagesAndHandlers(comp)
+        elementsToMessagesAndHandlers(comp)
     );
     
 })

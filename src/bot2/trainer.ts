@@ -5,8 +5,9 @@ import { array, shuffle, parseCallbackData, takeRandom, takeLast } from "../bot/
 import { flattenList } from "../lib/util"
 import { button, buttonsRow, message } from "../lib/helpers"
 // import { TrainerCard, TrainerState } from "./state"
-import { ComponentGenerator } from "../lib/types"
+import { Component, ComponentGenerator } from "../lib/types"
 import { TrainerCard, TrainerState } from "./store/trainer"
+import { UserEntityState, WordEntityState } from "./store/user"
 
 
 function trainer(word: WordEntity) {
@@ -15,14 +16,14 @@ function trainer(word: WordEntity) {
 
 
 export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
-    user: UserEntity,
+    user: UserEntityState,
     trainer: TrainerState,
     onRedirect: (path: string) => Promise<void>,
     onUpdated: (trainer: TrainerState) => Promise<void>
 }) {
 
     const wordsWithMeanings = user.words.filter(_ => _.meanings.length)
-    const wordsToTrain: WordEntity[] = takeRandom(wordsWithMeanings, 3)
+    const wordsToTrain: WordEntityState[] = takeRandom(wordsWithMeanings, 3)
     const meanings = wordsWithMeanings.map(_ => _.meanings)
 
     const correctWord = wordsToTrain[0]
@@ -43,8 +44,8 @@ export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
         [...takeLast(trainer.cards, 5), card]
         .map(card =>
             card.answer
-                ? AnsweredTrainerCard(card)
-                : QuestioningTrainerCard({
+                ? Component(AnsweredTrainerCard)(card)
+                : Component(QuestioningTrainerCard)({
                     correctWord,
                     wrongs,
                     onCorrect: async () => {

@@ -1,9 +1,9 @@
 import { TelegrafContext } from "telegraf/typings/context"
 import { areSameTextMessages, parseFromContext } from "./bot-util"
-import { componentToMessagesAndHandlers } from "./component"
-import { RenderedElement, ActionsHandler, BotMessage, TextMessage, InputHandler } from "./elements"
+import { elementsToMessagesAndHandlers } from "./component"
+import { RenderedElement, ActionsHandler, BotMessage, TextMessage, InputHandler } from "./parts"
 import { Renderer } from "./render"
-import { ComponentGenerator } from "./types"
+import { ComponentGenerator, SimpleElement } from "./types"
 import { emptyMessage, zip } from "./util"
 
 type SpawnedComponent = {
@@ -40,11 +40,11 @@ export class LinearUI {
     }
 
     async spawnComponent(
-        component: ComponentGenerator,
+        elements: SimpleElement[],
         target?: SpawnedComponent
     ) {
         const { messages, handlers, effects } =
-            componentToMessagesAndHandlers(component)
+            elementsToMessagesAndHandlers(elements)
 
         const spawnedComponent: SpawnedComponent = {
             elements: [],

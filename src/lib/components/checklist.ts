@@ -1,4 +1,5 @@
 import { input, message, messagePart } from "../helpers"
+import { Component } from "../types"
 import { enumerate, partitate } from "../util"
 
 export function* CheckList({
@@ -6,8 +7,8 @@ export function* CheckList({
     onClick,
     selectedIds = []
 }: CheckListProps & OnClick<number>) {
-    yield CheckListInput({ items, selectedIds, onClick })
-    yield CheckListBody({ items, selectedIds })
+    yield Component(CheckListInput)({ items, selectedIds, onClick })
+    yield Component(CheckListBody)({ items, selectedIds })
 }
 
 export type CheckListProps = {

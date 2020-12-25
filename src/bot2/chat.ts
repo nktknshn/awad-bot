@@ -1,11 +1,14 @@
 import { QueuedChat } from "../lib/chat";
 import { ChatFactory } from "../lib/chatshandler";
-import { createRenderer, createRenderFunc, messageTrackingRenderer } from "../lib/render";
+import { createRenderer, messageTrackingRenderer } from "../lib/render";
 import { UI } from "../lib/ui";
 import { dtoFromCtx, Services } from "./services";
 import { createStore } from "./store";
 import { updateUser } from "./store/user";
-import { App, stateToProps } from './app'
+import { App, AppProps, stateToProps } from './app'
+import { Component, ComponentWithState } from "../lib/types";
+import { assignStateTree, componentToTree, copyStateTree, extractStateTree, getRenderFromTree, printStateTree, printTree, printZippedTree, renderTree, StateTree, Tree, zipTreeWithStateTree } from "../lib/tree";
+import { equal, ObjectHelper } from "../lib/util3dparty";
 
 export const createChatCreator = (services: Services): ChatFactory =>
     async ctx => {
@@ -16,7 +19,84 @@ export const createChatCreator = (services: Services): ChatFactory =>
         )
 
         const ui = new UI(renderer)
-        const renderFunc = createRenderFunc(ui, App)
+        const root = ComponentWithState(App)
+        // const tree = componentToTree(root)
+
+        let state: {
+            tree?: Tree,
+            prevStateTree?: StateTree,
+            nextStateTree?: StateTree,
+            lastProps?: AppProps
+        } = {
+
+        }
+
+        const renderFunc = async (props: AppProps) => {
+            console.log(`renderFunc`)
+
+            if (state.tree && equal(
+                state.prevStateTree,
+                state.nextStateTree
+            ) && equal(props, state.lastProps)) {
+                console.log(`Props and state are same`);
+                await ui.renderGenerator(getRenderFromTree(state.tree))
+                return
+            }
+
+            if (state.prevStateTree && state.nextStateTree && state.tree) {
+
+                console.log('Something changed')
+                console.log('state.prevStateTree');
+                printStateTree(state.prevStateTree)
+// 
+                console.log()
+                console.log('state.nextStateTree');
+                printStateTree(state.nextStateTree)
+
+                console.log()
+                console.log('state.tree');
+                printTree(state.tree)
+                
+                const prevTree = assignStateTree(state.tree, state.prevStateTree)
+
+                console.log()
+                console.log('prevTree');
+
+                printTree(prevTree)
+
+                const zipped = zipTreeWithStateTree(prevTree, state.nextStateTree)
+
+
+                console.log()
+                console.log('zipped');
+                printZippedTree(zipped)
+
+                console.log('renderTree');
+                state.tree = renderTree(zipped, root(props))
+
+                console.log()
+                console.log('state.tree');
+                printTree(state.tree)
+                // const elements = getRenderFromTree(newTree)
+                // await ui.renderGenerator(elements)
+            }
+            else {
+                console.log('First draw!')
+                state.tree = componentToTree(root(props))
+                // printTree(state.tree)
+            }
+
+            state.lastProps = ObjectHelper.deepCopy(props)
+            state.prevStateTree = copyStateTree(state.tree)
+            state.nextStateTree = extractStateTree(state.tree)
+
+            const elements = getRenderFromTree(state.tree)
+
+            // console.log('elements');
+            // console.log(elements);
+
+            await ui.renderGenerator(elements)
+        }
 
         const store = createStore(services)
         let user = await services.getUser(ctx.chat?.id!)
@@ -63,6 +143,8 @@ export const createChatCreator = (services: Services): ChatFactory =>
                 } else {
                     await ui.handleMessage(ctx)
                 }
+
+                await update()
             },
             async handleAction(ctx) {
 
@@ -71,6 +153,8 @@ export const createChatCreator = (services: Services): ChatFactory =>
 
                 console.log(`handleAction ${ctx.match![0]}`)
                 await ui.handleAction(ctx)
+                await update()
+
             },
         })
     }

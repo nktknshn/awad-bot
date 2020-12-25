@@ -26,7 +26,8 @@ export function createStore(services: Services) {
         middleware: getDefaultMiddleware({
             thunk: { extraArgument: services },
             serializableCheck: false
-        }).concat(logger)
+        })
+        // .concat(logger)
     })
 
 }

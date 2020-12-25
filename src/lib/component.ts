@@ -1,38 +1,37 @@
-import { ActionsHandler, Effect, InputHandler, TextMessage } from "./elements"
-import { TextElement, ButtonElement, ButtonsRowElement, ComponentGenerator, RequestLocationButton, FileElement, Keyboard, ComponentElement, TextElementPart, NextMessage, isGenerator } from "./types"
+import { ActionsHandler, Effect, InputHandler, TextMessage } from "./parts"
+import { TextElement, ButtonElement, ButtonsRowElement, ComponentGenerator, RequestLocationButton, FileElement, Keyboard, Element, TextElementPart, NextMessage, isGenerator, SimpleElement, isComponentElement } from "./types"
 import { lastItem } from "./util"
 
 export type MsgType = (TextMessage | FileElement)
 
-export function componentToElements(component: ComponentGenerator): ComponentElement[] {
-    let elementsList: ComponentElement[] = []
+// export function componentToElements(component: ComponentGenerator): SimpleElement[] {
+//     let elementsList: SimpleElement[] = []
 
-    for (const compel of component) {
-        if (Symbol.iterator in Object(compel)) {
-            elementsList = [
-                ...elementsList,
-                ...componentToElements(compel as ComponentGenerator)
-            ]
-        } else {
-            elementsList.push(compel)
-        }
-    }
+//     for (const compel of component) {
+//         if (isComponentElement(compel)) {
+//             elementsList = [
+//                 ...elementsList,
+//                 ...componentToElements(compel)
+//             ]
+//         } else {
+//             elementsList.push(compel)
+//         }
+//     }
 
-    return elementsList
-}
+//     return elementsList
+// }
 
 type Handler = InputHandler | ActionsHandler
 
-type MessagesAndHandlers = { 
-    messages: MsgType[], 
-    handlers: Handler[], 
-    effects: Effect[], 
+type MessagesAndHandlers = {
+    messages: MsgType[],
+    handlers: Handler[],
+    effects: Effect[],
     keyboards: Keyboard[]
 }
 
-export function componentToMessagesAndHandlers(
-    component: ComponentGenerator,
-    parentIndex = 0
+export function elementsToMessagesAndHandlers(
+    elements: SimpleElement[],
 ): MessagesAndHandlers {
 
     console.log(`componentToMessagesAndHandlers`);
@@ -43,7 +42,10 @@ export function componentToMessagesAndHandlers(
     let effects: Effect[] = []
     let keyboards: Keyboard[] = []
 
-    const lastMessage = () => {
+    const lastMessage = (): {
+        idx: number,
+        message: TextMessage
+    } => {
         const res = filterMapTextMessages(messages)
         if (!res.length) {
             const message = new TextMessage()
@@ -58,40 +60,52 @@ export function componentToMessagesAndHandlers(
         }
     }
 
+    const setLastMessage = (message: TextMessage) => {
+        // lastMessage()
+        messages[messages.length - 1] = message
+    }
+
     const firstMessage = () => {
         const res = filterTextMessages(messages)
         return res[0]
     }
 
-    for (const compel of componentToElements(component)) {
-        console.log(`compel: ${compel.constructor.name}`)
-        
-        if (isGenerator(compel)) {
-            const res = componentToMessagesAndHandlers(compel, index)
+    for (const compel of elements) {
+        // console.log(`compel: ${compel.constructor.name}`)
 
-            messages = [...messages, ...res.messages]
-            handlers = [...handlers, ...res.handlers]
-            effects = [...effects, ...res.effects]
-            keyboards = [...keyboards, ...res.keyboards]
-        }
-        else if (compel.kind === 'InputHandler') {
+        // if (isGenerator(compel)) {
+        //     const res = elementsToMessagesAndHandlers(compel)
+
+        //     messages = [...messages, ...res.messages]
+        //     handlers = [...handlers, ...res.handlers]
+        //     effects = [...effects, ...res.effects]
+        //     keyboards = [...keyboards, ...res.keyboards]
+        // }
+        // else 
+        if (compel.kind === 'InputHandler') {
             handlers.push(compel)
         }
         else if (compel.kind === 'ActionsHandler') {
             handlers.push(compel)
         }
         else if (compel.kind === 'RequestLocationButton') {
-            if (!lastMessage()) {
-                messages.push(new TextMessage())
-            }
+            // if (!lastMessage()) {
+            //     messages.push(new TextMessage())
+            // }
 
-            lastMessage().message.addKeyboardButton(compel)
+            setLastMessage(
+                lastMessage().message.addKeyboardButton(compel)
+            )
         }
         else if (compel.kind === 'ButtonElement') {
-            lastMessage().message.addButton(compel)
+            setLastMessage(
+                lastMessage().message.addButton(compel)
+            )
         }
         else if (compel.kind === 'ButtonsRowElement') {
-            lastMessage().message.addButtonsRow(compel)
+            setLastMessage(
+                lastMessage().message.addButtonsRow(compel)
+            )
         }
         else if (compel.kind === 'TextElement') {
             messages.push(new TextMessage(compel.text))
@@ -100,14 +114,16 @@ export function componentToMessagesAndHandlers(
         else if (compel.kind === 'TextElementPart') {
             const { message, idx } = lastMessage()
             if (!message.isComplete)
-                messages[idx] = message.concatText(compel.text)
+                setLastMessage(message.concatText(compel.text))
+            // messages[idx] = message.concatText(compel.text)
             else
                 messages.push(new TextMessage(compel.text))
             continue
         }
         else if (compel.kind === 'NextMessage') {
             const { message, idx } = lastMessage()
-            messages[idx] = message.complete()
+            // messages[idx] = message.complete()
+            setLastMessage(message.complete())
             continue
         }
         else if (compel.kind === 'Effect') {
@@ -146,7 +162,6 @@ export function componentToMessagesAndHandlers(
 export function filterTextMessages(messages: MsgType[]) {
     return messages.filter((_): _ is TextMessage => _.kind === 'TextMessage')
 }
-
 
 import { filterMapWithIndex } from 'fp-ts/Array'
 import { some, none } from 'fp-ts/Option'

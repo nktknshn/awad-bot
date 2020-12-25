@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit"
 import { DeepPartial } from "typeorm"
 import { RootState } from "."
-import { Card } from "../../bot/interfaces"
+import { Card, Meaning } from "../../bot/interfaces"
 import { CardUpdate } from "../../bot/parsing"
 import { UserEntity } from "../../database/entity/user"
 import { WordEntity } from "../../database/entity/word"
@@ -13,15 +13,34 @@ import { getUser, getUserId } from "./selectors"
 //     user?: UserEntity
 // }
 
+// (new UserEntity()).
+
+export interface WordEntityState {
+    id: number
+    created: Date,
+    theword: string,
+    tags: string[]
+    meanings: Meaning[],
+    transcription?: string
+}
+// (new WordEntity())
+
+export interface UserEntityState {
+    id: string,
+    created: Date,
+    renderedMessagesIds: number[],
+    words: WordEntityState[]
+}
+
 // const initialState: UserState = {}
-const initialState: UserEntity | undefined = undefined
+const initialState: UserEntityState | undefined = undefined
 
 type API = {
     state: RootState
     extra: Services
 }
 
-export const fetchUser = createAsyncThunk<UserEntity | undefined, number, API>(
+export const fetchUser = createAsyncThunk<UserEntityState | undefined, number, API>(
     'user/fetch',
     async (chatId: number, { extra: services, getState }) => {
         const user = await services.getUser(chatId)
@@ -42,7 +61,7 @@ export const fetchUser = createAsyncThunk<UserEntity | undefined, number, API>(
 // )
 
 export const addWord = createAsyncThunk<
-    UserEntity | undefined,
+    UserEntityState | undefined,
     Card,
     API
 >(
@@ -68,8 +87,8 @@ export const addWord = createAsyncThunk<
 
 
 export const updateWord = createAsyncThunk<
-    UserEntity | undefined,
-    { word: WordEntity, update: CardUpdate },
+    UserEntityState | undefined,
+    { word: WordEntityState, update: CardUpdate },
     API
 >(
     'user/updateWord',
@@ -85,8 +104,8 @@ export const updateWord = createAsyncThunk<
 
 
 export const saveWord = createAsyncThunk<
-    UserEntity | undefined,
-    { word: WordEntity, card: Card },
+    UserEntityState | undefined,
+    { word: WordEntityState, card: Card },
     API
 >(
     'user/saveWord',
@@ -109,8 +128,8 @@ export const saveWord = createAsyncThunk<
 )
 
 export const deleteWord = createAsyncThunk<
-    UserEntity | undefined,
-    WordEntity,
+    UserEntityState | undefined,
+    WordEntityState,
     API
 >(
     'user/deleteWord',
@@ -125,8 +144,8 @@ export const deleteWord = createAsyncThunk<
 )
 
 export const addExample = createAsyncThunk<
-    UserEntity | undefined,
-    { word: WordEntity, example: string },
+    UserEntityState | undefined,
+    { word: WordEntityState, example: string },
     API
 >(
     'user/addExample',
@@ -159,9 +178,9 @@ export const addExample = createAsyncThunk<
 
 const userSlice = createSlice({
     name: 'user',
-    initialState: null as UserEntity | null,
+    initialState: null as UserEntityState | null,
     reducers: {
-        updateUser: (state, action: PayloadAction<UserEntity>) => {
+        updateUser: (state, action: PayloadAction<UserEntityState>) => {
             return action.payload
         }
     },

@@ -16,11 +16,11 @@ export interface Renderer {
     file(f: InputFile): Promise<MessageDocument>
 }
 
-export const createRenderFunc = <P>(ui: UI, app: AppType<P>) =>
-    (props: P) =>
-        ui.renderGenerator(
-            app(props)
-        )
+// export const createRenderFunc = <P>(ui: UI, app: AppType<P>) =>
+//     (props: P) =>
+//         ui.renderGenerator(
+//             app(props)
+//         )
 
 
 export const createRenderer = (ctx: TelegrafContext): Renderer => ({
@@ -30,7 +30,7 @@ export const createRenderer = (ctx: TelegrafContext): Renderer => ({
         targetMessage?: Message,
         removeTarget?: boolean
     ) {
-        console.log(`renderer.message(${text}, extra=${extra}, targetMessage=${targetMessage}), removeTarget=${removeTarget}`);
+        // console.log(`renderer.message(${text}, extra=${extra}, targetMessage=${targetMessage}), removeTarget=${removeTarget}`);
 
         if (targetMessage) {
 

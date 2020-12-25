@@ -1,12 +1,11 @@
 import { createStore } from "redux";
-import { createAction, createReducer, createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { UserEntity } from "../../database/entity/user";
-import { WordEntity } from "../../database/entity/word";
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { WordEntityState } from "./user";
 
 
 export interface TrainerCard {
-    correctWord: WordEntity,
-    wrongs: WordEntity[],
+    correctWord: WordEntityState,
+    wrongs: WordEntityState[],
     answer?: number
 }
 

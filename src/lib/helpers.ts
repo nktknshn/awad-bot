@@ -1,6 +1,6 @@
 import { Markup } from "telegraf"
 import { InputFile } from "telegraf/typings/telegram-types"
-import { ActionsHandler, Effect, InputHandler } from "./elements"
+import { ActionsHandler, Effect, InputHandler } from "./parts"
 import { ButtonElement, ButtonsRowElement, TextElement, InputHandlerData, RequestLocationButton, FileElement, TextElementPart, NextMessage } from "./types"
 
 

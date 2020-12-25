@@ -2,14 +2,16 @@
 import { parseCard, parseCardUpdate, parseExample } from "../../bot/parsing"
 import { WordEntity } from "../../database/entity/word"
 import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/helpers"
+import { Component } from "../../lib/types"
 import { Getter, PathQuery } from "../../lib/util"
 import { AppProps } from "../app"
+import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
 
 function* CardPageInput({
     word,
     onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppProps, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity }) {
+}: Getter<AppProps, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState }) {
     yield input(async ({ messageText }, next) => {
         if (!messageText) {
             return
@@ -61,9 +63,9 @@ function* CardPageInput({
 export function* CardPage({
     user, word, path, query,
     onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppProps, 'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntity, query?: PathQuery, path: string }) {
+}: Getter<AppProps, 'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState, query?: PathQuery, path: string }) {
 
-    yield CardPageInput({
+    yield Component(CardPageInput)({
         word,
         onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
     })
@@ -97,7 +99,7 @@ export function* CardPage({
         }
     )
 
-    yield Card({ word })
+    yield Component(Card)({ word })
 
     if (rename) {
         yield input(({ messageText }) =>

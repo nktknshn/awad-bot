@@ -4,16 +4,19 @@ import { textColumns, zip } from "../../lib/util";
 import { splitAt } from 'fp-ts/Array';
 import { sortBy } from 'fp-ts/Array';
 import { ord, ordString } from 'fp-ts/Ord';
+import { Component } from "../../lib/types";
+import { WordEntityState } from "../store/user";
 
 
 // export function paginated
 
 const sortByWord = sortBy(
-    [ord.contramap(ordString, (w: WordEntity) => w.theword)]
+    [ord.contramap(ordString, (w: WordEntityState) => w.theword)]
 );
 
+
 export function* WordsList({ words, columns = 1 }: {
-    words: WordEntity[];
+    words: WordEntityState[];
     columns?: 1 | 2;
 }) {
     words = [...words];
@@ -40,3 +43,4 @@ export function* WordsList({ words, columns = 1 }: {
         }
     }
 }
+

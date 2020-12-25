@@ -1,9 +1,9 @@
 import deq from 'fast-deep-equal';
 import { TelegrafContext } from "telegraf/typings/context";
-import { componentToMessagesAndHandlers, filterTextMessages } from './component';
-import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, Element, InputHandler, RenderedElement, TextMessage, UserMessage } from "./elements";
+import { elementsToMessagesAndHandlers, filterTextMessages } from './component';
+import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, Element, InputHandler, RenderedElement, TextMessage, UserMessage } from "./parts";
 import { Renderer } from './render';
-import { ComponentGenerator, FileElement, InputHandlerData } from "./types";
+import { ComponentGenerator, FileElement, InputHandlerData, SimpleElement } from "./types";
 import { parseFromContext } from './bot-util'
 import { emptyMessage, enumerate, lastItem, pairs } from './util';
 import { Actions, getTask } from './rendertask';
@@ -25,7 +25,7 @@ export class UI {
 
     isRendering = false
 
-    renderQueue: ComponentGenerator[] = []
+    renderQueue: SimpleElement[][] = []
 
     inputHandlers: InputHandler[] = []
 
@@ -43,8 +43,8 @@ export class UI {
         ): Promise<void | boolean> {
 
             console.log(`callHandler(${idx})`);
-            
-            if(idx > inputHandlers.length - 1) {
+
+            if (idx > inputHandlers.length - 1) {
                 return
             }
 
@@ -96,30 +96,32 @@ export class UI {
             _ => _.message.message_id == repliedTo
         )
 
-        // console.log(`this.renderedElements`);
-        for (const el of this.renderedElements) {
-            if (el.kind === 'BotMessage') {
-                // console.log(`BotMessage(${el.textMessage.text})`);
-            } else {
-                // console.log(`${el.constructor.name}`);
-            }
-        }
+        if (callbackTo && callbackTo.kind === 'BotMessage') {
+            await callbackTo.textMessage.callback(action)
+            await ctx.answerCbQuery()
 
-        for (const el of this.renderedElements) {
-            if (el.kind ===  'BotMessage') {
-                // console.log(`Checking BotMessage(${el.textMessage.text})`);
-                if (await el.textMessage.callback(action)) {
-                    // console.log(`Callbacked`);
-                    await ctx.answerCbQuery()
+        }
+        else {
+            // console.log(`this.renderedElements`);
+            for (const el of this.renderedElements) {
+                if (el.kind === 'BotMessage') {
+                    // console.log(`BotMessage(${el.textMessage.text})`);
+                } else {
+                    // console.log(`${el.constructor.name}`);
+                }
+            }
+
+            for (const el of this.renderedElements) {
+                if (el.kind === 'BotMessage') {
+                    // console.log(`Checking BotMessage(${el.textMessage.text})`);
+                    if (await el.textMessage.callback(action)) {
+                        // console.log(`Callbacked`);
+                        await ctx.answerCbQuery()
+                    }
                 }
             }
         }
 
-        if (callbackTo && callbackTo.kind === 'BotMessage') {
-            // callbackTo.textMessage.callback(action)
-            // await ctx.answerCbQuery()
-
-        }
         // else if (repliedTo) {
         //     try {
         //         await this.renderer.delete(repliedTo)
@@ -129,7 +131,7 @@ export class UI {
         // }
     }
 
-    async renderGenerator(component: ComponentGenerator) {
+    async renderGenerator(elements: SimpleElement[]) {
         this.inputHandler = undefined
         this.actionHandler = undefined
         this.inputHandlers = []
@@ -137,7 +139,7 @@ export class UI {
         let rendered: RenderedElement[] = []
 
         if (this.isRendering) {
-            this.renderQueue.push(component)
+            this.renderQueue.push(elements)
         } else {
             this.isRendering = true
 
@@ -146,7 +148,7 @@ export class UI {
                 handlers,
                 effects,
                 keyboards
-            } = componentToMessagesAndHandlers(component)
+            } = elementsToMessagesAndHandlers(elements)
 
             if (!messages.length)
                 console.error(`Empty messages!`)

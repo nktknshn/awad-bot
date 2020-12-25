@@ -10,7 +10,8 @@ async function main() {
 
     if (!process.env.BOT_TOKEN) {
         console.error('Missing BOT_TOKEN')
-        return
+        process.env.BOT_TOKEN = '1143675669:AAHuxg4qz_fA993sELhJulHyNJLVWeGvsUc'
+        // return
     }
     const connection = await createConnection()
 

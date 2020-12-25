@@ -1,6 +1,6 @@
 import { areSameTextMessages } from "./bot-util";
-import { componentToMessagesAndHandlers, MsgType } from "./component";
-import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, InputHandler, RenderedElement, TextMessage, UserMessage } from "./elements";
+import { elementsToMessagesAndHandlers, MsgType } from "./component";
+import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, InputHandler, RenderedElement, TextMessage, UserMessage } from "./parts";
 import { ComponentGenerator, FileElement } from "./types";
 
 export function createRenderTasks<T, B>(
@@ -32,42 +32,42 @@ export function createRenderTasks<T, B>(
         // console.log(`r=${r} n=${n}`);
 
         if (n === undefined) {
-            console.log(`delete r=${r} n=${n}`);
+            // console.log(`delete r=${r} n=${n}`);
             result.splice(idx, 1)
             idx -= 1
             actionDelete(r)
         }
         else if (r === undefined) {
-            console.log(`create n=${n}`);
+            // console.log(`create n=${n}`);
             // result.push(r)
             actionCreate(n)
             continue
         }
         else if (compareFunc(r, n)) {
-            console.log(`skip r=${r} n=${n}`);
+            // console.log(`skip r=${r} n=${n}`);
             actionLeave(r, n)
         }
         else if (
             present.findIndex(v => compareFunc(v, n)) > idx
         ) {
-            console.log(`delete r=${r} n=${n}`);
+            // console.log(`delete r=${r} n=${n}`);
             result.splice(idx, 1)
             next = [n, ...next]
             idx -= 1
             actionDelete(r)
         }
         else if (present.findIndex(v => compareFunc(v, next[0])) > idx) {
-            console.log(`replace r=${r} n=${n}`);
+            // console.log(`replace r=${r} n=${n}`);
             actionReplace(r, n)
             // result[idx] = n
         }
         else if (next[0] === undefined) {
-            console.log(`replace r=${r} n=${n}`);
+            // console.log(`replace r=${r} n=${n}`);
             actionReplace(r, n)
             // result[idx] = n
         }
         else {
-            console.log(`replace r=${r} n=${n}`);
+            // console.log(`replace r=${r} n=${n}`);
             actionReplace(r, n)
             // result[idx] = n
         }

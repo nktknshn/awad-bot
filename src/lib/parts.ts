@@ -5,7 +5,7 @@ import { enumerateListOfLists, flattenList } from "./util"
 
 export type Element = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
 
-type Kinds = 'TextMessage' | 'InputHandler' | 'ActionsHandler' | 'Effect' | 'FileElement'
+// type Kinds = 'TextMessage' | 'InputHandler' | 'ActionsHandler' | 'Effect' | 'FileElement'
 
 export class Effect {
     kind: 'Effect' = 'Effect'
@@ -13,7 +13,6 @@ export class Effect {
         readonly callback: () => Promise<void>
     ) { }
 }
-
 
 export class TextMessage {
     kind: 'TextMessage' = 'TextMessage'
@@ -76,17 +75,41 @@ export class TextMessage {
     }
 
     addKeyboardButton(btn: RequestLocationButton) {
-        this.keyboardButtons.push(btn)
+        // this.keyboardButtons.push(btn)
+        return new TextMessage(
+            this.text,
+            [...this.buttons],
+            [...this.keyboardButtons, btn],
+            this.isComplete
+        )
     }
 
     addButton(btn: ButtonElement) {
-        if (!this.buttons.length) {
-            this.buttons.push([])
+        let buttons = [...this.buttons.map(_ => [..._])]
+
+        if (!buttons.length) {
+            buttons.push([])
         }
-        this.buttons[0].push(btn)
+
+        buttons[0].push(btn)
+
+        return new TextMessage(
+            this.text,
+            buttons,
+            this.keyboardButtons
+        )
+
     }
     addButtonsRow(btns: ButtonsRowElement) {
-        this.buttons.push(btns.buttons)
+        // this.buttons.push(btns.buttons)
+        let buttons = [...this.buttons.map(_ => [..._])]
+        buttons.push(btns.buttons)
+        
+        return new TextMessage(
+            this.text,
+            buttons,
+            this.keyboardButtons
+        )
     }
 
     // addKeyboard(kbd: Keyboard) {

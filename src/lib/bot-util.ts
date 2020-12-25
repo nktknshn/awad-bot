@@ -1,5 +1,5 @@
 import { TelegrafContext } from 'telegraf/typings/context'
-import { TextMessage } from './elements';
+import { TextMessage } from './parts';
 import deq from 'fast-deep-equal';
 
 

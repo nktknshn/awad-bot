@@ -10,17 +10,20 @@ import { Services } from "./services";
 import { createStore, RootState } from "./store";
 import { redirect } from "./store/path";
 import { TrainerState, updateTrainer } from "./store/trainer";
-import { addWord, saveWord, updateWord, addExample, deleteWord } from "./store/user";
+import { addWord, saveWord, updateWord, addExample, deleteWord, UserEntityState, WordEntityState } from "./store/user";
 import { Trainer } from "./trainer";
 import { AppSettings, setColumns, updateSettings } from "./store/settings";
 // import { Card as CardComponent } from "./components/Card";
 import { CardPage } from "./components/CardPage";
 import { WordsList } from "./components/WordsList";
 import { Settings } from "./components/Settings";
-import { ComponentGenerator } from "../lib/types";
+import { Component, ComponentGenerator, ComponentWithState, GetSetState } from "../lib/types";
 import { useState } from "./mystore/state";
 import { CheckList } from "../lib/components/checklist";
 import { toggleIndex } from "./store/misc";
+import { ParsedUrlQuery } from "querystring";
+import { map, none, some, toUndefined } from "fp-ts/lib/Option";
+import { pipe } from "fp-ts/lib/function";
 
 export type AppProps = RootState & AppActions
 
@@ -28,10 +31,10 @@ type AppActions = {
     onRedirect: (path: string) => Promise<any>
     onCard: (card: Card) => Promise<any>
     onUpdatedTrainer: (trainer: TrainerState) => Promise<any>
-    onUpdateWord: (word: WordEntity, update: CardUpdate) => Promise<any>,
-    onReplaceWord: (word: WordEntity, card: Card) => Promise<any>,
-    onAddExample: (word: WordEntity, example: string) => Promise<any>,
-    onDeleteWord: (word: WordEntity) => Promise<any>,
+    onUpdateWord: (word: WordEntityState, update: CardUpdate) => Promise<any>,
+    onReplaceWord: (word: WordEntityState, card: Card) => Promise<any>,
+    onAddExample: (word: WordEntityState, example: string) => Promise<any>,
+    onDeleteWord: (word: WordEntityState) => Promise<any>,
     onUpdateSettings: (settings: Partial<AppSettings>) => Promise<any>,
     onToggleOption: (idx: number) => Promise<any>,
 }
@@ -99,16 +102,95 @@ function* AppInput({ onRedirect, onCard }: Getter<AppProps, 'onRedirect', 'onCar
 //     return comp(props)
 // }
 
+const tryKey = (key: string, query?: ParsedUrlQuery) =>
+    (query && key in query && query[key] !== undefined) ? some(query[key]) : none
+
+type SomeFormProps = {
+    n: number,
+    m: number,
+    onSuccess: (selectedItems: string[]) => Promise<void>,
+    onCancel: () => Promise<void>,
+}
+type SomeFormState = { selectedItems: string[] }
+
+function* SomeForm(
+    { n, m, onSuccess, onCancel }: SomeFormProps,
+    { getState, setState }: GetSetState<SomeFormState>
+) {
+
+    const values = [...range(0, m)].map(String)
+
+    const { selectedItems } = getState({
+        selectedItems: [...range(0, n)].map(_ => values[0])
+    })
+
+    for (const idx of range(0, n)) {
+        yield Component(StatelessRadio)({
+            values,
+            currentValue: selectedItems[idx],
+            onChange: (value) => {
+                selectedItems[idx] = value
+                setState({ selectedItems })
+            }
+        })
+    }
+
+    yield message(`selectedItems: ${selectedItems.join(', ')}`)
+    yield buttonsRow(
+        ['Ok', 'Cancel'], async (idx, data) =>
+        data == 'Ok' ? onSuccess(selectedItems) : onCancel()
+    )
+    yield nextMessage()
+
+}
+
+function* StatelessRadio(
+    { values, currentValue, onChange }: {
+        values: string[],
+        currentValue: string,
+        onChange: (value: string) => void
+    }
+) {
+    yield message('choose')
+    yield radioRow(values, async (idx, data) => onChange(data), currentValue)
+    yield nextMessage()
+}
+
+function* StatefulRadio(
+    { values, onSuccess }: {
+        values: string[],
+        onSuccess: (value: string) => void
+    },
+    { getState, setState }: GetSetState<{ currentValue: string }>
+) {
+
+    const { currentValue } = getState({ currentValue: values[0] })
+
+    yield message('choose')
+
+    yield radioRow(values,
+        async (idx, data) => {
+            setState({ currentValue: data })
+        }, currentValue)
+
+    yield button('Ok', async () => onSuccess(currentValue))
+
+    yield nextMessage()
+}
+
+
 export function* App({
     user, path, trainer, settings, misc,
-    onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer, 
+    onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer,
     onAddExample, onDeleteWord, onUpdateSettings, onToggleOption
-}: AppProps) {
-    
+}: AppProps,
+    { getState, setState }: GetSetState<{ showForm: boolean }>
+) {
+
+    const { showForm } = getState({ showForm: true })
+
     const { pathname, query } = parsePath(path)
-    const titleMessage = query && 'message' in query
-        ? String(query['message'])
-        : undefined
+    const titleMessage = pipe(tryKey('message', query), map(String), toUndefined)
 
     console.log(`Rendering App ${pathname} ${JSON.stringify(query)}`);
 
@@ -117,14 +199,25 @@ export function* App({
         return
     }
 
+    // if (showForm)
+    //     yield ComponentWithState(SomeForm)({
+    //         m: 5, n: 5,
+    //         onSuccess: async (values) => setState({
+    //             showForm: false
+    //         }),
+    //         onCancel: async () => setState({
+    //             showForm: false
+    //         })
+    //     })
+
     if (pathname == 'main') {
         // yield component(AppInput, { onRedirect, onCard })
 
-        yield AppInput({ onRedirect, onCard })
-        yield MainMenu({ user, titleMessage, onRedirect })
+        yield Component(AppInput)({ onRedirect, onCard })
+        yield Component(MainMenu)({ user, titleMessage, onRedirect })
     }
     else if (pathname == 'components') {
-        yield CheckList({
+        yield Component(CheckList)({
             items: [
                 'option one',
                 'second option',
@@ -146,16 +239,16 @@ export function* App({
         yield effect(() => onRedirect('main?message=not_ready'))
     }
     else if (pathname == 'trainer') {
-        yield Trainer({ user, trainer, onRedirect, onUpdated: onUpdatedTrainer })
+        yield Component(Trainer)({ user, trainer, onRedirect, onUpdated: onUpdatedTrainer })
     }
     else if (pathname == 'settings') {
-        yield Settings({ settings, onUpdateSettings })
+        yield Component(Settings)({ settings, onUpdateSettings })
         yield button('Back', () => onRedirect('main'))
     }
     else if (pathname == 'words' || pathname == '/words') {
-        yield AppInput({ onRedirect, onCard })
-        yield WordsList({ words: user.words, columns: settings.columns })
-        yield WordsListSettings({ showFilters: true })
+        yield Component(AppInput)({ onRedirect, onCard })
+        yield Component(WordsList)({ words: user.words, columns: settings.columns })
+        yield Component(WordsListSettings)({ showFilters: true })
         yield button('Back', () => onRedirect('main'))
     }
     else if (pathname && parseCommand(pathname)) {
@@ -165,10 +258,10 @@ export function* App({
             if (word) {
                 console.log(`Card page for ${word.id}`);
 
-                yield AppInput({ onRedirect, onCard })
-                yield WordsList({ words: user.words, columns: settings.columns })
+                yield Component(AppInput)({ onRedirect, onCard })
+                yield Component(WordsList)({ words: user.words, columns: settings.columns })
                 yield button('Back', () => onRedirect('words'))
-                yield CardPage({
+                yield Component(CardPage)({
                     user, word, query, path: pathname,
                     onReplaceWord, onUpdateWord, onAddExample,
                     onDeleteWord, onRedirect
@@ -180,9 +273,8 @@ export function* App({
     }
 }
 
-
 function* MainMenu({ user, onRedirect, titleMessage }: {
-    user: UserEntity,
+    user: UserEntityState,
     titleMessage?: string,
     onRedirect: (path: string) => Promise<void>
 }) {
@@ -224,7 +316,7 @@ export function* WordsListSettings({ showFilters = true }: WordsListSettingsProp
     //     yield message('FILTERS')
 
     if (showFilters) {
-        yield WordListFilters({ enabledFilter: 'All' })
+        yield Component(WordListFilters)({ enabledFilter: 'All' })
     }
 }
 
