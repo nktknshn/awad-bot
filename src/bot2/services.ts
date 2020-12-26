@@ -13,7 +13,7 @@ function userEntityToState(user: UserEntity): UserEntityState {
         id: user.id,
         created: user.created,
         renderedMessagesIds: user.renderedMessagesIds,
-        words: user.words.map(wordEntityToState)
+        words: (user.words ?? []).map(wordEntityToState)
     }
 }
 

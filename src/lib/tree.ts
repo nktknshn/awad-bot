@@ -70,7 +70,7 @@ export function extractStateTree(tree: Tree): StateTree {
     return [state, childrenState]
 }
 
-const str = (value: any) => JSON.stringify(value).slice(0, 50)
+const str = (value: any) => JSON.stringify(value)
 
 
 export function unzipState(tree: ZippedTree): Tree {
@@ -197,7 +197,7 @@ export function componentToTree(component: ComponentElement, stateTree?: StateTr
         },
         setState: async (updates: State['value']) => {
             console.log(`${component.comp.name}.setState(${str(updates)}). Current: ${str(state.value)}`)
-            state.value = updates
+            state.value = { ...state.value, ...updates }
         }
     }
 

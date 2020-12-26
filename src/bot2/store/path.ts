@@ -4,7 +4,7 @@ type PathState = string | null
 
 const pathSlice = createSlice({
     name: 'path',
-    initialState: '/w_38',
+    initialState: '/words',
     reducers: {
         redirect(state, action: PayloadAction<string>) {
             return action.payload

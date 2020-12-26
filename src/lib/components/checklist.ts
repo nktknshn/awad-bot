@@ -1,27 +1,53 @@
-import { input, message, messagePart } from "../helpers"
-import { Component } from "../types"
-import { enumerate, partitate } from "../util"
+import { button, input, message, messagePart } from "../helpers"
+import { Component, GetSetState } from "../types"
+import { enumerate, partitate, toggleItem } from "../util"
 
-export function* CheckList({
-    items,
-    onClick,
-    selectedIds = []
-}: CheckListProps & OnClick<number>) {
-    yield Component(CheckListInput)({ items, selectedIds, onClick })
-    yield Component(CheckListBody)({ items, selectedIds })
-}
+type OnClick<T> = { onClick: (arg: T) => Promise<void> }
+type OnUpdate<T> = { onUpdate: (arg: T) => Promise<void> }
+
 
 export type CheckListProps = {
     items: string[],
-    selectedIds: number[]
 }
 
-type OnClick<T> = { onClick: (arg: T) => Promise<void> }
+export function* CheckListStateless({
+    items, selectedIds, onClick
+}: {
+    items: string[],
+    selectedIds: number[]
+} & OnClick<number>) {
+    yield Component(CheckListInput)({ items, selectedIds, onClick })
+    yield Component(CheckListBody)({ items, selectedIds })
+    // yield button('Confirm', () => onClick(selectedIds))
+}
+
+export function* CheckList(
+    {
+        items, onClick, onUpdate
+    }: CheckListProps & OnClick<number[]> & OnUpdate<number[]>,
+    { getState, setState }: GetSetState<{
+        selectedIds: number[]
+    }>
+) {
+    const { selectedIds } = getState({ selectedIds: [] })
+
+    yield Component(CheckListInput)({
+        items, selectedIds, onClick: async (id) => {
+            setState({
+                selectedIds: toggleItem(selectedIds, id)
+            })
+        }
+    })
+    yield Component(CheckListBody)({ items, selectedIds })
+    yield button('Confirm', () => onClick(selectedIds))
+}
+
+
 
 export function* CheckListInput({
     items,
     onClick
-}: CheckListProps & OnClick<number>) {
+}: CheckListProps & OnClick<number> & { selectedIds: number[] }) {
     yield input(async ({ messageText }, next) => {
         if (messageText) {
             const p = parseCommandAndId(messageText)
@@ -42,7 +68,7 @@ export function* CheckListInput({
 export function* CheckListBody({
     items,
     selectedIds = []
-}: CheckListProps) {
+}: CheckListProps & { selectedIds: number[] }) {
 
     const [selected, other] = partitate(
         enumerate(items),
@@ -55,7 +81,7 @@ export function* CheckListBody({
     for (const [idx, item] of selected) {
         yield messagePart(`${item}     /opt_${idx}`)
     }
-    
+
     yield messagePart(``)
     yield messagePart(`Not selected:`)
     yield messagePart(``)

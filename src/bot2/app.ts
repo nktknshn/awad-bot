@@ -5,7 +5,7 @@ import { UserEntity } from "../database/entity/user";
 import { WordEntity } from "../database/entity/word";
 import { button, buttonsRow, effect, input, message, nextMessage, radioRow } from "../lib/helpers";
 import { UI } from "../lib/ui";
-import { Getter, lastItem, parsePath, PathQuery } from "../lib/util";
+import { flattenList, Getter, lastItem, parsePath, PathQuery, toggleItem } from "../lib/util";
 import { Services } from "./services";
 import { createStore, RootState } from "./store";
 import { redirect } from "./store/path";
@@ -19,11 +19,14 @@ import { WordsList } from "./components/WordsList";
 import { Settings } from "./components/Settings";
 import { Component, ComponentGenerator, ComponentWithState, GetSetState } from "../lib/types";
 import { useState } from "./mystore/state";
-import { CheckList } from "../lib/components/checklist";
+import { CheckList, CheckListStateless } from "../lib/components/checklist";
 import { toggleIndex } from "./store/misc";
 import { ParsedUrlQuery } from "querystring";
-import { map, none, some, toUndefined } from "fp-ts/lib/Option";
+import { none, some, toUndefined, map as mapOpt } from "fp-ts/lib/Option";
 import { pipe } from "fp-ts/lib/function";
+import { uniq, map, flatten, sort } from "fp-ts/lib/Array";
+import { eqString } from "fp-ts/lib/Eq";
+import { ordString } from "fp-ts/lib/Ord";
 
 export type AppProps = RootState & AppActions
 
@@ -190,7 +193,7 @@ export function* App({
     const { showForm } = getState({ showForm: true })
 
     const { pathname, query } = parsePath(path)
-    const titleMessage = pipe(tryKey('message', query), map(String), toUndefined)
+    const titleMessage = pipe(tryKey('message', query), mapOpt(String), toUndefined)
 
     console.log(`Rendering App ${pathname} ${JSON.stringify(query)}`);
 
@@ -216,22 +219,23 @@ export function* App({
         yield Component(AppInput)({ onRedirect, onCard })
         yield Component(MainMenu)({ user, titleMessage, onRedirect })
     }
-    else if (pathname == 'components') {
-        yield Component(CheckList)({
-            items: [
-                'option one',
-                'second option',
-                'and third one',
-                'also 4th',
-                'lenovo thinkpad'
-            ],
-            selectedIds: misc.selectedIds,
-            onClick: async index => {
-                await onToggleOption(index)
-            }
-        })
-        yield button('Back', () => onRedirect('main'))
-    }
+    // else if (pathname == 'components') {
+    //     yield ComponentWithState(CheckList)({
+    //         items: [
+    //             'option one',
+    //             'second option',
+    //             'and third one',
+    //             'also 4th',
+    //             'lenovo thinkpad'
+    //         ],
+    //         // selectedIds: misc.selectedIds,
+    //         onClick: async index => {
+    //             console.log(index);
+    //             // await onToggleOption(index)
+    //         }
+    //     })
+    //     yield button('Back', () => onRedirect('main'))
+    // }
     else if (pathname == 'stats') {
         yield effect(() => onRedirect('main?message=not_ready'))
     }
@@ -247,9 +251,10 @@ export function* App({
     }
     else if (pathname == 'words' || pathname == '/words') {
         yield Component(AppInput)({ onRedirect, onCard })
-        yield Component(WordsList)({ words: user.words, columns: settings.columns })
-        yield Component(WordsListSettings)({ showFilters: true })
-        yield button('Back', () => onRedirect('main'))
+
+        yield ComponentWithState(WordsPage)({ user, settings, onRedirect })
+        // yield Component(WordsList)({ words: user.words, columns: settings.columns })
+        // yield Component(WordsListSettings)({ showFilters: true })
     }
     else if (pathname && parseCommand(pathname)) {
         const [cmdPath, id] = parseCommand(pathname)!
@@ -271,6 +276,93 @@ export function* App({
             }
         }
     }
+    else {
+        yield effect(() => onRedirect('main?message=not_ready'))
+    }
+}
+
+type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
+
+interface WordsPageState {
+    currentFilter: WordListFiltersType
+    filteredTags: string[]
+    openedWord?: WordEntityState
+    showTagsPicker: boolean
+}
+
+function containsAll<T>(subset: T[], set: T[]) {
+    for (const item of subset) {
+        if (set.indexOf(item) == -1) {
+            return false
+        }
+    }
+    return true
+}
+
+function filterTags(words: WordEntityState[], tags: string[]) {
+    return words.filter(_ => containsAll(tags, _.tags))
+}
+
+function getAllTags(words: WordEntityState[]) {
+    // const tags = flattenList(words.map(_ => _.tags))
+    // uniq(tags)()
+
+    return pipe(words, map(_ => _.tags), flatten, uniq(eqString), sort(ordString))
+}
+
+function* WordsPage(
+    { user, settings, onRedirect }: Getter<AppProps, 'user', 'settings', 'onRedirect'>,
+    { getState, setState }: GetSetState<WordsPageState>
+) {
+
+    if (!user)
+        return
+
+    const { currentFilter, filteredTags, showTagsPicker } = getState({
+        currentFilter: 'All',
+        filteredTags: [],
+        showTagsPicker: false
+    })
+
+    const allTags = getAllTags(user.words)
+    let words = user.words
+
+    if (currentFilter == 'All') {
+        words = user.words
+    }
+    else if (currentFilter === 'No meanings') {
+        words = user.words.filter(_ => !_.meanings.length)
+    }
+    else if (currentFilter === 'By tag') {
+        words = filterTags(user.words, filteredTags)
+    }
+
+    yield Component(WordsList)({ words, columns: settings.columns })
+
+    yield radioRow(
+        ['All', 'No meanings', 'By tag'],
+        async (idx, data) => {
+            setState({
+                currentFilter: data as WordListFiltersType,
+                showTagsPicker: data == 'By tag'
+            })
+        },
+        currentFilter
+    )
+
+    if (showTagsPicker) {
+        yield nextMessage()
+        yield Component(CheckListStateless)({
+            items: allTags,
+            selectedIds: pipe(filteredTags, map(_ => allTags.indexOf(_))),
+            onClick: (idx) => setState({
+                filteredTags: toggleItem(filteredTags, allTags[idx])
+            })
+        })
+        yield button('Ok', () => setState({ showTagsPicker: false }))
+    }
+
+    yield button('Back', () => onRedirect('main'))
 }
 
 function* MainMenu({ user, onRedirect, titleMessage }: {
@@ -307,35 +399,35 @@ type WordsListSettingsProps = {
     showFilters: boolean
 }
 
-export function* WordsListSettings({ showFilters = true }: WordsListSettingsProps) {
+// export function* WordsListSettings({ showFilters = true }: WordsListSettingsProps) {
 
-    // const [showFilters, setShowFilters] = useState(false)
-    // const [page, setPage] = useState(0)
+//     // const [showFilters, setShowFilters] = useState(false)
+//     // const [page, setPage] = useState(0)
 
-    // if (showFilters())
-    //     yield message('FILTERS')
+//     // if (showFilters())
+//     //     yield message('FILTERS')
 
-    if (showFilters) {
-        yield Component(WordListFilters)({ enabledFilter: 'All' })
-    }
-}
+//     if (showFilters) {
+//         yield Component(WordListFilters)({ enabledFilter: 'All' })
+//     }
+// }
 
-type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
+// type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
 
 type WordListFiltersProps = {
     enabledFilter: WordListFiltersType
 }
 
-export function* WordListFilters({
-    enabledFilter
-}: WordListFiltersProps) {
-    yield radioRow(
-        [
-            'All', 'No meanings', 'By tag'
-        ],
-        async (idx, data) => {
+// export function* WordListFilters({
+//     enabledFilter
+// }: WordListFiltersProps & OnClick<string>) {
+//     yield radioRow(
+//         [
+//             'All', 'No meanings', 'By tag'
+//         ],
+//         async (idx, data) => {
 
-        },
-        enabledFilter
-    )
-}
+//         },
+//         enabledFilter
+//     )
+// }
