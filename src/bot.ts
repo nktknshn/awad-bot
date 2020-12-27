@@ -8,7 +8,7 @@ import { Card as ICard } from './bot/interfaces'
 import { parseCard } from './bot/parsing'
 import { Root, Row, Element } from './bot/ui/chatui/types'
 import { Buttons, OnInput } from './bot/ui/chatui/elements'
-import { getRandom, parseCommand } from './bot/utils'
+import { getRandom, parseWordId } from './bot/utils'
 import { UserEntity } from './database/entity/user'
 import { WordEntity } from './database/entity/word'
 import { ChatUI } from './bot/ui/chatui/chatui'
@@ -61,7 +61,7 @@ async function renderUI(props: {
             if (card)
                 await props.onCard(card)
 
-            else if (parseCommand(text)) {
+            else if (parseWordId(text)) {
                 await props.onRedirect(text)
             }
         })
@@ -93,7 +93,7 @@ async function renderUI(props: {
                 ...header
             ]
         default:
-            const path_cmd = parseCommand(props.path)
+            const path_cmd = parseWordId(props.path)
 
             if (path_cmd) {
                 const [path, id] = path_cmd

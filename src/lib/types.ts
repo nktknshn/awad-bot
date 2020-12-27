@@ -15,7 +15,7 @@ export type Element = SimpleElement | ComponentElement
 
 export function isComponentElement(el: Element): el is ComponentElement {
     return 'comp' in el
-} 
+}
 
 export type InputHandlerData = ReturnType<typeof parseFromContext>
 
@@ -29,42 +29,91 @@ export type ComponentGenerator = Generator<Element, void, void>
 
 type CompConstructor<P> = ((props: P) => ComponentGenerator)
 
-type CompConstructorWithState<P, S = never> = (props: P, getset: GetSetState<S>) => ComponentGenerator
+export type CompConstructorWithState<P, S = never> =
+    (props: P, getset: GetSetState<S>) => ComponentGenerator
 
 export interface ComponentStateless<P> {
-    comp: CompConstructor<P>
+    cons: CompConstructor<P>
     props: P,
     kind: 'component'
 }
 
 export interface ComponentWithState<P, S = never> {
-    comp: CompConstructorWithState<P, S>
+    cons: CompConstructorWithState<P, S>
     props: P,
     kind: 'component-with-state'
+}
+
+type Diff<T, U> = T extends U ? never : T
+
+export type Subtract<T1 extends T2, T2> = {
+    [P in Diff<keyof T1, keyof T2>]: T1[P]
+}
+
+export interface ComponentConnected<P extends M, S, M, RootState> {
+    cons: CompConstructorWithState<P, S>
+    mapper: (state: RootState) => M
+    props: Subtract<P, M>
+    kind: 'component-with-state-connected'
 }
 
 export type ComponentElement =
     | ComponentStateless<any>
     | ComponentWithState<any, any>
+    | ComponentConnected<any, any, any, any>
 
 
-export function Component<P>(comp: CompConstructor<P>) {
-    return function (props: P): ComponentStateless<P> {
+// export function Component<P>(comp: CompConstructor<P>) {
+//     return function (props: P): ComponentStateless<P> {
+//         return {
+//             comp,
+//             props,
+//             kind: 'component'
+//         }
+//     }
+// }
+
+export function Component<P, S>(cons: CompConstructorWithState<P, S>) {
+    return function (props: P): ComponentWithState<P, S> {
         return {
-            comp,
+            cons,
             props,
-            kind: 'component'
+            kind: 'component-with-state'
         }
     }
 }
 
+// export function Component<P, S>(comp: CompConstructorWithState<P, S>) {
+//     return function (props: P): ComponentWithState<P, S> {
+//         return {
+//             comp,
+//             props,
+//             kind: 'component-with-state'
+//         }
+//     }
+// }
 
-export function ComponentWithState<P, S>(comp: CompConstructorWithState<P, S>) {
+
+export function ComponentWithState<P, S>(cons: CompConstructorWithState<P, S>) {
     return function (props: P): ComponentWithState<P, S> {
         return {
-            comp,
+            cons,
             props,
             kind: 'component-with-state'
+        }
+    }
+}
+
+export function ConnectedComp<P extends M, S, M, State>(
+    cons: CompConstructorWithState<P, S>,
+    mapper: (state: State) => M,
+): (props: Subtract<P, M>) => ComponentConnected<P, S, M, State> {
+    return function (props: Subtract<P, M>): ComponentConnected<P, S, M, State> {
+        return {
+            cons,
+            props,
+            mapper,
+            kind: 'component-with-state-connected'
         }
     }
 }

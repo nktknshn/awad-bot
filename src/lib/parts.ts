@@ -3,7 +3,7 @@ import { ExtraReplyMessage, IncomingMessage, Message, MessageDocument } from "te
 import { ButtonElement, ButtonsRowElement, FileElement, InputHandlerData, Keyboard, RequestLocationButton } from "./types"
 import { enumerateListOfLists, flattenList } from "./util"
 
-export type Element = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
+export type Part = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
 
 // type Kinds = 'TextMessage' | 'InputHandler' | 'ActionsHandler' | 'Effect' | 'FileElement'
 
@@ -75,7 +75,6 @@ export class TextMessage {
     }
 
     addKeyboardButton(btn: RequestLocationButton) {
-        // this.keyboardButtons.push(btn)
         return new TextMessage(
             this.text,
             [...this.buttons],
@@ -101,20 +100,15 @@ export class TextMessage {
 
     }
     addButtonsRow(btns: ButtonsRowElement) {
-        // this.buttons.push(btns.buttons)
         let buttons = [...this.buttons.map(_ => [..._])]
         buttons.push(btns.buttons)
-        
+
         return new TextMessage(
             this.text,
             buttons,
             this.keyboardButtons
         )
     }
-
-    // addKeyboard(kbd: Keyboard) {
-
-    // }
 }
 
 

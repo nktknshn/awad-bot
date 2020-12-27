@@ -1,5 +1,5 @@
 import { WordEntity } from "../../database/entity/word";
-import { message, messagePart } from "../../lib/helpers";
+import { message, messagePart } from "../../lib/constructors";
 import { textColumns, zip } from "../../lib/util";
 import { splitAt } from 'fp-ts/Array';
 import { sortBy } from 'fp-ts/Array';

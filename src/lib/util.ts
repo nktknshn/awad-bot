@@ -1,6 +1,7 @@
 import * as url from 'url'
 import * as querystring from 'querystring'
 import { replicate } from 'fp-ts/Array'
+import { none, some } from 'fp-ts/lib/Option'
 
 type Piper<T,
     A extends keyof T,
@@ -177,3 +178,7 @@ export function toggleItem<T>(items: T[], item: T) {
 
     return _items
 }
+
+
+export const tryKey = (key: string, query?: querystring.ParsedUrlQuery) =>
+    (query && key in query && query[key] !== undefined) ? some(query[key]) : none

@@ -65,7 +65,7 @@ export function parseCallbackData(data: string) {
     return [cmd, Number.parseInt(n)] as const
 }
 
-export function parseCommand(text: string) {
+export function parseWordId(text: string) {
     if (text[0] != '/')
         return
 

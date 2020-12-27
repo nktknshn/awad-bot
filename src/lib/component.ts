@@ -3,24 +3,6 @@ import { TextElement, ButtonElement, ButtonsRowElement, ComponentGenerator, Requ
 import { lastItem } from "./util"
 
 export type MsgType = (TextMessage | FileElement)
-
-// export function componentToElements(component: ComponentGenerator): SimpleElement[] {
-//     let elementsList: SimpleElement[] = []
-
-//     for (const compel of component) {
-//         if (isComponentElement(compel)) {
-//             elementsList = [
-//                 ...elementsList,
-//                 ...componentToElements(compel)
-//             ]
-//         } else {
-//             elementsList.push(compel)
-//         }
-//     }
-
-//     return elementsList
-// }
-
 type Handler = InputHandler | ActionsHandler
 
 type MessagesAndHandlers = {
@@ -61,7 +43,6 @@ export function elementsToMessagesAndHandlers(
     }
 
     const setLastMessage = (message: TextMessage) => {
-        // lastMessage()
         messages[messages.length - 1] = message
     }
 
@@ -71,17 +52,6 @@ export function elementsToMessagesAndHandlers(
     }
 
     for (const compel of elements) {
-        // console.log(`compel: ${compel.constructor.name}`)
-
-        // if (isGenerator(compel)) {
-        //     const res = elementsToMessagesAndHandlers(compel)
-
-        //     messages = [...messages, ...res.messages]
-        //     handlers = [...handlers, ...res.handlers]
-        //     effects = [...effects, ...res.effects]
-        //     keyboards = [...keyboards, ...res.keyboards]
-        // }
-        // else 
         if (compel.kind === 'InputHandler') {
             handlers.push(compel)
         }
@@ -89,10 +59,6 @@ export function elementsToMessagesAndHandlers(
             handlers.push(compel)
         }
         else if (compel.kind === 'RequestLocationButton') {
-            // if (!lastMessage()) {
-            //     messages.push(new TextMessage())
-            // }
-
             setLastMessage(
                 lastMessage().message.addKeyboardButton(compel)
             )
@@ -115,19 +81,16 @@ export function elementsToMessagesAndHandlers(
             const { message, idx } = lastMessage()
             if (!message.isComplete)
                 setLastMessage(message.concatText(compel.text))
-            // messages[idx] = message.concatText(compel.text)
             else
                 messages.push(new TextMessage(compel.text))
             continue
         }
         else if (compel.kind === 'NextMessage') {
             const { message, idx } = lastMessage()
-            // messages[idx] = message.complete()
             setLastMessage(message.complete())
             continue
         }
         else if (compel.kind === 'Effect') {
-            // messages.push(compel)
             effects.push(compel)
             continue
         }
@@ -151,10 +114,6 @@ export function elementsToMessagesAndHandlers(
 
         index += 1
     }
-
-    // if(keyboards.length) {
-    //     firstMessage().addKeyboardButton(lastItem(keyboards)!)
-    // }
 
     return { messages, handlers, effects, keyboards }
 }

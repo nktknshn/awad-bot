@@ -3,11 +3,11 @@ import { ChatFactory } from "../lib/chatshandler";
 import { createRenderer, messageTrackingRenderer } from "../lib/render";
 import { UI } from "../lib/ui";
 import { dtoFromCtx, Services } from "./services";
-import { createStore } from "./store";
+import { createStore, RootState } from "./store";
 import { updateUser } from "./store/user";
-import { App, AppProps, stateToProps } from './app'
-import { Component, ComponentWithState } from "../lib/types";
-import { assignStateTree, componentToTree, copyStateTree, extractStateTree, getRenderFromTree, printStateTree, printTree, printZippedTree, renderTree, StateTree, Tree, zipTreeWithStateTree } from "../lib/tree";
+import { App, AppProps, MappedApp, stateToProps } from './app'
+import { Component, ComponentWithState, ConnectedComp } from "../lib/types";
+import { assignStateTree, componentToTree, copyPropsTree, copyStateTree, extractStateTree, getRenderFromTree, printStateTree, printTree, printZippedTree, PropsTree, renderTree, StateTree, Tree, zipTreeWithStateTree } from "../lib/tree";
 import { equal, ObjectHelper } from "../lib/util3dparty";
 
 export const createChatCreator = (services: Services): ChatFactory =>
@@ -19,27 +19,40 @@ export const createChatCreator = (services: Services): ChatFactory =>
         )
 
         const ui = new UI(renderer)
-        const root = ComponentWithState(App)
-        // const tree = componentToTree(root)
+
+        const root = ConnectedComp(MappedApp,
+            ({ path, user }: RootState) => ({
+                path,
+                userLoaded: !!user
+            }))
+
+        const store = createStore(services)
 
         let state: {
             tree?: Tree,
             prevStateTree?: StateTree,
             nextStateTree?: StateTree,
-            lastProps?: AppProps
-        } = {
-
-        }
+            lastProps?: PropsTree
+        } = {}
 
         const renderFunc = async (props: AppProps) => {
             console.log(`renderFunc`)
 
-            if (state.tree && equal(
-                state.prevStateTree,
-                state.nextStateTree
-            ) && equal(props, state.lastProps)) {
+            const stateTreeIsSame = state.tree
+                && equal(state.prevStateTree, state.nextStateTree)
+
+            const propsAreSame = state.tree
+                && equal(
+                    copyPropsTree(componentToTree(root(props),
+                        state.nextStateTree,
+                        store.getState())
+                    ),
+                    state.lastProps
+                )
+
+            if (stateTreeIsSame && propsAreSame) {
                 console.log(`Props and state are same`);
-                await ui.renderGenerator(getRenderFromTree(state.tree))
+                await ui.renderGenerator(getRenderFromTree(state.tree!))
                 return
             }
 
@@ -48,7 +61,7 @@ export const createChatCreator = (services: Services): ChatFactory =>
                 console.log('Something changed')
                 console.log('state.prevStateTree');
                 printStateTree(state.prevStateTree)
-// 
+
                 console.log()
                 console.log('state.nextStateTree');
                 printStateTree(state.nextStateTree)
@@ -56,7 +69,7 @@ export const createChatCreator = (services: Services): ChatFactory =>
                 console.log()
                 console.log('state.tree');
                 printTree(state.tree)
-                
+
                 const prevTree = assignStateTree(state.tree, state.prevStateTree)
 
                 console.log()
@@ -72,7 +85,7 @@ export const createChatCreator = (services: Services): ChatFactory =>
                 printZippedTree(zipped)
 
                 console.log('renderTree');
-                state.tree = renderTree(zipped, root(props))
+                state.tree = renderTree(zipped, root(props), store.getState())
 
                 console.log()
                 console.log('state.tree');
@@ -82,11 +95,11 @@ export const createChatCreator = (services: Services): ChatFactory =>
             }
             else {
                 console.log('First draw!')
-                state.tree = componentToTree(root(props))
+                state.tree = componentToTree(root(props), undefined, store.getState())
                 // printTree(state.tree)
             }
 
-            state.lastProps = ObjectHelper.deepCopy(props)
+            state.lastProps = copyPropsTree(state.tree)
             state.prevStateTree = copyStateTree(state.tree)
             state.nextStateTree = extractStateTree(state.tree)
 
@@ -98,7 +111,6 @@ export const createChatCreator = (services: Services): ChatFactory =>
             await ui.renderGenerator(elements)
         }
 
-        const store = createStore(services)
         let user = await services.getUser(ctx.chat?.id!)
 
         if (!user) {

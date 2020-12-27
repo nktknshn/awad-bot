@@ -1,223 +1,223 @@
-import { range } from "../bot/utils";
-import { UserEntity } from "../database/entity/user";
-import { WordEntity } from "../database/entity/word";
-import { ComponentGenerator, isGenerator, SimpleElement } from "../lib/types";
-import { zip } from "../lib/util";
-import { App } from "./app";
-import { WordsList } from "./components/WordsList";
-import { currentComponent } from "./mystore/state";
+// import { range } from "../bot/utils";
+// import { UserEntity } from "../database/entity/user";
+// import { WordEntity } from "../database/entity/word";
+// import { ComponentGenerator, isGenerator, SimpleElement } from "../lib/types";
+// import { zip } from "../lib/util";
+// import { App } from "./app";
+// import { WordsList } from "./components/WordsList";
+// import { currentComponent } from "./mystore/state";
 
 
-function word(dto: Partial<WordEntity>) {
-    const entity = new WordEntity()
+// function word(dto: Partial<WordEntity>) {
+//     const entity = new WordEntity()
 
-    for (const key of Object.keys(dto)) {
-        if ((<any>dto)[key]) {
-            (<any>entity)[key] = (<any>dto)[key]
-        }
-    }
+//     for (const key of Object.keys(dto)) {
+//         if ((<any>dto)[key]) {
+//             (<any>entity)[key] = (<any>dto)[key]
+//         }
+//     }
 
-    return entity
-}
+//     return entity
+// }
 
 
-// test('textColumns', () => {
+// // test('textColumns', () => {
 
-//     console.log(textColumns(
-//         ['apt', 'dilate', 'minute', 'ointment', 'scant', 'some new word'],
-//         ['/w_11', '/w_12', '/w_11', '/w_11', '/w_13', '/w_15'],
-//     ));
+// //     console.log(textColumns(
+// //         ['apt', 'dilate', 'minute', 'ointment', 'scant', 'some new word'],
+// //         ['/w_11', '/w_12', '/w_11', '/w_11', '/w_13', '/w_15'],
+// //     ));
+
+// // })
+
+
+
+// test('WordsList', () => {
+//     const elements = Array.from(WordsList({
+//         words: [
+//             word({ id: 1, theword: 'word' })
+//         ]
+//     }))
+
+//     console.log(elements);
 
 // })
 
+// type Tree = TreeElement[]
+// type TreeComponent = SimpleElement[]
+// type TreeElement = (SimpleElement | TreeComponent)
+
+// type StatefulTreeComponent = (SimpleElement | StatefulTree)[]
+// type StatefulTree = [any[], StatefulTreeComponent]
+
+// function getInitialTree(comp: ComponentGenerator): StatefulTree {
+//     const tree: TreeElement[] = []
+//     const old = currentComponent.current
+
+//     const state: any[] = []
+//     currentComponent.current = { state, index: 0 }
+
+//     for (const el of comp) {
+//         if (isGenerator(el)) {
+//             tree.push(
+//                 getInitialTree(el)
+//             )
+//         } else {
+//             tree.push(el)
+//         }
+//     }
+
+//     currentComponent.current = old
+
+//     return [state, tree]
+// }
+
+// function getTree(comp: ComponentGenerator, tree: StatefulTree): StatefulTree {
+//     const [state, _] = tree
+//     const old = currentComponent.current
+//     currentComponent.current = { state, index: 0 }
+
+//     const newTree: TreeElement[] = []
+
+//     for (const el of comp) {
+//         if (isGenerator(el)) {
+//             newTree.push(
+//                 // getTree(el)
+//             )
+//         } else {
+//             newTree.push(el)
+//         }
+//     }
+//     const newState = currentComponent.current.state
+//     currentComponent.current = old
+//     return [newState, tree]
+
+// }
 
 
-test('WordsList', () => {
-    const elements = Array.from(WordsList({
-        words: [
-            word({ id: 1, theword: 'word' })
-        ]
-    }))
+// const createWordEntity = (id: number, theword: string) => {
+//     const word = new WordEntity()
+//     word.id = id
+//     word.theword = theword
+//     return word
+// }
 
-    console.log(elements);
+// class RenderTreeComponentItem {
+//     constructor(public element: SimpleElement) { }
+// }
 
-})
+// class RenderTreeComponent {
+//     constructor(public items: RenderTreeItem[]) { }
+// }
 
-type Tree = TreeElement[]
-type TreeComponent = SimpleElement[]
-type TreeElement = (SimpleElement | TreeComponent)
+// type RenderTreeItem = RenderTreeComponent | RenderTreeComponentItem
 
-type StatefulTreeComponent = (SimpleElement | StatefulTree)[]
-type StatefulTree = [any[], StatefulTreeComponent]
-
-function getInitialTree(comp: ComponentGenerator): StatefulTree {
-    const tree: TreeElement[] = []
-    const old = currentComponent.current
-
-    const state: any[] = []
-    currentComponent.current = { state, index: 0 }
-
-    for (const el of comp) {
-        if (isGenerator(el)) {
-            tree.push(
-                getInitialTree(el)
-            )
-        } else {
-            tree.push(el)
-        }
-    }
-
-    currentComponent.current = old
-
-    return [state, tree]
-}
-
-function getTree(comp: ComponentGenerator, tree: StatefulTree): StatefulTree {
-    const [state, _] = tree
-    const old = currentComponent.current
-    currentComponent.current = { state, index: 0 }
-
-    const newTree: TreeElement[] = []
-
-    for (const el of comp) {
-        if (isGenerator(el)) {
-            newTree.push(
-                // getTree(el)
-            )
-        } else {
-            newTree.push(el)
-        }
-    }
-    const newState = currentComponent.current.state
-    currentComponent.current = old
-    return [newState, tree]
-
-}
+// type ComponentFunction<P> = (props: P) => ComponentGenerator
 
 
-const createWordEntity = (id: number, theword: string) => {
-    const word = new WordEntity()
-    word.id = id
-    word.theword = theword
-    return word
-}
+// function componentToRenderTree(component: ComponentGenerator) {
 
-class RenderTreeComponentItem {
-    constructor(public element: SimpleElement) { }
-}
+//     const tree: RenderTreeItem[] = []
 
-class RenderTreeComponent {
-    constructor(public items: RenderTreeItem[]) { }
-}
+//     for (const el of component) {
+//         if (isGenerator(el)) {
+//             tree.push(
+//                 componentToRenderTree(el)
+//             )
+//         }
+//         else {
+//             tree.push(
+//                 new RenderTreeComponentItem(el)
+//             )
+//         }
+//     }
 
-type RenderTreeItem = RenderTreeComponent | RenderTreeComponentItem
+//     return new RenderTreeComponentItem(tree)
+// }
 
-type ComponentFunction<P> = (props: P) => ComponentGenerator
+// function* Comp1({ a }: { a: number }) {
+//     yield a
+//     yield new Comp(Comp3, { a })
+// }
 
+// function* Comp2({ b }: { b: string }) {
+//     yield "aaa"
+//     yield new Comp(Comp1, { a: Number.parseInt(b) })
+//     yield 3
+// }
 
-function componentToRenderTree(component: ComponentGenerator) {
+// function* Comp3({ a }: { a: number }) {
+//     yield a
+// }
 
-    const tree: RenderTreeItem[] = []
+// class Comp<P> {
+//     constructor(
+//         public readonly func: (props: P) => ComponentGenerator,
+//         public readonly props: P
+//     ) { }
 
-    for (const el of component) {
-        if (isGenerator(el)) {
-            tree.push(
-                componentToRenderTree(el)
-            )
-        }
-        else {
-            tree.push(
-                new RenderTreeComponentItem(el)
-            )
-        }
-    }
+//     public instantiate = () => this.func(this.props)
+// }
 
-    return new RenderTreeComponentItem(tree)
-}
+// function* App2() {
+//     yield new Comp(Comp1, { a: 1 })
+//     yield new Comp(Comp2, { b: "b" })
+// }
 
-function* Comp1({ a }: { a: number }) {
-    yield a
-    yield new Comp(Comp3, { a })
-}
+// for (const comp of App2()) {
+//     for(const el of comp.instantiate()) {
+//         if(el instanceof Comp) {
+//             for(const subel of el.instantiate()) {
 
-function* Comp2({ b }: { b: string }) {
-    yield "aaa"
-    yield new Comp(Comp1, { a: Number.parseInt(b) })
-    yield 3
-}
+//             }
+//         } 
+//         else {
+//             el
+//         }
+//     }
+// }
 
-function* Comp3({ a }: { a: number }) {
-    yield a
-}
+// test('App', () => {
+//     const user = new UserEntity()
 
-class Comp<P> {
-    constructor(
-        public readonly func: (props: P) => ComponentGenerator,
-        public readonly props: P
-    ) { }
+//     user.id = '1'
+//     user.renderedMessagesIds = []
+//     user.words = [
+//         createWordEntity(1, 'aaa'),
+//         createWordEntity(2, 'bbb'),
+//     ]
 
-    public instantiate = () => this.func(this.props)
-}
+//     console.log(App.name);
 
-function* App2() {
-    yield new Comp(Comp1, { a: 1 })
-    yield new Comp(Comp2, { b: "b" })
-}
+//     const generator = () => App({
+//         user: user,
+//         path: "words",
+//         trainer: {
+//             cards: []
+//         },
+//         settings: {
+//             columns: 1
+//         },
+//         onCard: async () => { },
+//         onAddExample: async () => { },
+//         onDeleteWord: async () => { },
+//         onRedirect: async () => { },
+//         onReplaceWord: async () => { },
+//         onUpdateSettings: async () => { },
+//         onUpdateWord: async () => { },
+//         onUpdatedTrainer: async () => { },
+//     })
 
-for (const comp of App2()) {
-    for(const el of comp.instantiate()) {
-        if(el instanceof Comp) {
-            for(const subel of el.instantiate()) {
+//     console.log('generator made');
 
-            }
-        } 
-        else {
-            el
-        }
-    }
-}
+//     const tree = getInitialTree(generator())
 
-test('App', () => {
-    const user = new UserEntity()
+//     console.log(JSON.stringify(tree, null, 2));
 
-    user.id = '1'
-    user.renderedMessagesIds = []
-    user.words = [
-        createWordEntity(1, 'aaa'),
-        createWordEntity(2, 'bbb'),
-    ]
+//     (tree as any[])[1][2][0] = [true, 0]
 
-    console.log(App.name);
+//     console.log(JSON.stringify(tree, null, 2))
 
-    const generator = () => App({
-        user: user,
-        path: "words",
-        trainer: {
-            cards: []
-        },
-        settings: {
-            columns: 1
-        },
-        onCard: async () => { },
-        onAddExample: async () => { },
-        onDeleteWord: async () => { },
-        onRedirect: async () => { },
-        onReplaceWord: async () => { },
-        onUpdateSettings: async () => { },
-        onUpdateWord: async () => { },
-        onUpdatedTrainer: async () => { },
-    })
+//     console.log(JSON.stringify(getTree(generator(), tree), null, 2))
 
-    console.log('generator made');
-
-    const tree = getInitialTree(generator())
-
-    console.log(JSON.stringify(tree, null, 2));
-
-    (tree as any[])[1][2][0] = [true, 0]
-
-    console.log(JSON.stringify(tree, null, 2))
-
-    console.log(JSON.stringify(getTree(generator(), tree), null, 2))
-
-})
+// })

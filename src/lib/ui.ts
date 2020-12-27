@@ -1,7 +1,7 @@
 import deq from 'fast-deep-equal';
 import { TelegrafContext } from "telegraf/typings/context";
 import { elementsToMessagesAndHandlers, filterTextMessages } from './component';
-import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, Element, InputHandler, RenderedElement, TextMessage, UserMessage } from "./parts";
+import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, Part, InputHandler, RenderedElement, TextMessage, UserMessage } from "./parts";
 import { Renderer } from './render';
 import { ComponentGenerator, FileElement, InputHandlerData, SimpleElement } from "./types";
 import { parseFromContext } from './bot-util'

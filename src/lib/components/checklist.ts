@@ -1,6 +1,6 @@
-import { button, input, message, messagePart } from "../helpers"
+import { button, input, message, messagePart } from "../constructors"
 import { Component, GetSetState } from "../types"
-import { enumerate, partitate, toggleItem } from "../util"
+import { enumerate, partitate, textColumns, toggleItem } from "../util"
 
 type OnClick<T> = { onClick: (arg: T) => Promise<void> }
 type OnUpdate<T> = { onUpdate: (arg: T) => Promise<void> }
@@ -18,7 +18,6 @@ export function* CheckListStateless({
 } & OnClick<number>) {
     yield Component(CheckListInput)({ items, selectedIds, onClick })
     yield Component(CheckListBody)({ items, selectedIds })
-    // yield button('Confirm', () => onClick(selectedIds))
 }
 
 export function* CheckList(
@@ -43,7 +42,6 @@ export function* CheckList(
 }
 
 
-
 export function* CheckListInput({
     items,
     onClick
@@ -64,6 +62,10 @@ export function* CheckListInput({
     })
 }
 
+function codeRow(string1: string, string2: string, length: number = 20) {
+    return `<code>${textColumns([string1], [`</code>${string2}`], length)}`
+}
+
 
 export function* CheckListBody({
     items,
@@ -79,7 +81,7 @@ export function* CheckListBody({
     yield messagePart(``)
 
     for (const [idx, item] of selected) {
-        yield messagePart(`${item}     /opt_${idx}`)
+        yield messagePart(codeRow(item, `/opt_${idx}`, 20))
     }
 
     yield messagePart(``)
@@ -87,7 +89,8 @@ export function* CheckListBody({
     yield messagePart(``)
 
     for (const [idx, item] of other) {
-        yield messagePart(`${item}     /opt_${idx}`)
+        yield messagePart(codeRow(item, `/opt_${idx}`, 20))
+        // yield messagePart(`${item}     /opt_${idx}`)
     }
 }
 

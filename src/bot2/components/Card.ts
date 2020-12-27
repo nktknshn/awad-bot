@@ -1,6 +1,6 @@
 import { exampleSymbol, descriptionSymbol } from "../../bot/parsing";
 import { WordEntity } from "../../database/entity/word";
-import { messagePart } from "../../lib/helpers";
+import { messagePart } from "../../lib/constructors";
 import { WordEntityState } from "../store/user";
 
 export function* Card({ word }: { word: WordEntityState }) {
