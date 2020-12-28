@@ -5,15 +5,17 @@ import { Card, Meaning } from "../../bot/interfaces"
 import { CardUpdate } from "../../bot/parsing"
 import { UserEntity } from "../../database/entity/user"
 import { WordEntity } from "../../database/entity/word"
-import { lastItem } from "../../lib/util"
+import { lastItem, toggleItem } from "../../lib/util"
 import { Services } from "../services"
-import { getUser, getUserId } from "./selectors"
+import { getUser } from "./selectors"
 
 // export interface UserState {
 //     user?: UserEntity
 // }
 
 // (new UserEntity()).
+
+const getUserId = ({ user }: RootState) => user?.id
 
 export interface WordEntityState {
     id: number
@@ -30,6 +32,7 @@ export interface UserEntityState {
     created: Date,
     renderedMessagesIds: number[],
     words: WordEntityState[]
+    pinnedWordsIds: number[]
 }
 
 // const initialState: UserState = {}
@@ -182,6 +185,16 @@ const userSlice = createSlice({
     reducers: {
         updateUser: (state, action: PayloadAction<UserEntityState>) => {
             return action.payload
+        },
+        togglePinnedWord: (state, { payload }: PayloadAction<number>) => {
+            
+            if(state === null)
+                return state
+
+            return {
+                ...state,
+                pinnedWordsIds: toggleItem(state?.pinnedWordsIds ?? [], payload)
+            }
         }
     },
     extraReducers: builder => {
@@ -219,6 +232,6 @@ const userSlice = createSlice({
 
 })
 
-export const { updateUser } = userSlice.actions
+export const { updateUser, togglePinnedWord } = userSlice.actions
 
 export default userSlice.reducer

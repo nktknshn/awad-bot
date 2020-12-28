@@ -1,14 +1,14 @@
 import { QueuedChat } from "../lib/chat";
 import { ChatFactory } from "../lib/chatshandler";
 import { createRenderer, messageTrackingRenderer } from "../lib/render";
+import { assignStateTree, componentToTree, copyPropsTree, copyStateTree, extractStateTree, getRenderFromTree, printStateTree, printTree, printZippedTree, PropsTree, renderTree, StateTree, Tree, zipTreeWithStateTree as zipTreeWithNewState } from "../lib/tree";
+import { ConnectedComp } from "../lib/types";
 import { UI } from "../lib/ui";
+import { equal } from "../lib/util3dparty";
+import { AppProps, MappedApp, stateToProps } from './app';
 import { dtoFromCtx, Services } from "./services";
 import { createStore, RootState } from "./store";
 import { updateUser } from "./store/user";
-import { App, AppProps, MappedApp, stateToProps } from './app'
-import { Component, ComponentWithState, ConnectedComp } from "../lib/types";
-import { assignStateTree, componentToTree, copyPropsTree, copyStateTree, extractStateTree, getRenderFromTree, printStateTree, printTree, printZippedTree, PropsTree, renderTree, StateTree, Tree, zipTreeWithStateTree } from "../lib/tree";
-import { equal, ObjectHelper } from "../lib/util3dparty";
 
 export const createChatCreator = (services: Services): ChatFactory =>
     async ctx => {
@@ -21,10 +21,7 @@ export const createChatCreator = (services: Services): ChatFactory =>
         const ui = new UI(renderer)
 
         const root = ConnectedComp(MappedApp,
-            ({ path, user }: RootState) => ({
-                path,
-                userLoaded: !!user
-            }))
+            ({ path, user }: RootState) => ({ path, userLoaded: !!user }))
 
         const store = createStore(services)
 
@@ -77,8 +74,7 @@ export const createChatCreator = (services: Services): ChatFactory =>
 
                 printTree(prevTree)
 
-                const zipped = zipTreeWithStateTree(prevTree, state.nextStateTree)
-
+                const zipped = zipTreeWithNewState(prevTree, state.nextStateTree)
 
                 console.log()
                 console.log('zipped');
@@ -90,13 +86,10 @@ export const createChatCreator = (services: Services): ChatFactory =>
                 console.log()
                 console.log('state.tree');
                 printTree(state.tree)
-                // const elements = getRenderFromTree(newTree)
-                // await ui.renderGenerator(elements)
             }
             else {
                 console.log('First draw!')
                 state.tree = componentToTree(root(props), undefined, store.getState())
-                // printTree(state.tree)
             }
 
             state.lastProps = copyPropsTree(state.tree)
@@ -104,9 +97,6 @@ export const createChatCreator = (services: Services): ChatFactory =>
             state.nextStateTree = extractStateTree(state.tree)
 
             const elements = getRenderFromTree(state.tree)
-
-            // console.log('elements');
-            // console.log(elements);
 
             await ui.renderGenerator(elements)
         }
@@ -154,9 +144,8 @@ export const createChatCreator = (services: Services): ChatFactory =>
                     await renderer.delete(ctx.message.message_id)
                 } else {
                     await ui.handleMessage(ctx)
+                    await update()
                 }
-
-                await update()
             },
             async handleAction(ctx) {
 

@@ -5,15 +5,15 @@ import { InputFile } from "telegraf/typings/telegram-types"
 
 export type AppType<P> = (props: P) => ComponentGenerator
 
-export function isGenerator(compel: Element): compel is ComponentElement {
+export function isGenerator(compel: Element): compel is ComponentConstructor {
     return Symbol.iterator in Object(compel)
 }
 
 export type SimpleElement = TextElement | TextElementPart | NextMessage | ButtonElement | ButtonsRowElement | InputHandler | RequestLocationButton | ActionsHandler | Effect | FileElement | Keyboard
 
-export type Element = SimpleElement | ComponentElement
+export type Element = SimpleElement | ComponentConstructor
 
-export function isComponentElement(el: Element): el is ComponentElement {
+export function isComponentElement(el: Element): el is ComponentConstructor {
     return 'comp' in el
 }
 
@@ -57,21 +57,10 @@ export interface ComponentConnected<P extends M, S, M, RootState> {
     kind: 'component-with-state-connected'
 }
 
-export type ComponentElement =
+export type ComponentConstructor =
     | ComponentStateless<any>
     | ComponentWithState<any, any>
     | ComponentConnected<any, any, any, any>
-
-
-// export function Component<P>(comp: CompConstructor<P>) {
-//     return function (props: P): ComponentStateless<P> {
-//         return {
-//             comp,
-//             props,
-//             kind: 'component'
-//         }
-//     }
-// }
 
 export function Component<P, S>(cons: CompConstructorWithState<P, S>) {
     return function (props: P): ComponentWithState<P, S> {
@@ -83,26 +72,15 @@ export function Component<P, S>(cons: CompConstructorWithState<P, S>) {
     }
 }
 
-// export function Component<P, S>(comp: CompConstructorWithState<P, S>) {
+// export function ComponentWithState<P, S>(cons: CompConstructorWithState<P, S>) {
 //     return function (props: P): ComponentWithState<P, S> {
 //         return {
-//             comp,
+//             cons,
 //             props,
 //             kind: 'component-with-state'
 //         }
 //     }
 // }
-
-
-export function ComponentWithState<P, S>(cons: CompConstructorWithState<P, S>) {
-    return function (props: P): ComponentWithState<P, S> {
-        return {
-            cons,
-            props,
-            kind: 'component-with-state'
-        }
-    }
-}
 
 export function ConnectedComp<P extends M, S, M, State>(
     cons: CompConstructorWithState<P, S>,

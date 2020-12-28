@@ -1,6 +1,7 @@
 import { flatten, map, sort, uniq } from "fp-ts/lib/Array"
 import { eqString } from "fp-ts/lib/Eq"
 import { pipe } from "fp-ts/lib/function"
+import { fromNullable, map as mapO } from "fp-ts/lib/Option"
 import { ordString } from "fp-ts/lib/Ord"
 import { parseWordId } from "../../bot/utils"
 import { CheckListStateless } from "../../lib/components/checklist"
@@ -89,77 +90,11 @@ function* InputBox({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Ca
     yield button(cancelTitle, () => onCancel())
 }
 
-function* CardPage({
-    word, onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
-}: { word: WordEntityState } & Getter<AppProps, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'>,
-    { getState, setState }: GetSetState<{
-        rename: boolean,
-        deleteConfirmation: boolean,
-        showMenu: boolean
-    }>
-) {
-    const { rename, deleteConfirmation, showMenu } = getState({
-        rename: false,
-        deleteConfirmation: false,
-        showMenu: false
-    })
-
-    yield Component(CardPageInput)({
-        word,
-        onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
-    })
-
-    yield nextMessage()
-    yield Component(Card)({ word })
-
-    if (showMenu)
-        yield buttonsRow(
-            [
-                'Add to trainer',
-                'Pin',
-                'Rename',
-                deleteConfirmation ? '❗ Yes, delete!' : 'Delete'
-            ],
-            async (idx, data) => {
-
-                data == 'Rename' &&
-                    setState({ rename: true })
-
-                data == 'Delete' &&
-                    setState({ deleteConfirmation: true })
-
-                data == '❗ Yes, delete!' &&
-                    await onRedirect('words?message=word_removed')
-                        .then(() => onDeleteWord(word))
-            }
-        )
-    else {
-        yield button('Menu', () => setState({ showMenu: true }))
-    }
-
-
-    if (rename) {
-
-        yield Component(InputBox)({
-            title: 'Enter new word:',
-            onSuccess: wordText => onUpdateWord(word, { word: wordText }),
-            onCancel: () => setState({ rename: false }),
-            onWrongInput: (data) => setState({ rename: false }) 
-        })
-
-        // yield input(({ messageText }) =>
-        //     onUpdateWord(word, { word: messageText }))
-
-        // yield message('Enter new word: ')
-        // yield button('Cancel', () => setState({ rename: false }))
-    }
-}
-
 export function* WordsPage(
     {
-        user, settings, wordId,
-        onRedirect, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord
-    }: Getter<AppProps & RootState, 'user', 'settings', 'onRedirect', 'onReplaceWord', 'onUpdateWord', 'onAddExample', 'onDeleteWord'> & { wordId?: number },
+        user, settings, wordId, pinnedWordsIds,
+        onRedirect, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onTogglePinnedWord
+    }: Getter<AppProps & RootState, 'user', 'settings', 'onRedirect', 'onReplaceWord', 'onUpdateWord', 'onAddExample', 'onDeleteWord', 'onTogglePinnedWord'> & { wordId?: number, pinnedWordsIds: number[] },
     { getState, setState }: GetSetState<WordsPageState>
 ) {
 
@@ -189,7 +124,7 @@ export function* WordsPage(
     yield Component(WordsPageInput)({
         onWordId: async (wordId) => {
             setState({ wordId })
-            // onRedirect(`words?wordId=${wordId}`)
+            // await onRedirect(`words?wordId=${wordId}`)
         }
     })
 
@@ -222,15 +157,87 @@ export function* WordsPage(
         yield button('Ok', () => setState({ showTagsPicker: false }))
     }
 
-    if (openWordId !== undefined) {
-        const word = user.words.find(_ => _.id == openWordId)
+    const word = user.words.find(_ => _.id == openWordId)
 
-        if (word) {
-            yield nextMessage()
-            yield ComponentWithState(CardPage)({
-                word,
-                onRedirect, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord
-            })
-        }
+    if (word) {
+
+        const isPinned = user.pinnedWordsIds.indexOf(word.id) > -1
+
+        yield nextMessage()
+        yield Component(CardPage)({
+            word, isPinned,
+            onRedirect, onReplaceWord, onUpdateWord, onAddExample,
+            onDeleteWord, onTogglePinnedWord
+        })
+    }
+}
+
+
+function* CardPage({
+    word, isPinned,
+    onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect, onTogglePinnedWord
+}: { word: WordEntityState, isPinned: boolean } & Getter<AppProps, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect', 'onTogglePinnedWord'>,
+    { getState, setState }: GetSetState<{
+        rename: boolean,
+        deleteConfirmation: boolean,
+        showMenu: boolean
+    }>
+) {
+    const { rename, deleteConfirmation, showMenu } = getState({
+        rename: false,
+        deleteConfirmation: false,
+        showMenu: false
+    })
+
+    yield Component(CardPageInput)({
+        word,
+        onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
+    })
+
+    yield nextMessage()
+    yield Component(Card)({ word })
+
+    if (showMenu)
+        yield buttonsRow(
+            [
+                // 'Add to trainer',
+                isPinned ? 'Unpin' : 'Pin',
+                'Rename',
+                deleteConfirmation ? '❗ Yes, delete!' : 'Delete'
+            ],
+            async (idx, data) => {
+                (data == 'Unpin' || data == 'Pin') &&
+                    await onTogglePinnedWord(word.id)
+
+                data == 'Rename' &&
+                    setState({ rename: true })
+
+                data == 'Delete' &&
+                    setState({ deleteConfirmation: true })
+
+                data == '❗ Yes, delete!' &&
+                    await onRedirect('words?message=word_removed')
+                        .then(() => onDeleteWord(word))
+            }
+        )
+    else {
+        yield button('Menu', () => setState({ showMenu: true }))
+    }
+
+
+    if (rename) {
+
+        yield Component(InputBox)({
+            title: 'Enter new word:',
+            onSuccess: wordText => onUpdateWord(word, { word: wordText }),
+            onCancel: () => setState({ rename: false }),
+            onWrongInput: (data) => setState({ rename: false })
+        })
+
+        // yield input(({ messageText }) =>
+        //     onUpdateWord(word, { word: messageText }))
+
+        // yield message('Enter new word: ')
+        // yield button('Cancel', () => setState({ rename: false }))
     }
 }

@@ -81,7 +81,7 @@ export function* CardPage({
 
     yield buttonsRow(
         [
-            'Add to trainer',
+            // 'Add to trainer',
             'Pin',
             'Rename',
             deleteConfirmation ? '❗ Yes, delete!' : 'Delete'
