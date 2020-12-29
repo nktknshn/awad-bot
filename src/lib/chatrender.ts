@@ -1,37 +1,25 @@
-import { Markup } from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
-import { ExtraReplyMessage, InputFile, Message, MessageDocument, ReplyKeyboardMarkup } from "telegraf/typings/telegram-types"
-import { AppType } from "./types"
-import { UI } from "./ui"
+import { ExtraReplyMessage, InputFile, Message, MessageDocument } from "telegraf/typings/telegram-types"
 import { randomAnimal } from './util'
 
-
-export interface Renderer {
-    ctx: TelegrafContext
+export interface ChatRenderer {
+    // ctx: TelegrafContext
+    chatId: number,
     message(text: string,
         extra?: ExtraReplyMessage,
         targetMessage?: Message,
         removeTarget?: boolean): Promise<Message>,
     delete(messageId: number): Promise<boolean>,
-    file(f: InputFile): Promise<MessageDocument>
+    sendFile(f: InputFile): Promise<MessageDocument>
 }
 
-// export const createRenderFunc = <P>(ui: UI, app: AppType<P>) =>
-//     (props: P) =>
-//         ui.renderGenerator(
-//             app(props)
-//         )
-
-
-export const createRenderer = (ctx: TelegrafContext): Renderer => ({
-    ctx,
+export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
+    chatId: ctx.chat?.id!,
     async message(text: string,
         extra?: ExtraReplyMessage,
         targetMessage?: Message,
         removeTarget?: boolean
     ) {
-        // console.log(`renderer.message(${text}, extra=${extra}, targetMessage=${targetMessage}), removeTarget=${removeTarget}`);
-
         if (targetMessage) {
 
             if (removeTarget) {
@@ -39,8 +27,6 @@ export const createRenderer = (ctx: TelegrafContext): Renderer => ({
                 await this.delete(targetMessage.message_id)
             }
             else {
-                console.log(JSON.stringify(extra));
-                
                 const ret = await ctx.telegram.editMessageText(
                     ctx.chat?.id!,
                     targetMessage.message_id,
@@ -79,7 +65,7 @@ export const createRenderer = (ctx: TelegrafContext): Renderer => ({
             return false
         }
     },
-    async file(f: InputFile) {
+    async sendFile(f: InputFile) {
         return await ctx.telegram.sendDocument(ctx.chat?.id!, f)
     }
 })
@@ -89,28 +75,28 @@ export type Tracker = {
     removeRenderedMessage(chatId: number, messageId: number): Promise<void>
 }
 
-export const messageTrackingRenderer: (tracker: Tracker, r: Renderer) => Renderer =
+export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => ChatRenderer =
     (tracker, r) => ({
-        ctx: r.ctx,
+        chatId: r.chatId,
         async message(text, extra, targetMessage, removeTarget) {
             const sent = await r.message(text, extra, targetMessage, removeTarget)
 
-            if (!targetMessage && r.ctx.chat?.id)
-                await tracker.addRenderedMessage(r.ctx.chat?.id, sent.message_id!)
+            if (!targetMessage && r.chatId)
+                await tracker.addRenderedMessage(r.chatId, sent.message_id!)
 
             return sent
         },
         async delete(messageId) {
-            if (r.ctx.chat?.id)
-                await tracker.removeRenderedMessage(r.ctx.chat?.id, messageId)
+            if (r.chatId)
+                await tracker.removeRenderedMessage(r.chatId, messageId)
 
             return await r.delete(messageId)
         },
-        async file(f: InputFile) {
-            const sent = await r.file(f)
+        async sendFile(f: InputFile) {
+            const sent = await r.sendFile(f)
 
-            if (r.ctx.chat?.id)
-                await tracker.addRenderedMessage(r.ctx.chat?.id, sent.message_id!)
+            if (r.chatId)
+                await tracker.addRenderedMessage(r.chatId, sent.message_id!)
 
             return sent
         }

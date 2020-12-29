@@ -3,6 +3,7 @@ export interface Card {
     transcription?: string
     tags: string[]
     meanings: Meaning[]
+    translations: string[]
 }
 
 export interface Meaning {

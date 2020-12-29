@@ -1,30 +1,32 @@
 // import { parseFromContext } from "../bot/bot-utils"
-import { ActionsHandler, Effect, InputHandler } from "./parts"
-import { parseFromContext } from './bot-util'
 import { InputFile } from "telegraf/typings/telegram-types"
+import { ActionsHandler, Effect, InputHandler } from "./messages"
+
+type Diff<T, U> = T extends U ? never : T
+
+export type Subtract<T1 extends T2, T2> = {
+    [P in Diff<keyof T1, keyof T2>]: T1[P]
+}
 
 export type AppType<P> = (props: P) => ComponentGenerator
 
-export function isGenerator(compel: Element): compel is ComponentConstructor {
-    return Symbol.iterator in Object(compel)
-}
+// export function isGenerator(compel: Element): compel is ComponentConstructor {
+//     return Symbol.iterator in Object(compel)
+// }
 
-export type SimpleElement = TextElement | TextElementPart | NextMessage | ButtonElement | ButtonsRowElement | InputHandler | RequestLocationButton | ActionsHandler | Effect | FileElement | Keyboard
+export type BasicElement = TextElement | TextElementPart | NextMessage | ButtonElement | ButtonsRowElement | InputHandler | RequestLocationButton | ActionsHandler | Effect | FileElement | Keyboard
 
-export type Element = SimpleElement | ComponentConstructor
+export type Element = BasicElement | ComponentElement
 
-export function isComponentElement(el: Element): el is ComponentConstructor {
+export function isComponentElement(el: Element): el is ComponentElement {
     return 'comp' in el
 }
-
-export type InputHandlerData = ReturnType<typeof parseFromContext>
 
 export type GetSetState<S> = {
     getState: (initialState?: S) => S
     setState: (state: Partial<S>) => Promise<void>
 }
 
-// type ComponentGenerator<R> = Generator<R, unknown, unknown>
 export type ComponentGenerator = Generator<Element, void, void>
 
 type CompConstructor<P> = ((props: P) => ComponentGenerator)
@@ -44,12 +46,6 @@ export interface ComponentWithState<P, S = never> {
     kind: 'component-with-state'
 }
 
-type Diff<T, U> = T extends U ? never : T
-
-export type Subtract<T1 extends T2, T2> = {
-    [P in Diff<keyof T1, keyof T2>]: T1[P]
-}
-
 export interface ComponentConnected<P extends M, S, M, RootState> {
     cons: CompConstructorWithState<P, S>
     mapper: (state: RootState) => M
@@ -57,7 +53,7 @@ export interface ComponentConnected<P extends M, S, M, RootState> {
     kind: 'component-with-state-connected'
 }
 
-export type ComponentConstructor =
+export type ComponentElement =
     | ComponentStateless<any>
     | ComponentWithState<any, any>
     | ComponentConnected<any, any, any, any>
@@ -71,16 +67,6 @@ export function Component<P, S>(cons: CompConstructorWithState<P, S>) {
         }
     }
 }
-
-// export function ComponentWithState<P, S>(cons: CompConstructorWithState<P, S>) {
-//     return function (props: P): ComponentWithState<P, S> {
-//         return {
-//             cons,
-//             props,
-//             kind: 'component-with-state'
-//         }
-//     }
-// }
 
 export function ConnectedComp<P extends M, S, M, State>(
     cons: CompConstructorWithState<P, S>,

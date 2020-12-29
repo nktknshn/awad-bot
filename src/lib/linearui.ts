@@ -1,9 +1,10 @@
 import { TelegrafContext } from "telegraf/typings/context"
 import { areSameTextMessages, parseFromContext } from "./bot-util"
-import { elementsToMessagesAndHandlers } from "./component"
-import { RenderedElement, ActionsHandler, BotMessage, TextMessage, InputHandler } from "./parts"
-import { Renderer } from "./render"
-import { ComponentGenerator, SimpleElement } from "./types"
+import { elementsToMessagesAndHandlers } from "./elements-to-messages"
+import { ActionsHandler, TextMessage, InputHandler } from "./messages"
+import { RenderedElement, BotMessage } from "./rendered-messages"
+import { ChatRenderer } from "./chatrender"
+import { ComponentGenerator, BasicElement } from "./elements"
 import { emptyMessage, zip } from "./util"
 
 type SpawnedComponent = {
@@ -19,7 +20,7 @@ export interface LinearUIHandler {
 
 export class LinearUI {
     constructor(
-        readonly renderer: Renderer,
+        readonly renderer: ChatRenderer,
         readonly handler: LinearUIHandler
     ) { }
 
@@ -32,7 +33,7 @@ export class LinearUI {
 
         for (const el of this.spawnedComponent.elements) {
             if (el instanceof BotMessage) {
-                await this.renderer.delete(el.message.message_id)
+                await this.renderer.delete(el.output.message_id)
             }
         }
 
@@ -40,7 +41,7 @@ export class LinearUI {
     }
 
     async spawnComponent(
-        elements: SimpleElement[],
+        elements: BasicElement[],
         target?: SpawnedComponent
     ) {
         const { messages, handlers, effects } =
@@ -58,7 +59,7 @@ export class LinearUI {
             if (el instanceof TextMessage) {
 
                 if (spawnedEl instanceof BotMessage
-                    && areSameTextMessages(spawnedEl.textMessage, el)
+                    && areSameTextMessages(spawnedEl.input, el)
                 ) {
                     spawnedComponent.elements.push(spawnedEl)
                     continue
@@ -67,7 +68,7 @@ export class LinearUI {
                 const message = await this.renderer.message(
                     el.text ? el.text : emptyMessage,
                     el.getExtra(),
-                    spawnedEl?.message
+                    spawnedEl?.output
                 )
 
                 spawnedComponent.elements.push(
@@ -105,7 +106,7 @@ export class LinearUI {
 
         for (const el of this.spawnedComponent.elements) {
             if (el instanceof BotMessage) {
-                if (await el.textMessage.callback(action)) {
+                if (await el.input.callback(action)) {
                     await ctx.answerCbQuery()
                 }
             }

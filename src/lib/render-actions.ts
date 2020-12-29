@@ -1,7 +1,8 @@
 import { areSameTextMessages } from "./bot-util";
-import { elementsToMessagesAndHandlers, MsgType } from "./component";
-import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, InputHandler, RenderedElement, TextMessage, UserMessage } from "./parts";
-import { ComponentGenerator, FileElement } from "./types";
+import { MessageType } from "./elements-to-messages";
+import { TextMessage } from "./messages";
+import { BotDocumentMessage, BotMessage, RenderedElement, UserMessage } from "./rendered-messages";
+import { FileElement } from "./elements";
 
 export function createRenderTasks<T, B>(
     present: T[],
@@ -15,8 +16,6 @@ export function createRenderTasks<T, B>(
     actionCreate: (item: B) => void = (item) => console.log(`create ${item}`)
 ) {
 
-    // const rendered = [1, 2, 3, 4, 5, 6]
-    // let next = [7, 2, 4, 5, 6, 8]
     present = [...present]
     next = [...next]
 
@@ -32,44 +31,35 @@ export function createRenderTasks<T, B>(
         // console.log(`r=${r} n=${n}`);
 
         if (n === undefined) {
-            // console.log(`delete r=${r} n=${n}`);
             result.splice(idx, 1)
             idx -= 1
             actionDelete(r)
         }
         else if (r === undefined) {
-            // console.log(`create n=${n}`);
-            // result.push(r)
             actionCreate(n)
             continue
         }
         else if (compareFunc(r, n)) {
-            // console.log(`skip r=${r} n=${n}`);
             actionLeave(r, n)
         }
         else if (
             present.findIndex(v => compareFunc(v, n)) > idx
         ) {
-            // console.log(`delete r=${r} n=${n}`);
             result.splice(idx, 1)
             next = [n, ...next]
             idx -= 1
             actionDelete(r)
         }
         else if (present.findIndex(v => compareFunc(v, next[0])) > idx) {
-            // console.log(`replace r=${r} n=${n}`);
             actionReplace(r, n)
             // result[idx] = n
         }
         else if (next[0] === undefined) {
-            // console.log(`replace r=${r} n=${n}`);
             actionReplace(r, n)
             // result[idx] = n
         }
         else {
-            // console.log(`replace r=${r} n=${n}`);
             actionReplace(r, n)
-            // result[idx] = n
         }
 
         idx += 1
@@ -79,12 +69,12 @@ export function createRenderTasks<T, B>(
 }
 
 
-function compareFunc(a: RenderedElement, b: MsgType) {
+function compareFunc(a: RenderedElement, b: MessageType) {
     if (a instanceof UserMessage) {
         return false
     }
     else if (a instanceof BotMessage && b instanceof TextMessage) {
-        return areSameTextMessages(a.textMessage, b)
+        return areSameTextMessages(a.input, b)
     }
     else if (a instanceof BotDocumentMessage && b instanceof FileElement) {
         return false
@@ -95,11 +85,11 @@ function compareFunc(a: RenderedElement, b: MsgType) {
 export namespace Actions {
     export class Keep {
         kind: 'Keep' = 'Keep'
-        constructor(readonly element: RenderedElement, readonly newElement: MsgType) { }
+        constructor(readonly element: RenderedElement, readonly newElement: MessageType) { }
     }
     export class Replace {
         kind: 'Replace' = 'Replace'
-        constructor(readonly element: RenderedElement, readonly newElement: MsgType) { }
+        constructor(readonly element: RenderedElement, readonly newElement: MessageType) { }
     }
     export class Remove {
         kind: 'Remove' = 'Remove'
@@ -107,14 +97,14 @@ export namespace Actions {
     }
     export class Create {
         kind: 'Create' = 'Create'
-        constructor(readonly newElement: MsgType) { }
+        constructor(readonly newElement: MessageType) { }
     }
 }
 
 
 export type Actions = Actions.Keep | Actions.Replace | Actions.Remove | Actions.Create
 
-export function getTask(renderedElements: RenderedElement[], nextElements: MsgType[]) {
+export function createRenderActions(renderedElements: RenderedElement[], nextElements: MessageType[]) {
 
     const actions: Actions[] = []
 

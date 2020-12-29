@@ -1,10 +1,10 @@
 import { WordEntity } from "../../database/entity/word";
-import { message, messagePart } from "../../lib/constructors";
+import { message, messagePart } from "../../lib/elements-constructors";
 import { textColumns, zip } from "../../lib/util";
 import { splitAt } from 'fp-ts/Array';
 import { sortBy } from 'fp-ts/Array';
 import { ord, ordString } from 'fp-ts/Ord';
-import { Component } from "../../lib/types";
+import { Component } from "../../lib/elements";
 import { WordEntityState } from "../store/user";
 
 

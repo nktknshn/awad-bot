@@ -1,29 +1,27 @@
+import { readFile } from "fs"
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
 import { createConnection } from "typeorm"
-import { createChatCreator } from "./bot2/chat"
-import { getServices } from "./bot2/services"
-import { ChatsHandler } from "./lib/chatshandler"
+import { createChatHandlerFactory } from "./bot2/chathandler"
+import { getAwadServices } from "./bot2/services"
+import { ChatsDispatcher } from "./lib/chatsdispatcher"
 
+import { token } from "./telegram-token.json"
 
 async function main() {
 
-    if (!process.env.BOT_TOKEN) {
-        console.error('Missing BOT_TOKEN')
-        process.env.BOT_TOKEN = '1143675669:AAHuxg4qz_fA993sELhJulHyNJLVWeGvsUc'
-        // return
-    }
     const connection = await createConnection()
 
-    const bot = new Telegraf(process.env.BOT_TOKEN)
-    const services = getServices(connection)
+    const bot = new Telegraf(token)
 
-    const chats = new ChatsHandler(
-        createChatCreator(services)
+    const services = getAwadServices(connection)
+
+    const dispatcher = new ChatsDispatcher(
+        createChatHandlerFactory(services)
     )
 
-    bot.on('message', chats.messageHandler.bind(chats))
-    bot.action(/.+/, chats.actionHandler.bind(chats))
+    bot.on('message', dispatcher.messageHandler)
+    bot.action(/.+/, dispatcher.actionHandler)
 
     bot.catch((err: any, ctx: TelegrafContext) => {
         console.log(`Ooops, encountered an error for ${ctx.updateType}`, err)

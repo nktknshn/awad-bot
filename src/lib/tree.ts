@@ -1,32 +1,21 @@
-import { last } from "fp-ts/lib/Array"
-import { cons } from "fp-ts/lib/ReadonlyArray"
-import { ComponentConstructor, ComponentGenerator, isComponentElement, SimpleElement } from "./types"
+import { Store } from "redux"
+import { BasicElement, ComponentElement, ComponentGenerator, isComponentElement } from "./elements"
 import { range } from "./util"
 import { equal, ObjectHelper } from "./util3dparty"
 
-// export type Tree = [
-//     ComponentElement, unknown, State,
-//     (Tree | SimpleElement)[],
-// ]
+type State<T = any> = {
+    value: T
+}
 
-type SimpleOrComponent<E = SimpleElement> = ComponentsTree<SimpleOrComponent<E>> | E
+type BasicOrComponent<E = BasicElement> = ComponentsTreeNode<BasicOrComponent<E>> | E
 
-interface ComponentsTree<K> {
-    componentElement: ComponentConstructor
+export type ComponentsTree = ComponentsTreeNode<BasicOrComponent>
+
+interface ComponentsTreeNode<K> {
+    componentElement: ComponentElement
     props: unknown
     state: State
     result: K[]
-}
-
-type Z = SimpleOrComponent extends ComponentsTree<SimpleOrComponent> ? true : false
-type ZZ = ComponentsTree<SimpleOrComponent> extends SimpleOrComponent ? true : false
-
-function isComponentTree<T extends ComponentsTree<U>, U, K>(item: T | K): item is T {
-    return 'componentElement' in item
-}
-
-type State = {
-    value: any
 }
 
 export interface StateTree {
@@ -34,29 +23,28 @@ export interface StateTree {
     children: StateTree[]
 }
 
-function isTree() {
-
-}
-
-export interface PropsTree {
-    props: any,
+export interface PropsTree<P = any> {
+    props: P,
     children: PropsTree[]
 }
 
-export interface TreeWithNewState extends ComponentsTree<TreeWithNewState | SimpleElement> {
+export interface TreeWithNewState extends ComponentsTreeNode<TreeWithNewState | BasicElement> {
     newState: State
 }
 
+function isComponentTree<T extends ComponentsTreeNode<U>, U, K>(item: T | K): item is T {
+    return 'componentElement' in item
+}
 
-export function getRenderFromTree(tree: ComponentsTree<SimpleOrComponent>): SimpleElement[] {
-    const { componentElement, props, state, result: children } = tree
+export function getElementsFromTree(tree: ComponentsTree): BasicElement[] {
+    const { result } = tree
 
-    let elements: SimpleElement[] = []
+    let elements: BasicElement[] = []
 
-    for (const element of children) {
+    for (const element of result) {
         if (isComponentTree(element)) {
             element
-            elements = [...elements, ...getRenderFromTree(element)]
+            elements = [...elements, ...getElementsFromTree(element)]
         }
         else {
             elements.push(element)
@@ -66,18 +54,17 @@ export function getRenderFromTree(tree: ComponentsTree<SimpleOrComponent>): Simp
     return elements
 }
 
-export function copyPropsTree(tree: Tree): PropsTree {
+export function copyPropsTree(tree: ComponentsTree): PropsTree {
     const { props, result: children } = tree
-
-    const subComponents = children.filter((v): v is Tree => isComponentTree(v))
-
     return {
         props,
-        children: subComponents.map(copyPropsTree)
+        children: children
+            .filter((v): v is ComponentsTree => isComponentTree(v))
+            .map(copyPropsTree)
     }
 }
 
-export function copyStateTree(tree: ComponentsTree<SimpleOrComponent>): StateTree {
+export function copyStateTree(tree: ComponentsTreeNode<BasicOrComponent>): StateTree {
     const { state, result: children } = tree
 
     const childrenState: any[] = []
@@ -94,7 +81,7 @@ export function copyStateTree(tree: ComponentsTree<SimpleOrComponent>): StateTre
     }
 }
 
-export function extractStateTree(tree: ComponentsTree<SimpleOrComponent>): StateTree {
+export function extractStateTree(tree: ComponentsTreeNode<BasicOrComponent>): StateTree {
     const { result: children, componentElement, props, state } = tree
 
     const childrenState: StateTree[] = []
@@ -117,19 +104,19 @@ const str = (value: any) => {
 }
 
 
-export function unzipState(tree: TreeWithNewState): ComponentsTree<SimpleOrComponent> {
-    const { newState, componentElement, props, state, result: children } = tree
+export function unzipState(tree: TreeWithNewState): ComponentsTreeNode<BasicOrComponent> {
+    const { componentElement, props, state, result } = tree
     return {
         componentElement,
         props,
         state: ObjectHelper.deepCopy(state),
-        result: children
+        result: result
             .filter((_): _ is TreeWithNewState => isComponentTree(_))
             .map(unzipState)
     }
 }
 
-export function unzipNewState(tree: TreeWithNewState): ComponentsTree<SimpleOrComponent> {
+export function unzipNewState(tree: TreeWithNewState): ComponentsTreeNode<BasicOrComponent> {
     const {
         newState,
         result: children,
@@ -148,13 +135,13 @@ export function unzipNewState(tree: TreeWithNewState): ComponentsTree<SimpleOrCo
     }
 }
 
-export function zipTreeWithStateTree(tree: ComponentsTree<SimpleOrComponent>, stateTree: StateTree): TreeWithNewState {
+export function zipTreeWithStateTree(tree: ComponentsTreeNode<BasicOrComponent>, stateTree: StateTree): TreeWithNewState {
     const { componentElement, props, state, result: children } = tree
     const {
         state: compNewState, children: childrenState
     } = stateTree
 
-    let zippedChildren: (TreeWithNewState | SimpleElement)[] = []
+    let zippedChildren: (TreeWithNewState | BasicElement)[] = []
     let stateIndex = 0
 
     for (const item of children) {
@@ -181,7 +168,7 @@ export function zipTreeWithStateTree(tree: ComponentsTree<SimpleOrComponent>, st
     }
 }
 
-export function assignStateTree(tree: ComponentsTree<SimpleOrComponent>, stateTree: StateTree): ComponentsTree<SimpleOrComponent> {
+export function assignStateTree(tree: ComponentsTreeNode<BasicOrComponent>, stateTree: StateTree): ComponentsTreeNode<BasicOrComponent> {
     const {
         componentElement, props, state, result: children
     } = tree
@@ -190,8 +177,8 @@ export function assignStateTree(tree: ComponentsTree<SimpleOrComponent>, stateTr
         state: compNewState, children: childrenState
     } = stateTree
 
-    let items: SimpleOrComponent[] = []
-    let assignedChildren: ComponentsTree<SimpleOrComponent>[] = []
+    let items: BasicOrComponent[] = []
+    let assignedChildren: ComponentsTreeNode<BasicOrComponent>[] = []
 
     for (const item of children) {
         if (isComponentTree(item)) {
@@ -216,20 +203,16 @@ export function assignStateTree(tree: ComponentsTree<SimpleOrComponent>, stateTr
     }
 }
 
-function instantiate<RootState>(
-    component: ComponentConstructor,
+export function componentToElementsTree<R>(
+    componentElement: ComponentElement,
     stateTree?: StateTree,
-    rootState?: RootState) {
+    rootState?: R
+): ComponentsTree {
 
-}
+    console.log('componentToTree!');
 
-export function componentToTree<RootState>(
-    component: ComponentConstructor,
-    stateTree?: StateTree,
-    rootState?: RootState
-): ComponentsTree<SimpleOrComponent> {
 
-    const children: SimpleOrComponent[] = []
+    const children: BasicOrComponent[] = []
 
     let state: State;
     let childrenState: StateTree[];
@@ -258,12 +241,12 @@ export function componentToTree<RootState>(
                 return ObjectHelper.deepCopy(state.value)
             })()
 
-            console.log(`${component.cons.name}.getState(${str(initial)})=${str(result)}`)
+            console.log(`${componentElement.cons.name}.getState(${str(initial)})=${str(result)}`)
 
             return result
         },
         setState: async (updates: State['value']) => {
-            console.log(`${component.cons.name}.setState(${str(updates)}). Current: ${str(state.value)}`)
+            console.log(`${componentElement.cons.name}.setState(${str(updates)}). Current: ${str(state.value)}`)
             state.value = { ...state.value, ...updates }
         }
     }
@@ -271,32 +254,26 @@ export function componentToTree<RootState>(
     let elements: ComponentGenerator;
     let props;
 
-    if (component.kind === 'component') {
-        props = component.props
-        elements = component.cons(props)
+    if (componentElement.kind === 'component') {
+        props = componentElement.props
+        elements = componentElement.cons(props)
     }
-    else if (component.kind === 'component-with-state-connected') {
+    else if (componentElement.kind === 'component-with-state-connected') {
         props = {
-            ...component.props,
-            ...component.mapper(rootState)
+            ...componentElement.props,
+            ...componentElement.mapper(rootState)
         }
 
-        elements = component.cons(props, getset)
+        elements = componentElement.cons(props, getset)
     }
     else {
-        props = component.props
-        elements = component.cons(props, getset)
+        props = componentElement.props
+        elements = componentElement.cons(props, getset)
     }
 
     for (const element of elements) {
-        if (element.kind === 'component') {
-            children.push(componentToTree(element, iter.next().value, rootState))
-        }
-        else if (element.kind === 'component-with-state') {
-            children.push(componentToTree(element, iter.next().value, rootState))
-        }
-        else if (element.kind === 'component-with-state-connected') {
-            children.push(componentToTree(element, iter.next().value, rootState))
+        if (isComponentElement(element)) {
+            children.push(componentToElementsTree(element, iter.next().value, rootState))
         }
         else {
             children.push(element)
@@ -304,22 +281,16 @@ export function componentToTree<RootState>(
     }
 
     return {
-        componentElement: component,
-        props,
-        result: children,
-        state
+        componentElement, props, state, result: children
     }
-    // return [
-    // component, component.props, state, items
-    // ]
 }
-export type Tree = ComponentsTree<SimpleOrComponent>
+
 
 export function renderTree<RootState>(
     tree: TreeWithNewState,
-    component: ComponentConstructor,
+    component: ComponentElement,
     rootState?: RootState
-): ComponentsTree<SimpleOrComponent> {
+): ComponentsTreeNode<BasicOrComponent> {
     const { newState, componentElement, props, state, result: children } = tree
 
     let rerender = false
@@ -339,7 +310,7 @@ export function renderTree<RootState>(
             rerender = true
             console.log(`${componentElement.cons.name} is to updated by props`);
 
-            return componentToTree(component,  { state: newState, children: [] }, rootState)
+            return componentToElementsTree(component, { state: newState, children: [] }, rootState)
         }
     }
     else if (!equal(component.props, props)) {
@@ -349,7 +320,7 @@ export function renderTree<RootState>(
         console.log(props)
 
         rerender = true
-        return componentToTree(component,  { state: newState, children: [] }, rootState)
+        return componentToElementsTree(component, { state: newState, children: [] }, rootState)
     }
 
     if (!equal(newState, state)) {
@@ -359,12 +330,12 @@ export function renderTree<RootState>(
 
     if (rerender == true) {
         console.log(`${componentElement.cons.name} is to rerender`);
-        return componentToTree(component, { state: newState, children: [] }, rootState)
+        return componentToElementsTree(component, { state: newState, children: [] }, rootState)
     }
 
     console.log(`${componentElement.cons.name} is same`);
 
-    let kids: SimpleOrComponent[] = []
+    let kids: BasicOrComponent[] = []
     for (const item of children) {
         if (isComponentTree(item)) {
             kids.push(
@@ -376,18 +347,15 @@ export function renderTree<RootState>(
         }
     }
 
-    return componentToTree(component,
+    return componentToElementsTree(component,
         copyStateTree({
-            state: ObjectHelper.deepCopy(newState),
-            result: kids,
             componentElement: component,
-            props
+            state,
+            props,
+            result: children
+                .filter((_): _ is TreeWithNewState => isComponentTree(_))
+                .map(item => renderTree(item, item.componentElement, rootState)),
         }), rootState)
-    // return componentToTree(
-    //     component,
-    //     copyStateTree(unzipNewState(tree)),
-    //     rootState
-    // )
 }
 
 export function printStateTree(stateTree: StateTree, depth = 0) {
@@ -407,11 +375,7 @@ export function printStateTree(stateTree: StateTree, depth = 0) {
 
 const nspaces = (n: number) => [...range(0, n)].map(_ => "  ").join('')
 
-// function toString(el: SimpleElement) {
-//     return `${el.kind} (${el.id})`
-// }
-
-export function printTree(tree: Tree, depth = 0) {
+export function printTree(tree: ComponentsTree, depth = 0) {
     const { componentElement, props, state, result: children } = tree
 
     console.log(`${nspaces(depth)}${componentElement.cons.name}(${str(props)}, ${str(state)})`);
@@ -442,5 +406,84 @@ export function printZippedTree(tree: TreeWithNewState, depth = 0) {
             console.log(
                 `${nspaces(depth + 1)}${str(item)}`);
         }
+    }
+}
+
+
+export class ElementsTree {
+    private tree?: ComponentsTree
+    private prevStateTree?: StateTree
+    private nextStateTree?: StateTree
+    private lastProps?: PropsTree
+
+    public createElements = <P, S>(
+        store: Store<S>,
+        props: P,
+        rootComponent: (props: P) => ComponentElement
+    ): BasicElement[] => {
+        console.log(`renderFunc`)
+
+        const stateTreeIsSame = this.tree
+            && equal(this.prevStateTree, this.nextStateTree)
+
+        const propsAreSame = this.tree
+            && equal(
+                copyPropsTree(componentToElementsTree(rootComponent(props),
+                    this.nextStateTree,
+                    store.getState())
+                ),
+                this.lastProps
+            )
+
+        if (stateTreeIsSame && propsAreSame) {
+            console.log(`Props and state are same`);
+            // await ui.renderGenerator()
+            return getElementsFromTree(this.tree!)
+        }
+
+        if (this.prevStateTree && this.nextStateTree && this.tree) {
+
+            // console.log('Something changed')
+            // console.log('state.prevStateTree');
+            // printStateTree(this.prevStateTree)
+
+            // console.log()
+            // console.log('state.nextStateTree');
+            // printStateTree(this.nextStateTree)
+
+            // console.log()
+            // console.log('state.tree');
+            // printTree(this.tree)
+
+            const prevTree = assignStateTree(this.tree, this.prevStateTree)
+
+            // console.log()
+            // console.log('prevTree');
+
+            // printTree(prevTree)
+
+            const zipped = zipTreeWithStateTree(prevTree, this.nextStateTree)
+
+            // console.log()
+            // console.log('zipped');
+            // printZippedTree(zipped)
+
+            // console.log('renderTree');
+            this.tree = renderTree(zipped, rootComponent(props), store.getState())
+
+            // console.log()
+            // console.log('state.tree');
+            printTree(this.tree)
+        }
+        else {
+            console.log('First draw!')
+            this.tree = componentToElementsTree(rootComponent(props), undefined, store.getState())
+        }
+
+        this.lastProps = copyPropsTree(this.tree)
+        this.prevStateTree = copyStateTree(this.tree)
+        this.nextStateTree = extractStateTree(this.tree)
+
+        return getElementsFromTree(this.tree)
     }
 }

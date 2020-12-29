@@ -1,11 +1,13 @@
 import { Markup } from "telegraf"
-import { ExtraReplyMessage, IncomingMessage, Message, MessageDocument } from "telegraf/typings/telegram-types"
-import { ButtonElement, ButtonsRowElement, FileElement, InputHandlerData, Keyboard, RequestLocationButton } from "./types"
+import { ExtraReplyMessage } from "telegraf/typings/telegram-types"
+import { parseFromContext } from "./bot-util"
+import { ButtonElement, ButtonsRowElement, FileElement, Keyboard, RequestLocationButton } from "./elements"
 import { enumerateListOfLists, flattenList } from "./util"
 
-export type Part = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
+export type InputHandlerData = ReturnType<typeof parseFromContext>
 
-// type Kinds = 'TextMessage' | 'InputHandler' | 'ActionsHandler' | 'Effect' | 'FileElement'
+
+export type Part = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
 
 export class Effect {
     kind: 'Effect' = 'Effect'
@@ -111,15 +113,12 @@ export class TextMessage {
     }
 }
 
-
 export class ActionsHandler {
     kind: 'ActionsHandler' = 'ActionsHandler'
     constructor(
         readonly callback: (input: string) => Promise<void>
     ) { }
 }
-
-
 
 export class InputHandler {
     kind: 'InputHandler' = 'InputHandler'
@@ -131,27 +130,4 @@ export class InputHandler {
     ) { }
 }
 
-export type RenderedElement = UserMessage | BotMessage | BotDocumentMessage
 
-export class UserMessage {
-    kind: 'UserMessage' = 'UserMessage'
-    constructor(
-        readonly message: IncomingMessage,
-    ) { }
-}
-
-export class BotMessage {
-    kind: 'BotMessage' = 'BotMessage'
-    constructor(
-        readonly textMessage: TextMessage,
-        readonly message: Message,
-    ) { }
-}
-
-export class BotDocumentMessage {
-    kind: 'BotDocumentMessage'= 'BotDocumentMessage'
-    constructor(
-        readonly element: FileElement,
-        readonly message: MessageDocument,
-    ) { }
-}

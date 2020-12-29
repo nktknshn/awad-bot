@@ -1,28 +1,32 @@
-import { ActionsHandler, Effect, InputHandler, TextMessage } from "./parts"
-import { TextElement, ButtonElement, ButtonsRowElement, ComponentGenerator, RequestLocationButton, FileElement, Keyboard, Element, TextElementPart, NextMessage, isGenerator, SimpleElement, isComponentElement } from "./types"
-import { lastItem } from "./util"
+import { filterMapWithIndex } from 'fp-ts/Array'
+import { none, some } from 'fp-ts/Option'
+import { ActionsHandler, Effect, InputHandler, TextMessage } from "./messages"
+import { FileElement, Keyboard, BasicElement } from "./elements"
 
-export type MsgType = (TextMessage | FileElement)
-type Handler = InputHandler | ActionsHandler
+export type MessageType = (TextMessage | FileElement)
+
+type HandlerType = InputHandler | ActionsHandler
 
 type MessagesAndHandlers = {
-    messages: MsgType[],
-    handlers: Handler[],
+    messages: MessageType[],
+    handlers: HandlerType[],
     effects: Effect[],
     keyboards: Keyboard[]
+    inputHandlers: InputHandler[]
 }
 
 export function elementsToMessagesAndHandlers(
-    elements: SimpleElement[],
+    elements: BasicElement[],
 ): MessagesAndHandlers {
 
     console.log(`componentToMessagesAndHandlers`);
 
     let index = 0;
-    let messages: MsgType[] = []
-    let handlers: Handler[] = []
+    let messages: MessageType[] = []
+    let handlers: HandlerType[] = []
     let effects: Effect[] = []
     let keyboards: Keyboard[] = []
+    let inputHandlers: InputHandler[] = []
 
     const lastMessage = (): {
         idx: number,
@@ -54,6 +58,7 @@ export function elementsToMessagesAndHandlers(
     for (const compel of elements) {
         if (compel.kind === 'InputHandler') {
             handlers.push(compel)
+            inputHandlers.push(compel)
         }
         else if (compel.kind === 'ActionsHandler') {
             handlers.push(compel)
@@ -115,18 +120,16 @@ export function elementsToMessagesAndHandlers(
         index += 1
     }
 
-    return { messages, handlers, effects, keyboards }
+    return { messages, handlers, effects, keyboards, inputHandlers }
 }
 
-export function filterTextMessages(messages: MsgType[]) {
+export function filterTextMessages(messages: MessageType[]) {
     return messages.filter((_): _ is TextMessage => _.kind === 'TextMessage')
 }
 
-import { filterMapWithIndex } from 'fp-ts/Array'
-import { some, none } from 'fp-ts/Option'
 
-export function filterMapTextMessages(messages: MsgType[]) {
-    return filterMapWithIndex((idx, message: MsgType) =>
+export function filterMapTextMessages(messages: MessageType[]) {
+    return filterMapWithIndex((idx, message: MessageType) =>
         message.kind === 'TextMessage'
             ? some({ idx, message })
             : none)(messages)

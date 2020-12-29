@@ -1,80 +1,50 @@
-import deq from 'fast-deep-equal';
 import { TelegrafContext } from "telegraf/typings/context";
-import { elementsToMessagesAndHandlers, filterTextMessages } from './component';
-import { ActionsHandler, BotDocumentMessage, BotMessage, Effect, Part, InputHandler, RenderedElement, TextMessage, UserMessage } from "./parts";
-import { Renderer } from './render';
-import { ComponentGenerator, FileElement, InputHandlerData, SimpleElement } from "./types";
-import { parseFromContext } from './bot-util'
-import { emptyMessage, enumerate, lastItem, pairs } from './util';
-import { Actions, getTask } from './rendertask';
+import { parseFromContext } from './bot-util';
+import { elementsToMessagesAndHandlers } from './elements-to-messages';
+import { ActionsHandler, InputHandler } from "./messages";
+import { BotDocumentMessage, BotMessage, RenderedElement, UserMessage } from "./rendered-messages";
+import { ChatRenderer } from './chatrender';
+import { Actions, createRenderActions } from './render-actions';
+import { BasicElement } from "./elements";
+import { callHandlersChain, emptyMessage, isFalse, lastItem } from './util';
 
-const isFalse = (v: any): v is false => typeof v === 'boolean' && v == false
-const isTrue = (v: any): v is true => typeof v === 'boolean' && v == true
+type RenderQueueElement = BasicElement[]
 
-export class UI {
+
+function isEmpty<T>(items: T[]) {
+    return !items.length
+}
+
+const getMessageId = (ctx: TelegrafContext) => ctx.message?.message_id
+
+export class ChatUI {
 
     constructor(
-        readonly renderer: Renderer
+        readonly renderer: ChatRenderer
     ) { }
 
-    renderedElements: RenderedElement[] = []
-    inputHandler?: InputHandler
-    actionHandler?: ActionsHandler
+    private isRendering = false
+    private renderedElements: RenderedElement[] = []
+    private renderQueue: RenderQueueElement[] = []
 
-    contextParser = parseFromContext
+    // private inputHandler?: InputHandler
+    // private actionHandler?: ActionsHandler
+    private inputHandlers: InputHandler[] = []
 
-    isRendering = false
-
-    renderQueue: SimpleElement[][] = []
-
-    inputHandlers: InputHandler[] = []
-
-    getHandler() {
-
-    }
+    private parseContext = parseFromContext
+    private createUiActions = createRenderActions
+    private createMessagesFromElements = elementsToMessagesAndHandlers
 
     async handleMessage(ctx: TelegrafContext) {
         let deleteMessage = true
 
-        async function callHandler(
-            idx: number,
-            inputHandlers: InputHandler[],
-            data: InputHandlerData
-        ): Promise<void | boolean> {
-
-            console.log(`callHandler(${idx})`);
-
-            if (idx > inputHandlers.length - 1) {
-                return
-            }
-
-            return inputHandlers[idx].callback(
-                data,
-                () => callHandler(idx + 1, inputHandlers, data)
+        if (!isEmpty(this.inputHandlers)) {
+            const doNotDelete = await callHandlersChain(
+                this.inputHandlers.reverse(),
+                this.parseContext(ctx)
             )
+            deleteMessage = !isFalse(doNotDelete)
         }
-
-        if (this.inputHandlers.length) {
-            // for (const [idx, handler] of enumerate(this.inputHandlers).reverse()) {
-            //     if (!handler)
-            //         break
-            const handlers = this.inputHandlers.reverse()
-            const ret = await callHandler(0, handlers, this.contextParser(ctx),)
-
-            deleteMessage = !isFalse(ret)
-
-            // if (!isFalse(ret)) {
-            //     break
-            // }
-        }
-
-        // if (this.inputHandler) {
-        //     const ret = await this.inputHandler.callback(
-        //         this.contextParser(ctx)
-        //     )
-
-        //     deleteMessage = !isFalse(ret)
-        // }
 
         if (deleteMessage && ctx.message?.message_id)
             await this.renderer.delete(ctx.message?.message_id)
@@ -86,164 +56,124 @@ export class UI {
         const action = ctx.match![0]
         const repliedTo = ctx.callbackQuery?.message?.message_id
 
-        // if (this.actionHandler) {
-        //     await this.actionHandler.callback(action)
-        //     await ctx.answerCbQuery()
-        //     return
-        // }
-
         const callbackTo = this.renderedElements.find(
-            _ => _.message.message_id == repliedTo
+            _ => _.output.message_id == repliedTo
         )
 
         if (callbackTo && callbackTo.kind === 'BotMessage') {
-            await callbackTo.textMessage.callback(action)
+            await callbackTo.input.callback(action)
             await ctx.answerCbQuery()
-
         }
         else {
-            // console.log(`this.renderedElements`);
             for (const el of this.renderedElements) {
                 if (el.kind === 'BotMessage') {
-                    // console.log(`BotMessage(${el.textMessage.text})`);
-                } else {
-                    // console.log(`${el.constructor.name}`);
-                }
-            }
-
-            for (const el of this.renderedElements) {
-                if (el.kind === 'BotMessage') {
-                    // console.log(`Checking BotMessage(${el.textMessage.text})`);
-                    if (await el.textMessage.callback(action)) {
-                        // console.log(`Callbacked`);
+                    if (await el.input.callback(action)) {
                         await ctx.answerCbQuery()
                     }
+                } else {
+
                 }
             }
         }
-
-        // else if (repliedTo) {
-        //     try {
-        //         await this.renderer.delete(repliedTo)
-        //     } catch (e) {
-        //         console.error(`Message ${repliedTo} doesn't exist`)
-        //     }
-        // }
     }
 
-    async renderGenerator(elements: SimpleElement[]) {
-        this.inputHandler = undefined
-        this.actionHandler = undefined
+    async renderActions(actions: Actions[]) {
+        let rendered: RenderedElement[] = []
+
+        for (const action of actions) {
+            if (action.kind === 'Create') {
+                if (action.newElement.kind === 'TextMessage')
+                    rendered.push(
+                        new BotMessage(
+                            action.newElement,
+                            await this.renderer.message(
+                                action.newElement.text ?? emptyMessage,
+                                action.newElement.getExtra()
+                            )
+                        )
+                    )
+                else if (action.newElement.kind === 'FileElement')
+                    rendered.push(
+                        new BotDocumentMessage(
+                            action.newElement,
+                            await this.renderer.sendFile(action.newElement.file)
+                        )
+                    )
+            }
+            else if (action.kind === 'Keep') {
+                if (action.newElement.kind === 'TextMessage')
+                    rendered.push(new BotMessage(
+                        action.newElement, action.element.output
+                    ))
+                // else if (action.newElement instanceof FileElement)
+                //     rendered.push(new BotDocumentMessage(
+                //         action.newElement, action.element.message
+                //     ))
+            }
+            else if (action.kind === 'Remove') {
+                this.renderer.delete(action.element.output.message_id)
+            }
+            else if (action.kind === 'Replace') {
+                if (action.newElement.kind === 'TextMessage')
+                    rendered.push(
+                        new BotMessage(
+                            action.newElement,
+                            await this.renderer.message(
+                                action.newElement.text ?? emptyMessage,
+                                action.newElement.getExtra(),
+                                action.element.output,
+                                false
+                            )
+                        )
+                    )
+            }
+        }
+
+        return rendered
+    }
+
+    async renderElementsToChat(elements: BasicElement[]): Promise<void> {
+        // this.inputHandler = undefined
+        // this.actionHandler = undefined
         this.inputHandlers = []
 
-        let rendered: RenderedElement[] = []
+        // let rendered: RenderedElement[] = []
 
         if (this.isRendering) {
             this.renderQueue.push(elements)
-        } else {
-            this.isRendering = true
+            return
+        }
 
-            const {
-                messages,
-                handlers,
-                effects,
-                keyboards
-            } = elementsToMessagesAndHandlers(elements)
+        const {
+            messages, handlers, effects, keyboards, inputHandlers
+        } = this.createMessagesFromElements(elements)
 
-            if (!messages.length)
-                console.error(`Empty messages!`)
+        this.inputHandlers = inputHandlers
 
-            console.log(`effects: ${effects}`);
+        if (!messages.length)
+            console.error(`Empty messages!`)
 
-            console.log('Rendering Started')
+        console.log('Rendering Started')
 
-            // if (keyboards.length) {
-            //     const textMessages =
-            //         filterTextMessages(messages)
-            //             .filter(m => m.buttons.length == 0)
+        const actions = this.createUiActions(this.renderedElements, messages)
 
-            //     textMessages[0].addKeyboardButton(
-            //         lastItem(keyboards)!
-            //     )
-            // }
+        this.isRendering = true
 
-            const actions = getTask(this.renderedElements, messages)
+        this.renderedElements = await this.renderActions(actions)
 
-            for (const action of actions) {
-                console.log(`action: ${action.constructor.name}`);
-            }
+        console.log('Rendering Finished')
 
-            for (const action of actions) {
+        for (const effect of effects) {
+            await effect.callback()
+        }
 
-                if (action.kind === 'Create') {
-                    if (action.newElement.kind === 'TextMessage')
-                        rendered.push(
-                            new BotMessage(
-                                action.newElement,
-                                await this.renderer.message(
-                                    action.newElement.text ?? emptyMessage,
-                                    action.newElement.getExtra()
-                                )
-                            )
-                        )
-                    else if (action.newElement.kind === 'FileElement')
-                        rendered.push(
-                            new BotDocumentMessage(
-                                action.newElement,
-                                await this.renderer.file(action.newElement.file)
-                            )
-                        )
-                }
-                else if (action.kind === 'Keep') {
-                    if (action.newElement.kind === 'TextMessage')
-                        rendered.push(new BotMessage(
-                            action.newElement, action.element.message
-                        ))
-                    // else if (action.newElement instanceof FileElement)
-                    //     rendered.push(new BotDocumentMessage(
-                    //         action.newElement, action.element.message
-                    //     ))
-                }
-                else if (action.kind === 'Remove') {
-                    this.renderer.delete(action.element.message.message_id)
-                }
-                else if (action.kind === 'Replace') {
-                    if (action.newElement.kind === 'TextMessage')
-                        rendered.push(
-                            new BotMessage(
-                                action.newElement,
-                                await this.renderer.message(
-                                    action.newElement.text ?? emptyMessage,
-                                    action.newElement.getExtra(),
-                                    action.element.message,
-                                    false
-                                )
-                            )
-                        )
-                }
-            }
+        this.isRendering = false
 
-            for (const handler of handlers) {
-                if (handler.kind === 'InputHandler')
-                    this.inputHandlers.push(handler)
-            }
+        const moreRender = lastItem(this.renderQueue)
 
-            this.renderedElements = rendered
-
-            console.log('Rendering Finished')
-
-            for (const effect of effects) {
-                await effect.callback()
-            }
-
-            this.isRendering = false
-
-            const lastRender = lastItem(this.renderQueue)
-
-            if (lastRender) {
-                this.renderQueue = []
-                await this.renderGenerator(lastRender)
-            }
+        if (moreRender) {
+            this.renderQueue = []
+            await this.renderElementsToChat(moreRender)
         }
     }
 
@@ -258,7 +188,7 @@ export class UI {
 
         for (const el of messages) {
             try {
-                await this.renderer.delete(el.message.message_id)
+                await this.renderer.delete(el.output.message_id)
             } catch (e) {
                 console.error(e);
                 continue

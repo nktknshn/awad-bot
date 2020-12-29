@@ -5,6 +5,11 @@ import { flattenList } from "./utils"
 
 export const [thewordSymbol, descriptionSymbol, exampleSymbol] = ['>', '=', '-']
 
+export function isRussianWord(input: string) {
+    return /^[а-яА-Я]/.test(input)
+}
+
+
 export function isEnglishWord(input: string) {
     return /^[a-zA-Z]/.test(input)
 }
@@ -62,7 +67,8 @@ export function createCardFromWord(word: string): Card {
     return {
         word,
         meanings: [],
-        tags: []
+        tags: [],
+        translations: []
     }
 }
 
@@ -84,7 +90,20 @@ export function parseCard(message: string): Card | undefined {
         tags,
         transcription: parseTranscription(lines),
         meanings: parseMeanings(lines.slice(1)),
+        translations: parseTranslations(lines)
     }
+}
+
+function parseTranslations(lines: string[]): string[] {
+    let result: string[] = []
+
+    for(const line of lines.map(stripSpaces)) {
+        if(isRussianWord(line)) {
+            result = [...result, ...line.split(',').map(stripSpaces)]
+        }
+    }
+
+    return result
 }
 
 export type CardUpdate =  Partial<Pick<Card, 'tags' | 'meanings' | 'word'> >

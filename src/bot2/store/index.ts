@@ -1,6 +1,6 @@
 import { combineReducers, configureStore, getDefaultMiddleware } from '@reduxjs/toolkit'
 import logger from 'redux-logger'
-import { Services } from '../services'
+import { AwadServices } from '../services'
 import pathReducer from './path'
 import trainerReducer from './trainer'
 import userReducer from './user'
@@ -20,7 +20,7 @@ const rootReducer = combineReducers({
 
 export type RootState = ReturnType<typeof rootReducer>
 
-export function createStore(services: Services) {
+export function createAwadStore(services: AwadServices) {
     return configureStore({
         reducer: rootReducer,
         middleware: getDefaultMiddleware({

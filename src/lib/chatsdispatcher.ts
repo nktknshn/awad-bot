@@ -1,27 +1,26 @@
 import Debug from 'debug'
 import { TelegrafContext } from "telegraf/typings/context"
 
-export type ChatFactory = (ctx: TelegrafContext) => Promise<Chat | undefined>
+export type ChatHandlerFactory = (ctx: TelegrafContext) => Promise<ChatHandler | undefined>
 
-export interface Chat {
-    handleMessage(ctx: TelegrafContext): Promise<unknown>
-    handleAction(ctx: TelegrafContext): Promise<unknown>
+export interface ChatHandler {
+    handleMessage(ctx: TelegrafContext): Promise<void>
+    handleAction(ctx: TelegrafContext): Promise<void>
 }
 
 type Dict<V> = { [key: string]: V }
 type DictNumber<V> = { [key: number]: V }
 
 
-export class ChatsHandler {
-    chats: { [chatId: number]: Chat } = {}
-    pendingChats: DictNumber<Promise<Chat | undefined>> = {}
+export class ChatsDispatcher {
+    
+    private chats: { [chatId: number]: ChatHandler } = {}
+    private pendingChats: DictNumber<Promise<ChatHandler | undefined>> = {}
 
     constructor(
-        readonly chatFactory: ChatFactory,
+        readonly chatFactory: ChatHandlerFactory,
         readonly logger: Debug.Debugger = Debug('bot-chat')
-    ) {
-
-    }
+    ) { }
 
     async getChat(ctx: TelegrafContext) {
         this.logger(`getChat(${ctx.chat?.id})`)
@@ -58,7 +57,7 @@ export class ChatsHandler {
         return chat
     }
 
-    async messageHandler(ctx: TelegrafContext) {
+    public messageHandler = async (ctx: TelegrafContext) => {
         const chatId = ctx.chat?.id
         const messageId = ctx.message?.message_id
         const messageText = ctx.message?.text
@@ -67,7 +66,7 @@ export class ChatsHandler {
         if (!chatId)
             return
 
-        if(ctx.chat?.type != 'private')
+        if (ctx.chat?.type != 'private')
             return
 
         this.logger(`messageHandler(${chatId})[${username}] - ${messageId} - ${messageText}`)
@@ -85,14 +84,14 @@ export class ChatsHandler {
 
     }
 
-    async actionHandler(ctx: TelegrafContext) {
+    public actionHandler = async (ctx: TelegrafContext) => {
         const chatId = ctx.chat?.id
         const username = ctx.chat?.username
 
         if (!chatId)
             return
 
-        if(ctx.chat?.type != 'private')
+        if (ctx.chat?.type != 'private')
             return
 
         this.logger(`actionHandler(${chatId}[${username}])`)

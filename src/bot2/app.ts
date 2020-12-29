@@ -1,33 +1,26 @@
-import { filter } from "fp-ts/lib/Array";
 import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
 import { Card as CardType } from "../bot/interfaces";
 import { CardUpdate, createCardFromWord, isEnglishWord, parseCard } from "../bot/parsing";
 import { parseWordId } from "../bot/utils";
 import { UserEntity } from "../database/entity/user";
-import { button, buttonsRow, effect, input, message, nextMessage } from "../lib/constructors";
-import { Component, ConnectedComp, GetSetState } from "../lib/types";
-import { UI } from "../lib/ui";
+import { button, buttonsRow, effect, input, message } from "../lib/elements-constructors";
+import { Component, ConnectedComp } from "../lib/elements";
 import { Getter, lastItem, parsePath, tryKey } from "../lib/util";
-import { Card } from "./components/Card";
 import { Settings } from "./components/Settings";
-import { WordsPage } from "./components/WordsPage";
+import WordsPage from "./components/WordsPage";
 import PinnedCards from "./connected/PinnedCards";
-import { Services } from "./services";
-import { createStore, RootState } from "./store";
+import { createAwadStore, RootState } from "./store";
 import { toggleIndex } from "./store/misc";
 import { redirect } from "./store/path";
-import { getSettings, getUser, getUserAndSettings, Selector } from "./store/selectors";
-// import { getUser } from "./store/selectors";
+import { combine, getSettings, getUser, getUserAndSettings } from "./store/selectors";
 import { AppSettings, updateSettings } from "./store/settings";
 import { TrainerState, updateTrainer } from "./store/trainer";
 import { addExample, addWord, deleteWord, saveWord, togglePinnedWord, updateWord, UserEntityState, WordEntityState } from "./store/user";
-import { Trainer } from "./trainer";
+import { Trainer } from "./components/trainer";
 
-export type AppProps = AppActions
-// export type AppProps = RootState & AppActions
 
-type AppActions = {
+export type AppDispatch = {
     onRedirect: (path: string) => Promise<any>
     onCard: (card: CardType) => Promise<any>
     onUpdatedTrainer: (trainer: TrainerState) => Promise<any>
@@ -48,9 +41,8 @@ const messages: Record<string, string> = {
     'not_ready': '❌ The component isn\'t ready yet',
 }
 
-export function stateToProps(store: ReturnType<typeof createStore>, ui: UI, services: Services): AppProps {
+export function storeToDispatch(store: ReturnType<typeof createAwadStore>): AppDispatch {
     return {
-        // ...store.getState(),
         onRedirect: async path => store.dispatch(redirect(path)),
         onCard: async card => {
             const userPayload = await store.dispatch(addWord(card))
@@ -75,7 +67,7 @@ export function stateToProps(store: ReturnType<typeof createStore>, ui: UI, serv
     }
 }
 
-function* AppInput({ onRedirect, onCard }: Getter<AppProps, 'onRedirect', 'onCard'>) {
+function* AppInput({ onRedirect, onCard }: Getter<AppDispatch, 'onRedirect', 'onCard'>) {
     yield input(async ({ messageText }) => {
         if (!messageText)
             return
@@ -109,7 +101,7 @@ export function* MappedApp({
     onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer,
     onAddExample, onDeleteWord, onUpdateSettings, onToggleOption,
     onTogglePinnedWord
-}: AppProps & MappedAppProps) {
+}: AppDispatch & MappedAppProps) {
 
     const { pathname, query } = parsePath(path)
     const titleMessage = pipe(tryKey('message', query), mapOpt(String), toUndefined)
@@ -119,9 +111,7 @@ export function* MappedApp({
         return
     }
 
-    yield PinnedCards({
-        onUnpin: (wordId) => onTogglePinnedWord(wordId)
-    })
+    yield PinnedCards({ onUnpin: onTogglePinnedWord })
 
     if (pathname == 'main') {
         yield Component(AppInput)({ onRedirect, onCard })
@@ -134,15 +124,13 @@ export function* MappedApp({
     else if (pathname == 'trainer') {
         yield ConnectedComp(Trainer,
             ({ user, trainer }: RootState) => ({ user, trainer }))
-            ({
-                onRedirect, onUpdated: onUpdatedTrainer
-            })
+            ({ onRedirect, onUpdated: onUpdatedTrainer })
     }
     else if (pathname == 'words' || pathname == '/words') {
         const wordId = pipe(tryKey('wordId', query), mapOpt(Number), toUndefined)
         yield Component(AppInput)({ onRedirect, onCard })
 
-        yield ConnectedComp(WordsPage, getUserAndSettings)({
+        yield WordsPage({
             wordId, onRedirect, onReplaceWord, onUpdateWord,
             onAddExample, onDeleteWord, onTogglePinnedWord
         })
@@ -180,3 +168,6 @@ function* MainMenu({ user, onRedirect, titleMessage }: {
         (_, path) => onRedirect(path)
     )
 }
+
+export default ConnectedComp(MappedApp,
+    ({ path, user }: RootState) => ({ path, userLoaded: !!user }))

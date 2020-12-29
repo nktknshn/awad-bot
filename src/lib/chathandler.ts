@@ -1,9 +1,8 @@
 import { TelegrafContext } from "telegraf/typings/context"
 
-export type ChatFactory = (ctx: TelegrafContext) => Promise<Chat | undefined>
-// export type StateFactory<S> = (ctx: TelegrafContext) => Promise<S | undefined>
+export type ChatFactory = (ctx: TelegrafContext) => Promise<ChatHandler | undefined>
 
-export interface Chat {
+export interface ChatHandler {
     handleMessage(ctx: TelegrafContext): Promise<unknown>
     handleAction(ctx: TelegrafContext): Promise<unknown>
 }
@@ -23,11 +22,11 @@ class IncomingAction {
     }
 }
 
-export class QueuedChat implements Chat {
+export class QueuedChatHandler implements ChatHandler {
     incomingQueue: IncomingItem[] = []
     busy = false
 
-    constructor(readonly chat: Chat) { }
+    constructor(readonly chat: ChatHandler) { }
 
     async push(item: IncomingItem) {
         

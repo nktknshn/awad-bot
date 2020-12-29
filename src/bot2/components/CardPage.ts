@@ -1,10 +1,10 @@
 // import { Card } from "../../bot/components"
 import { parseCard, parseCardUpdate, parseExample } from "../../bot/parsing"
 import { WordEntity } from "../../database/entity/word"
-import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/constructors"
-import { Component } from "../../lib/types"
+import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/elements-constructors"
+import { Component } from "../../lib/elements"
 import { Getter, PathQuery } from "../../lib/util"
-import { AppProps } from "../app"
+import { AppDispatch } from "../app"
 import { RootState } from "../store"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
@@ -12,7 +12,7 @@ import { Card } from "./Card"
 export function* CardPageInput({
     word,
     onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppProps, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState }) {
+}: Getter<AppDispatch, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState }) {
     yield input(async ({ messageText }, next) => {
         if (!messageText) {
             return
@@ -43,7 +43,7 @@ export function* CardPageInput({
         }
         else if (!word.meanings.length) {
             await onUpdateWord(word, {
-                tags: word.tags,
+                // tags: word.tags,
                 meanings: [{
                     description: messageText,
                     examples: [],
@@ -64,7 +64,7 @@ export function* CardPageInput({
 export function* CardPage({
     user, word, path, query,
     onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppProps & RootState, 'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState, query?: PathQuery, path: string }) {
+}: Getter<AppDispatch & RootState, 'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState, query?: PathQuery, path: string }) {
 
     yield Component(CardPageInput)({
         word,

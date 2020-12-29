@@ -1,6 +1,6 @@
 import { exampleSymbol, descriptionSymbol } from "../../bot/parsing";
 import { WordEntity } from "../../database/entity/word";
-import { messagePart } from "../../lib/constructors";
+import { messagePart } from "../../lib/elements-constructors";
 import { WordEntityState } from "../store/user";
 
 export function* Card({ word }: { word: WordEntityState }) {
@@ -11,6 +11,10 @@ export function* Card({ word }: { word: WordEntityState }) {
 
     if (word.transcription)
         yield messagePart(word.transcription);
+
+    // for(const translation of word.translations) {}
+
+    yield messagePart(word.translations.join(', '))
 
     for (const meaning of word.meanings) {
         yield messagePart('');

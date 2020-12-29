@@ -6,7 +6,7 @@ import { CardUpdate } from "../../bot/parsing"
 import { UserEntity } from "../../database/entity/user"
 import { WordEntity } from "../../database/entity/word"
 import { lastItem, toggleItem } from "../../lib/util"
-import { Services } from "../services"
+import { AwadServices } from "../services"
 import { getUser } from "./selectors"
 
 // export interface UserState {
@@ -23,7 +23,8 @@ export interface WordEntityState {
     theword: string,
     tags: string[]
     meanings: Meaning[],
-    transcription?: string
+    transcription?: string,
+    translations: string[]
 }
 // (new WordEntity())
 
@@ -40,7 +41,7 @@ const initialState: UserEntityState | undefined = undefined
 
 type API = {
     state: RootState
-    extra: Services
+    extra: AwadServices
 }
 
 export const fetchUser = createAsyncThunk<UserEntityState | undefined, number, API>(

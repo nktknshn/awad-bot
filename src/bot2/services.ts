@@ -5,7 +5,7 @@ import { UserEntity, UserRepository } from "../database/entity/user"
 import { WordEntity } from "../database/entity/word"
 import { UserEntityState, WordEntityState } from "./store/user"
 
-export type Services = ReturnType<typeof getServices>
+export type AwadServices = ReturnType<typeof getAwadServices>
 
 
 function userEntityToState(user: UserEntity): UserEntityState {
@@ -25,17 +25,27 @@ function wordEntityToState(word: WordEntity): WordEntityState {
         meanings: word.meanings,
         tags: word.tags,
         theword: word.theword,
-        transcription: word.transcription
+        transcription: word.transcription,
+        translations: word.translations
     }
 }
 
-export function getServices(connection: Connection) {
+export function getAwadServices(connection: Connection) {
     const users = connection.getCustomRepository(UserRepository)
     const words = connection.getRepository(WordEntity)
 
     return {
         users,
         words,
+        async getOrCreateUser(userDto: { id: number }): Promise<UserEntityState> {
+            const user = await this.getUser(userDto.id)
+
+            if(user === undefined) 
+                return await this.createUser(userDto)
+
+            return user
+
+        },
         async getUser(chatId: number): Promise<UserEntityState | undefined> {
             let user = await users.findOne(chatId)
 
@@ -58,7 +68,7 @@ export function getServices(connection: Connection) {
     }
 }
 
-export function dtoFromCtx(ctx: TelegrafContext, message_id?: number) {
+export function userDtoFromCtx(ctx: TelegrafContext, message_id?: number) {
     return {
         id: ctx.chat?.id!,
     }

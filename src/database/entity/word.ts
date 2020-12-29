@@ -31,6 +31,10 @@ export class WordEntity extends BaseEntity {
     @Column("text", { array: true })
     tags!: string[]
 
+    @Field(() => [String])
+    @Column("text", { array: true, default: '{}', nullable: false })
+    translations!: string[]
+
     @Column("jsonb")
     meanings!: Meaning[]
 

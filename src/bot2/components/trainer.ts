@@ -1,18 +1,13 @@
-import { UserEntity } from "../database/entity/user"
+import { UserEntity } from "../../database/entity/user"
 // import { Buttons, Message } from "../ui/chatui/elements"
-import { WordEntity } from "../database/entity/word"
-import { array, shuffle, parseCallbackData, takeRandom, takeLast } from "../bot/utils"
-import { flattenList } from "../lib/util"
-import { button, buttonsRow, message } from "../lib/constructors"
+import { WordEntity } from "../../database/entity/word"
+import { array, shuffle, parseCallbackData, takeRandom, takeLast } from "../../bot/utils"
+import { flattenList } from "../../lib/util"
+import { button, buttonsRow, message } from "../../lib/elements-constructors"
 // import { TrainerCard, TrainerState } from "./state"
-import { Component, ComponentGenerator } from "../lib/types"
-import { TrainerCard, TrainerState } from "./store/trainer"
-import { UserEntityState, WordEntityState } from "./store/user"
-
-
-function trainer(word: WordEntity) {
-
-}
+import { Component, ComponentGenerator } from "../../lib/elements"
+import { TrainerCard, TrainerState } from "../store/trainer"
+import { UserEntityState, WordEntityState } from "../store/user"
 
 
 export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
