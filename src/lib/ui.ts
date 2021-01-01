@@ -3,7 +3,7 @@ import { parseFromContext } from './bot-util';
 import { elementsToMessagesAndHandlers } from './elements-to-messages';
 import { ActionsHandler, InputHandler } from "./messages";
 import { BotDocumentMessage, BotMessage, RenderedElement, UserMessage } from "./rendered-messages";
-import { ChatRenderer } from './chatrender';
+import { ChatRenderer } from './chatrenderer';
 import { Actions, createRenderActions } from './render-actions';
 import { BasicElement } from "./elements";
 import { callHandlersChain, emptyMessage, isFalse, lastItem } from './util';
@@ -20,7 +20,7 @@ const getMessageId = (ctx: TelegrafContext) => ctx.message?.message_id
 export class ChatUI {
 
     constructor(
-        readonly renderer: ChatRenderer
+        // readonly renderer: ChatRenderer
     ) { }
 
     private isRendering = false
@@ -43,13 +43,15 @@ export class ChatUI {
                 this.inputHandlers.reverse(),
                 this.parseContext(ctx)
             )
-            deleteMessage = !isFalse(doNotDelete)
+            return !isFalse(doNotDelete)
         }
 
-        if (deleteMessage && ctx.message?.message_id)
-            await this.renderer.delete(ctx.message?.message_id)
-        else if (ctx.message)
-            this.renderedElements.push(new UserMessage(ctx.message))
+        return deleteMessage
+
+        // if (deleteMessage && ctx.message?.message_id)
+        //     await this.renderer.delete(ctx.message?.message_id)
+        // else if (ctx.message)
+        //     this.renderedElements.push(new UserMessage(ctx.message))
     }
 
     async handleAction(ctx: TelegrafContext) {
@@ -77,7 +79,7 @@ export class ChatUI {
         }
     }
 
-    async renderActions(actions: Actions[]) {
+    async renderActions(renderer: ChatRenderer, actions: Actions[]) {
         let rendered: RenderedElement[] = []
 
         for (const action of actions) {
@@ -86,7 +88,7 @@ export class ChatUI {
                     rendered.push(
                         new BotMessage(
                             action.newElement,
-                            await this.renderer.message(
+                            await renderer.message(
                                 action.newElement.text ?? emptyMessage,
                                 action.newElement.getExtra()
                             )
@@ -96,7 +98,7 @@ export class ChatUI {
                     rendered.push(
                         new BotDocumentMessage(
                             action.newElement,
-                            await this.renderer.sendFile(action.newElement.file)
+                            await renderer.sendFile(action.newElement.file)
                         )
                     )
             }
@@ -111,14 +113,14 @@ export class ChatUI {
                 //     ))
             }
             else if (action.kind === 'Remove') {
-                this.renderer.delete(action.element.output.message_id)
+                renderer.delete(action.element.output.message_id)
             }
             else if (action.kind === 'Replace') {
                 if (action.newElement.kind === 'TextMessage')
                     rendered.push(
                         new BotMessage(
                             action.newElement,
-                            await this.renderer.message(
+                            await renderer.message(
                                 action.newElement.text ?? emptyMessage,
                                 action.newElement.getExtra(),
                                 action.element.output,
@@ -132,12 +134,8 @@ export class ChatUI {
         return rendered
     }
 
-    async renderElementsToChat(elements: BasicElement[]): Promise<void> {
-        // this.inputHandler = undefined
-        // this.actionHandler = undefined
+    async renderElementsToChat(renderer: ChatRenderer, elements: BasicElement[]): Promise<void> {
         this.inputHandlers = []
-
-        // let rendered: RenderedElement[] = []
 
         if (this.isRendering) {
             this.renderQueue.push(elements)
@@ -159,7 +157,7 @@ export class ChatUI {
 
         this.isRendering = true
 
-        this.renderedElements = await this.renderActions(actions)
+        this.renderedElements = await this.renderActions(renderer, actions)
 
         console.log('Rendering Finished')
 
@@ -173,22 +171,22 @@ export class ChatUI {
 
         if (moreRender) {
             this.renderQueue = []
-            await this.renderElementsToChat(moreRender)
+            await this.renderElementsToChat(renderer, moreRender)
         }
     }
 
-    async deleteAll() {
-        await this.clear()
+    async deleteAll(renderer: ChatRenderer) {
+        await this.clear(renderer)
         this.renderedElements = []
     }
 
-    async clear(messages?: RenderedElement[]) {
+    async clear(renderer: ChatRenderer, messages?: RenderedElement[]) {
         if (!messages)
             messages = this.renderedElements
 
         for (const el of messages) {
             try {
-                await this.renderer.delete(el.output.message_id)
+                await renderer.delete(el.output.message_id)
             } catch (e) {
                 console.error(e);
                 continue

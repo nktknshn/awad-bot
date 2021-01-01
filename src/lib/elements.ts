@@ -19,7 +19,9 @@ export type BasicElement = TextElement | TextElementPart | NextMessage | ButtonE
 export type Element = BasicElement | ComponentElement
 
 export function isComponentElement(el: Element): el is ComponentElement {
-    return 'comp' in el
+    return el.kind === 'component'
+        || el.kind === 'component-with-state-connected'
+        || el.kind === 'component-with-state'
 }
 
 export type GetSetState<S> = {

@@ -187,6 +187,7 @@ export const tryKey = (key: string, query?: querystring.ParsedUrlQuery) =>
 export const isFalse = (v: any): v is false => typeof v === 'boolean' && v == false
 export const isTrue = (v: any): v is true => typeof v === 'boolean' && v == true
 
+export const nspaces = (n: number, s = ' ') => [...range(0, n)].map(_ => s).join('')
 
 export async function callHandlersChain(
     inputHandlers: InputHandler[],

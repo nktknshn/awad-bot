@@ -1,4 +1,3 @@
-import { readFile } from "fs"
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
 import { createConnection } from "typeorm"
@@ -17,7 +16,13 @@ async function main() {
     const services = getAwadServices(connection)
 
     const dispatcher = new ChatsDispatcher(
-        createChatHandlerFactory(services)
+        async (ctx) => {
+            const chat = await createChatHandlerFactory(services)(ctx)
+            if(chat) {
+                // chat.
+            }
+            return chat
+        }
     )
 
     bot.on('message', dispatcher.messageHandler)

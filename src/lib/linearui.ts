@@ -3,7 +3,7 @@ import { areSameTextMessages, parseFromContext } from "./bot-util"
 import { elementsToMessagesAndHandlers } from "./elements-to-messages"
 import { ActionsHandler, TextMessage, InputHandler } from "./messages"
 import { RenderedElement, BotMessage } from "./rendered-messages"
-import { ChatRenderer } from "./chatrender"
+import { ChatRenderer } from "./chatrenderer"
 import { ComponentGenerator, BasicElement } from "./elements"
 import { emptyMessage, zip } from "./util"
 

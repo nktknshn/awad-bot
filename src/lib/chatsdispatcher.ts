@@ -1,24 +1,25 @@
 import Debug from 'debug'
 import { TelegrafContext } from "telegraf/typings/context"
+import { ChatHandler } from './chathandler'
 
-export type ChatHandlerFactory = (ctx: TelegrafContext) => Promise<ChatHandler | undefined>
+export type ChatHandlerFactory<T extends ChatHandler> = (ctx: TelegrafContext) => Promise<T | undefined>
 
-export interface ChatHandler {
-    handleMessage(ctx: TelegrafContext): Promise<void>
-    handleAction(ctx: TelegrafContext): Promise<void>
-}
+// export interface ChatHandler {
+//     handleMessage(ctx: TelegrafContext): Promise<void>
+//     handleAction(ctx: TelegrafContext): Promise<void>
+// }
 
 type Dict<V> = { [key: string]: V }
 type DictNumber<V> = { [key: number]: V }
 
 
-export class ChatsDispatcher {
+export class ChatsDispatcher<T extends ChatHandler> {
     
     private chats: { [chatId: number]: ChatHandler } = {}
     private pendingChats: DictNumber<Promise<ChatHandler | undefined>> = {}
 
     constructor(
-        readonly chatFactory: ChatHandlerFactory,
+        readonly chatFactory: ChatHandlerFactory<T>,
         readonly logger: Debug.Debugger = Debug('bot-chat')
     ) { }
 
