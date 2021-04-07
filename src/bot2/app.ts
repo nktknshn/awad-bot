@@ -5,7 +5,7 @@ import { CardUpdate, createCardFromWord, isEnglishWord, parseCard } from "../bot
 import { parseWordId } from "../bot/utils";
 import { UserEntity } from "../database/entity/user";
 import { button, buttonsRow, effect, input, message } from "../lib/elements-constructors";
-import { Component, ConnectedComp } from "../lib/elements";
+import { Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp } from "../lib/elements";
 import { Getter, lastItem, parsePath, tryKey } from "../lib/util";
 import { Settings } from "./components/Settings";
 import WordsPage from "./components/WordsPage";
@@ -18,6 +18,7 @@ import { AppSettings, updateSettings } from "./store/settings";
 import { TrainerState, updateTrainer } from "./store/trainer";
 import { addExample, addWord, deleteWord, saveWord, togglePinnedWord, updateWord, UserEntityState, WordEntityState } from "./store/user";
 import { Trainer } from "./components/trainer";
+import { GetAllComps, StateReq } from "../lib/types-util";
 
 
 export type AppDispatch = {
@@ -123,7 +124,7 @@ export function* MappedApp({
     }
     else if (pathname == 'trainer') {
         yield ConnectedComp(Trainer,
-            ({ user, trainer }: RootState) => ({ user, trainer }))
+            ({ user, trainer }: Pick<RootState, 'trainer' | 'user'>) => ({ user, trainer }))
             ({ onRedirect, onUpdated: onUpdatedTrainer })
     }
     else if (pathname == 'words' || pathname == '/words') {
@@ -169,5 +170,7 @@ function* MainMenu({ user, onRedirect, titleMessage }: {
     )
 }
 
-export default ConnectedComp(MappedApp,
-    ({ path, user }: RootState) => ({ path, userLoaded: !!user }))
+const cnctd = ConnectedComp(MappedApp,
+    ({ path, user }: Pick<RootState, 'path' | 'user'>) => ({ path, userLoaded: !!user }))
+    
+export default cnctd

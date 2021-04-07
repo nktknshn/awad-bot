@@ -1,20 +1,21 @@
-import { Selector } from "@reduxjs/toolkit"
+// import { Selector } from "@reduxjs/toolkit"
 import { filter } from "fp-ts/lib/Array"
-import { pipe } from "fp-ts/lib/function"
+import { pipe, flow } from "fp-ts/lib/function"
 import { button, nextMessage } from "../../lib/elements-constructors"
 import { Component, ConnectedComp, GetSetState } from "../../lib/elements"
 import { Card } from "../components/Card"
 import { RootState } from "../store"
 import { WordEntityState } from "../store/user"
+import { getUser, Selector } from "../store/selectors"
 
-export const getPinnedCards: Selector<RootState, { pinnedCards: WordEntityState[] }> = ({ user }) => ({
+export const getPinnedCards = flow(getUser, ({ user }) => ({
     pinnedCards: user
         ? pipe(
             user.words,
             filter(word => user.pinnedWordsIds.indexOf(word.id) > -1)
         )
         : []
-})
+}))
 
 export function* PinnedCards(
     { pinnedCards, onUnpin }: {

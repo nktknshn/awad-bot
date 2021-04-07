@@ -8,6 +8,10 @@ import App, { AppDispatch, storeToDispatch } from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore } from "./store";
 import { updateUser } from "./store/user";
+import { AppReqs, GetAllBasics, GetAllComps, StateReq } from "../lib/types-util";
+
+type AppStateRequirements = AppReqs<ReturnType<typeof App>>
+type AppBasics = GetAllBasics<ReturnType<typeof App>>
 
 export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFactory<ChatImpl> =>
     async ctx => {
@@ -25,7 +29,7 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
         const renderFunc = (props: AppDispatch) =>
             ui.renderElementsToChat(
                 renderer,
-                tree.createElements(store, props, App)
+                tree.createElements(store, props, App) as AppBasics[]
             )
 
         const onStateUpdated = () => renderFunc(storeToDispatch(store))

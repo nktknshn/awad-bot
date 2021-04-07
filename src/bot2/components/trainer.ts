@@ -62,7 +62,7 @@ export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
     }
 }
 
-export function* AnsweredTrainerCard({ correctWord, wrongs, answer }: TrainerCard): ComponentGenerator {
+export function* AnsweredTrainerCard({ correctWord, wrongs, answer }: TrainerCard) {
     yield message(
         [
             correctWord.id == answer ? '👌 Correct' : '❌ Wrong',
@@ -78,7 +78,7 @@ export function* QuestioningTrainerCard({ correctWord, wrongs, answer, onCorrect
     TrainerCard & {
         onCorrect(): Promise<void>,
         onWrong(wordId: number): Promise<void>,
-    }): ComponentGenerator {
+    }) {
 
     const options = array(shuffle([...wrongs, correctWord]))
     yield message(correctWord.meanings[0].description)

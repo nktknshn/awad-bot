@@ -1,5 +1,6 @@
 import { Store } from "redux"
 import { BasicElement, ComponentElement, ComponentGenerator, isComponentElement } from "./elements"
+import { AppReqs, GetAllBasics } from "./types-util"
 import { nspaces, range } from "./util"
 import { equal, ObjectHelper } from "./util3dparty"
 
@@ -43,7 +44,6 @@ export function getElementsFromTree(tree: ComponentTree): BasicElement[] {
 
     for (const element of result) {
         if (isComponentTree(element)) {
-            element
             elements = [...elements, ...getElementsFromTree(element)]
         }
         else {
@@ -257,18 +257,18 @@ export function componentToComponentTree<R>(
 
     if (componentElement.kind === 'component') {
         props = componentElement.props
-        elements = componentElement.cons(props)
+        elements = componentElement.cons(props) as ComponentGenerator
     }
     else if (componentElement.kind === 'component-with-state-connected') {
         props = {
             ...componentElement.props,
             ...componentElement.mapper(rootState)
         }
-        elements = componentElement.cons(props, getset)
+        elements = componentElement.cons(props, getset) as ComponentGenerator
     }
     else {
         props = componentElement.props
-        elements = componentElement.cons(props, getset)
+        elements = componentElement.cons(props, getset) as ComponentGenerator
     }
 
     for (const element of elements) {
@@ -418,10 +418,16 @@ export class ElementsTree {
     private nextStateTree?: ComponentStateTree
     private lastPropsTree?: PropsTree
 
-    public createElements = <P, S>(
+    public createElements = <
+        P,
+        S extends SR,
+        C extends ComponentElement,
+        SR extends AppReqs<ReturnType<(props: P) => C>>,
+        Els extends GetAllBasics<C>
+    >(
         store: Store<S>,
         props: P,
-        rootComponent: (props: P) => ComponentElement
+        rootComponent: (props: P) => C
     ): BasicElement[] => {
         console.log(`renderFunc`)
 

@@ -4,23 +4,23 @@ import { ActionsHandler, Effect, InputHandler, InputHandlerData } from "./messag
 import { ButtonElement, ButtonsRowElement, TextElement, RequestLocationButton, FileElement, TextElementPart, NextMessage } from "./elements"
 
 
-export function startAwareInput(
-    onStart: () => Promise<void>,
-) {
-    return (callback: (data: InputHandlerData) => Promise<boolean | void>) =>
-        input(
-            async (data) => {
-                console.log(`data.messageText= ${data.messageText}`)
+// export function startAwareInput(
+//     onStart: () => Promise<void>,
+// ) {
+//     return (callback: (data: InputHandlerData) => Promise<boolean | void>) =>
+//         input(
+//             async (data) => {
+//                 console.log(`data.messageText= ${data.messageText}`)
 
-                if (data.messageText && data.messageText == '/start') {
-                    console.log('/start caught')
-                    return await onStart()
-                } else {
-                    return await callback(data)
-                }
-            }
-        )
-}
+//                 if (data.messageText && data.messageText == '/start') {
+//                     console.log('/start caught')
+//                     return await onStart()
+//                 } else {
+//                     return await callback(data)
+//                 }
+//             }
+//         )
+// }
 
 
 export function file(f: InputFile) {

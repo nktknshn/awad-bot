@@ -22,4 +22,8 @@ export function* Card({ word }: { word: WordEntityState }) {
         for (const example of meaning.examples)
             yield messagePart(`<i>${exampleSymbol} ${example}</i>`);
     }
+
+    // yield new ABCD()
 }
+
+class ABCD {}

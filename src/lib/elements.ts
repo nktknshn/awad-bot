@@ -31,25 +31,25 @@ export type GetSetState<S> = {
 
 export type ComponentGenerator = Generator<Element, void, void>
 
-type CompConstructor<P> = ((props: P) => ComponentGenerator)
+type CompConstructor<P, R> = ((props: P) => R)
 
-export type CompConstructorWithState<P, S = never> =
-    (props: P, getset: GetSetState<S>) => ComponentGenerator
+export type CompConstructorWithState<P, S = never, R = unknown> =
+    (props: P, getset: GetSetState<S>) => R
 
-export interface ComponentStateless<P> {
-    cons: CompConstructor<P>
+export interface ComponentStateless<P, R = unknown> {
+    cons: CompConstructor<P, R>
     props: P,
     kind: 'component'
 }
 
-export interface ComponentWithState<P, S = never> {
-    cons: CompConstructorWithState<P, S>
+export interface ComponentWithState<P, S = never, R = unknown> {
+    cons: CompConstructorWithState<P, S, R>
     props: P,
     kind: 'component-with-state'
 }
 
-export interface ComponentConnected<P extends M, S, M, RootState> {
-    cons: CompConstructorWithState<P, S>
+export interface ComponentConnected<P extends M, S, M, RootState, R = unknown> {
+    cons: CompConstructorWithState<P, S, R>
     mapper: (state: RootState) => M
     props: Subtract<P, M>
     kind: 'component-with-state-connected'
@@ -60,8 +60,8 @@ export type ComponentElement =
     | ComponentWithState<any, any>
     | ComponentConnected<any, any, any, any>
 
-export function Component<P, S>(cons: CompConstructorWithState<P, S>) {
-    return function (props: P): ComponentWithState<P, S> {
+export function Component<P, S, R>(cons: CompConstructorWithState<P, S, R>) {
+    return function (props: P): ComponentWithState<P, S, R> {
         return {
             cons,
             props,
@@ -70,11 +70,11 @@ export function Component<P, S>(cons: CompConstructorWithState<P, S>) {
     }
 }
 
-export function ConnectedComp<P extends M, S, M, State>(
-    cons: CompConstructorWithState<P, S>,
+export function ConnectedComp<P extends M, S, M, State, R>(
+    cons: CompConstructorWithState<P, S, R>,
     mapper: (state: State) => M,
-): (props: Subtract<P, M>) => ComponentConnected<P, S, M, State> {
-    return function (props: Subtract<P, M>): ComponentConnected<P, S, M, State> {
+): (props: Subtract<P, M>) => ComponentConnected<P, S, M, State, R> {
+    return function (props: Subtract<P, M>): ComponentConnected<P, S, M, State, R> {
         return {
             cons,
             props,

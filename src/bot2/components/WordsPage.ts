@@ -7,7 +7,7 @@ import { parseWordId } from "../../bot/utils"
 import { CheckListStateless } from "../../lib/components/checklist"
 import { button, buttonsRow, input, message, messagePart, nextMessage, radioRow } from "../../lib/elements-constructors"
 import { InputHandlerData } from "../../lib/messages"
-import { Component, ComponentWithState, ConnectedComp, GetSetState } from "../../lib/elements"
+import { BasicElement, Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp, GetSetState } from "../../lib/elements"
 import { Getter, toggleItem } from "../../lib/util"
 import { AppDispatch } from "../app"
 import { RootState } from "../store"
@@ -89,7 +89,8 @@ export function* WordsPage(
     {
         user, settings, wordId, pinnedWordsIds,
         onRedirect, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onTogglePinnedWord
-    }: Getter<AppDispatch & RootState, 'user', 'settings', 'onRedirect', 'onReplaceWord', 'onUpdateWord', 'onAddExample', 'onDeleteWord', 'onTogglePinnedWord'> & { wordId?: number, pinnedWordsIds: number[] },
+    }: Getter<AppDispatch & RootState, 'user', 'settings', 'onRedirect', 'onReplaceWord', 'onUpdateWord', 
+    'onAddExample', 'onDeleteWord', 'onTogglePinnedWord'> & { wordId?: number, pinnedWordsIds: number[] },
     { getState, setState }: GetSetState<WordsPageState>
 ) {
 
@@ -167,6 +168,7 @@ export function* WordsPage(
     }
 }
 
+
 type Callback<K extends keyof any, T = never> = Record<K, (arg?: T) => Promise<void>>
 
 type Dispatch<T> = Record<'dispatch', T>
@@ -240,7 +242,9 @@ function* CardPage({
             onWrongInput: (data) => setState({ rename: false })
         })
     }
+
 }
+// 
+const cnctd = ConnectedComp(WordsPage, getUserAndSettings)
 
-
-export default ConnectedComp(WordsPage, getUserAndSettings)
+export default cnctd

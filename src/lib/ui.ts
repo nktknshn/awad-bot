@@ -134,7 +134,7 @@ export class ChatUI {
         return rendered
     }
 
-    async renderElementsToChat(renderer: ChatRenderer, elements: BasicElement[]): Promise<void> {
+    async renderElementsToChat<Els extends BasicElement>(renderer: ChatRenderer, elements: Els[]): Promise<void> {
         this.inputHandlers = []
 
         if (this.isRendering) {
