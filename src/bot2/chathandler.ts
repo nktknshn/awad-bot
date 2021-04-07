@@ -2,7 +2,7 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { ChatHandler, QueuedChatHandler } from "../lib/chathandler";
 import { ChatHandlerFactory } from "../lib/chatsdispatcher";
 import { ChatRenderer, createChatRenderer, messageTrackingRenderer } from "../lib/chatrenderer";
-import { ElementsTree } from "../lib/tree";
+import { ElementsTree, TreeState } from "../lib/tree";
 import { ChatUI } from "../lib/ui";
 import App, { AppDispatch, storeToDispatch } from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
@@ -25,12 +25,17 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
         const store = createAwadStore(services)
 
         let tree = new ElementsTree()
+        let ss: { s: TreeState } = {s:{}}
+        let a = tree.createElements(App)
 
-        const renderFunc = (props: AppDispatch) =>
-            ui.renderElementsToChat(
+        const renderFunc = (d: AppDispatch) => {
+            const [els, ns] = a(store, d)(ss.s)
+            ss.s = ns
+            return ui.renderElementsToChat(
                 renderer,
-                tree.createElements(store, props, App) as AppBasics[]
+                els   
             )
+        }
 
         const onStateUpdated = () => renderFunc(storeToDispatch(store))
         store.subscribe(onStateUpdated)

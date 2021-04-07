@@ -257,18 +257,18 @@ export function componentToComponentTree<R>(
 
     if (componentElement.kind === 'component') {
         props = componentElement.props
-        elements = componentElement.cons(props) as ComponentGenerator
+        elements = componentElement.cons(props)
     }
     else if (componentElement.kind === 'component-with-state-connected') {
         props = {
             ...componentElement.props,
             ...componentElement.mapper(rootState)
         }
-        elements = componentElement.cons(props, getset) as ComponentGenerator
+        elements = componentElement.cons(props, getset)
     }
     else {
         props = componentElement.props
-        elements = componentElement.cons(props, getset) as ComponentGenerator
+        elements = componentElement.cons(props, getset)
     }
 
     for (const element of elements) {
@@ -411,70 +411,75 @@ export function printZippedTree(tree: TreeWithNewState, depth = 0) {
     }
 }
 
+export interface TreeState {
+    tree?: ComponentTree
+    prevStateTree?: ComponentStateTree
+    nextStateTree?: ComponentStateTree
+    lastPropsTree?: PropsTree
+}
 
 export class ElementsTree {
-    private tree?: ComponentTree
-    private prevStateTree?: ComponentStateTree
-    private nextStateTree?: ComponentStateTree
-    private lastPropsTree?: PropsTree
+
+    private equal = equal
 
     public createElements = <
         P,
         S extends SR,
         C extends ComponentElement,
-        SR extends AppReqs<ReturnType<(props: P) => C>>,
-        Els extends GetAllBasics<C>
-    >(
-        store: Store<S>,
-        props: P,
-        rootComponent: (props: P) => C
-    ): BasicElement[] => {
-        console.log(`renderFunc`)
+        SR extends AppReqs<C>,
+        // Els extends GetAllBasics<C>
+        >(rootComponent: (props: P) => C) =>
+        (store: Store<S>, props: P,):
+            (s: TreeState) => [BasicElement[], TreeState] => {
+            const { equal } = this
+            return function (s: TreeState): [BasicElement[], TreeState] {
+                console.log(`renderFunc`)
 
-        const stateTreeIsSame = this.tree
-            && equal(this.prevStateTree, this.nextStateTree)
+                const stateTreeIsSame = s.tree
+                    && equal(s.prevStateTree, s.nextStateTree)
 
-        const propsAreSame = this.tree
-            && equal(
-                copyPropsTree(
-                    componentToComponentTree(
+                const propsAreSame = s.tree
+                    && equal(
+                        copyPropsTree(
+                            componentToComponentTree(
+                                rootComponent(props),
+                                s.nextStateTree,
+                                store.getState()
+                            )
+                        ),
+                        s.lastPropsTree
+                    )
+
+                if (stateTreeIsSame && propsAreSame) {
+                    console.log(`Props and state are same`);
+                    // await ui.renderGenerator()
+                    return [getElementsFromTree(s.tree!), s]
+                }
+
+                if (s.prevStateTree && s.nextStateTree && s.tree) {
+
+                    const prevTree = assignStateTree(s.tree, s.prevStateTree)
+                    const zippedWithNewState = zipTreeWithStateTree(prevTree, s.nextStateTree)
+                    s.tree = rerenderTree(
+                        zippedWithNewState,
                         rootComponent(props),
-                        this.nextStateTree,
                         store.getState()
                     )
-                ),
-                this.lastPropsTree
-            )
+                }
+                else {
+                    console.log('First draw!')
+                    s.tree = componentToComponentTree(
+                        rootComponent(props),
+                        undefined,
+                        store.getState()
+                    )
+                }
 
-        if (stateTreeIsSame && propsAreSame) {
-            console.log(`Props and state are same`);
-            // await ui.renderGenerator()
-            return getElementsFromTree(this.tree!)
+                s.lastPropsTree = copyPropsTree(s.tree)
+                s.prevStateTree = copyStateTree(s.tree)
+                s.nextStateTree = extractStateTree(s.tree)
+
+                return [getElementsFromTree(s.tree), s]
+            }
         }
-
-        if (this.prevStateTree && this.nextStateTree && this.tree) {
-
-            const prevTree = assignStateTree(this.tree, this.prevStateTree)
-            const zippedWithNewState = zipTreeWithStateTree(prevTree, this.nextStateTree)
-            this.tree = rerenderTree(
-                zippedWithNewState,
-                rootComponent(props),
-                store.getState()
-            )
-        }
-        else {
-            console.log('First draw!')
-            this.tree = componentToComponentTree(
-                rootComponent(props),
-                undefined,
-                store.getState()
-            )
-        }
-
-        this.lastPropsTree = copyPropsTree(this.tree)
-        this.prevStateTree = copyStateTree(this.tree)
-        this.nextStateTree = extractStateTree(this.tree)
-
-        return getElementsFromTree(this.tree)
-    }
 }

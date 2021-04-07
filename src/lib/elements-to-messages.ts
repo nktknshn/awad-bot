@@ -7,12 +7,21 @@ export type MessageType = (TextMessage | FileElement)
 
 type HandlerType = InputHandler | ActionsHandler
 
-type MessagesAndHandlers = {
+export type MessagesAndHandlers = {
     messages: MessageType[],
     handlers: HandlerType[],
     effects: Effect[],
     keyboards: Keyboard[]
     inputHandlers: InputHandler[]
+}
+
+export function elementsToMessagesAndHandlers2(elements: BasicElement[]) {
+
+}
+
+
+interface RenderDraft {
+
 }
 
 export function elementsToMessagesAndHandlers(

@@ -1,5 +1,6 @@
 // import { parseFromContext } from "../bot/bot-utils"
 import { InputFile } from "telegraf/typings/telegram-types"
+import { MessagesAndHandlers } from "./elements-to-messages"
 import { ActionsHandler, Effect, InputHandler } from "./messages"
 
 type Diff<T, U> = T extends U ? never : T
@@ -33,22 +34,22 @@ export type ComponentGenerator = Generator<Element, void, void>
 
 type CompConstructor<P, R> = ((props: P) => R)
 
-export type CompConstructorWithState<P, S = never, R = unknown> =
+export type CompConstructorWithState<P, S = never, R = ComponentGenerator> =
     (props: P, getset: GetSetState<S>) => R
 
-export interface ComponentStateless<P, R = unknown> {
+export interface ComponentStateless<P, R = ComponentGenerator> {
     cons: CompConstructor<P, R>
     props: P,
     kind: 'component'
 }
 
-export interface ComponentWithState<P, S = never, R = unknown> {
+export interface ComponentWithState<P, S = never, R = ComponentGenerator> {
     cons: CompConstructorWithState<P, S, R>
     props: P,
     kind: 'component-with-state'
 }
 
-export interface ComponentConnected<P extends M, S, M, RootState, R = unknown> {
+export interface ComponentConnected<P extends M, S, M, RootState, R = ComponentGenerator> {
     cons: CompConstructorWithState<P, S, R>
     mapper: (state: RootState) => M
     props: Subtract<P, M>
@@ -60,7 +61,7 @@ export type ComponentElement =
     | ComponentWithState<any, any>
     | ComponentConnected<any, any, any, any>
 
-export function Component<P, S, R>(cons: CompConstructorWithState<P, S, R>) {
+export function Component<P, S, R= ComponentGenerator>(cons: CompConstructorWithState<P, S, R>) {
     return function (props: P): ComponentWithState<P, S, R> {
         return {
             cons,
@@ -87,6 +88,8 @@ export function ConnectedComp<P extends M, S, M, State, R>(
 export class Keyboard {
     kind: 'Keyboard' = 'Keyboard'
     constructor(readonly text: string, readonly hide: boolean = true) { }
+
+   
 }
 
 export class RequestLocationButton {
@@ -113,13 +116,25 @@ export class NextMessage {
     constructor() { }
 }
 
-export class ButtonElement {
+interface Appliable {
+    apply(draft: MessagesAndHandlers): MessagesAndHandlers
+}
+
+const buttonElementApply = (b: ButtonElement) => (d: MessagesAndHandlers) => {
+    return {
+        ...d
+    }
+}
+
+export class ButtonElement implements Appliable {
     kind: 'ButtonElement' = 'ButtonElement'
     constructor(
         readonly text: string,
         readonly data?: string,
         readonly callback?: () => Promise<void>,
     ) { }
+
+    public apply = buttonElementApply(this)
 }
 
 export class ButtonsRowElement {

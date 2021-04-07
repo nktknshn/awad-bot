@@ -1,4 +1,3 @@
-import { UserEntity } from "../../database/entity/user";
 import { UserEntityState } from "./user";
 
 // export const isUserLoaded = (state: RootState) => !!state.user
