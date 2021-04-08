@@ -9,11 +9,27 @@ import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore } from "./store";
 import { updateUser } from "./store/user";
 import { AppReqs, GetAllBasics, GetAllComps, StateReq } from "../lib/types-util";
+import { elementsToMessagesAndHandlers, emptyDraft, MessagesAndHandlers, RenderDraft } from "../lib/elements-to-messages";
 
 type AppStateRequirements = AppReqs<ReturnType<typeof App>>
-type AppBasics = GetAllBasics<ReturnType<typeof App>>
+type AppElements = GetAllBasics<ReturnType<typeof App>>
 
-export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFactory<ChatImpl> =>
+interface ChatF {
+    handleMessage(ctx: TelegrafContext): Promise<ChatF>
+    handleAction(ctx: TelegrafContext): Promise<ChatF>
+    handleEvent<E>(ev: E): Promise<ChatF>
+}
+
+export type AwadContextT = {
+    // state: ReturnType<ReturnType<typeof createAwadStore>['getState']>,
+    dispatcher: ReturnType<typeof storeToDispatch>
+}
+
+// export const withContext = <R>(f: (ctx: WithDispatcher) => R) => {
+//     return new WithContext(f)
+// }
+
+export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFactory<ChatImpl<AppElements>> =>
     async ctx => {
 
         const renderer = messageTrackingRenderer(
@@ -21,23 +37,64 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
             createChatRenderer(ctx)
         )
 
-        const ui = new ChatUI()
+        const ui = new ChatUI<AppElements>()
         const store = createAwadStore(services)
+        const dispatcher = storeToDispatch(store)
+
+        const getContext = (): AwadContextT => ({
+            // state: store.getState(), 
+            dispatcher
+        })
 
         let tree = new ElementsTree()
-        let ss: { s: TreeState } = {s:{}}
-        let a = tree.createElements(App)
 
-        const renderFunc = (d: AppDispatch) => {
-            const [els, ns] = a(store, d)(ss.s)
-            ss.s = ns
-            return ui.renderElementsToChat(
-                renderer,
-                els   
-            )
+        const createDraft = (elements: AppElements[]): RenderDraft => {
+
+            const draft = emptyDraft()
+
+            function handle(compel: AppElements) {
+                if (compel.kind == 'WithContext') {
+                    handle(
+                        compel.f({ dispatcher })
+                    )
+                }
+                // else if (compel.kind == 'ButtonElement2') {
+                //     // draft.inputHandlers.push()
+                //     // compel.setContext({dispatcher: dispatch})
+                // }
+                // else if (compel.kind == 'ABCD') {
+
+                // }
+                else {
+                    elementsToMessagesAndHandlers(compel, draft)
+                }
+            }
+
+            for (const compel of elements) {
+                handle(compel)
+            }
+
+            return draft
         }
 
-        const onStateUpdated = () => renderFunc(storeToDispatch(store))
+        let renderFunc = (treeState: TreeState) => (dispatcher: AppDispatch) => {
+            const [els, ns] = tree.createElements(
+                App,
+                { ...store.getState(), dispatcher },
+                {},
+                treeState
+            )
+
+            ss.renderFunc = renderFunc(ns)
+
+            return ui.renderElementsToChat(renderer, createDraft(els))
+        }
+
+        let ss = {
+            renderFunc: renderFunc({})
+        }
+
+        const onStateUpdated = () => ss.renderFunc(dispatcher)
         store.subscribe(onStateUpdated)
 
         const user = await services.getOrCreateUser(userDtoFromCtx(ctx))
@@ -59,12 +116,12 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
         )
     }
 
-class ChatImpl implements ChatHandler {
+class ChatImpl<Els> implements ChatHandler {
 
     private queued: QueuedChatHandler
 
     constructor(
-        public readonly ui: ChatUI,
+        public readonly ui: ChatUI<Els>,
         public readonly services: AwadServices,
         public readonly renderer: ChatRenderer,
         public readonly handleStateUpdated: () => Promise<void>

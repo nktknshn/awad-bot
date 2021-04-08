@@ -4,34 +4,34 @@ import { Card as CardType } from "../bot/interfaces";
 import { CardUpdate, createCardFromWord, isEnglishWord, parseCard } from "../bot/parsing";
 import { parseWordId } from "../bot/utils";
 import { UserEntity } from "../database/entity/user";
-import { button, buttonsRow, effect, input, message } from "../lib/elements-constructors";
-import { Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp } from "../lib/elements";
-import { Getter, lastItem, parsePath, tryKey } from "../lib/util";
+import { Component, ConnectedComp, WithContext } from "../lib/elements";
+import { button as _button, buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
+import { combine } from "../lib/state";
+import { lastItem, parsePath, tryKey } from "../lib/util";
 import { Settings } from "./components/Settings";
+import { Trainer } from "./components/trainer";
 import WordsPage from "./components/WordsPage";
 import PinnedCards from "./connected/PinnedCards";
-import { createAwadStore, RootState } from "./store";
+import { createAwadStore } from "./store";
 import { toggleIndex } from "./store/misc";
 import { redirect } from "./store/path";
-import { combine, getSettings, getUser, getUserAndSettings } from "./store/selectors";
+import { getDispatcher, getIfUserLoaded, getPath, getSettings, getTrainer, getUser } from "./store/selectors";
 import { AppSettings, updateSettings } from "./store/settings";
 import { TrainerState, updateTrainer } from "./store/trainer";
 import { addExample, addWord, deleteWord, saveWord, togglePinnedWord, updateWord, UserEntityState, WordEntityState } from "./store/user";
-import { Trainer } from "./components/trainer";
-import { GetAllComps, StateReq } from "../lib/types-util";
 
 
-export type AppDispatch = {
-    onRedirect: (path: string) => Promise<any>
-    onCard: (card: CardType) => Promise<any>
-    onUpdatedTrainer: (trainer: TrainerState) => Promise<any>
-    onUpdateWord: (word: WordEntityState, update: CardUpdate) => Promise<any>,
-    onReplaceWord: (word: WordEntityState, card: CardType) => Promise<any>,
-    onAddExample: (word: WordEntityState, example: string) => Promise<any>,
-    onDeleteWord: (word: WordEntityState) => Promise<any>,
-    onUpdateSettings: (settings: Partial<AppSettings>) => Promise<any>,
-    onToggleOption: (idx: number) => Promise<any>,
-    onTogglePinnedWord: (idx: number) => Promise<any>,
+export type AppDispatch<R = Promise<any>> = {
+    onRedirect: (path: string) => R
+    onCard: (card: CardType) => R
+    onUpdatedTrainer: (trainer: TrainerState) => R
+    onUpdateWord: (word: WordEntityState, update: CardUpdate) => R,
+    onReplaceWord: (word: WordEntityState, card: CardType) => R,
+    onAddExample: (word: WordEntityState, example: string) => R,
+    onDeleteWord: (word: WordEntityState) => R,
+    onUpdateSettings: (settings: Partial<AppSettings>) => R,
+    onToggleOption: (idx: number) => R,
+    onTogglePinnedWord: (idx: number) => R,
 }
 
 const messages: Record<string, string> = {
@@ -68,8 +68,12 @@ export function storeToDispatch(store: ReturnType<typeof createAwadStore>): AppD
     }
 }
 
-function* AppInput({ onRedirect, onCard }: Getter<AppDispatch, 'onRedirect', 'onCard'>) {
-    yield input(async ({ messageText }) => {
+export type WithDispatcher = { dispatcher: AppDispatch }
+
+const { input, button } = contexted<WithDispatcher>()
+
+function* AppInput() {
+    yield input(({ dispatcher: { onCard, onRedirect } }) => async ({ messageText }, next) => {
         if (!messageText)
             return
 
@@ -84,12 +88,11 @@ function* AppInput({ onRedirect, onCard }: Getter<AppDispatch, 'onRedirect', 'on
             await onCard(card)
         }
         else if (parseWordId(messageText)) {
-            onRedirect(messageText)
+            await onRedirect(messageText)
         }
         else
             await onRedirect('main?message=bad_card')
-    });
-
+    })
 }
 
 type MappedAppProps = {
@@ -98,11 +101,8 @@ type MappedAppProps = {
 }
 
 export function* MappedApp({
-    path, userLoaded,
-    onRedirect, onCard, onUpdateWord, onReplaceWord, onUpdatedTrainer,
-    onAddExample, onDeleteWord, onUpdateSettings, onToggleOption,
-    onTogglePinnedWord
-}: AppDispatch & MappedAppProps) {
+    path, userLoaded, dispatcher
+}: MappedAppProps & WithDispatcher) {
 
     const { pathname, query } = parsePath(path)
     const titleMessage = pipe(tryKey('message', query), mapOpt(String), toUndefined)
@@ -112,40 +112,36 @@ export function* MappedApp({
         return
     }
 
-    yield PinnedCards({ onUnpin: onTogglePinnedWord })
+    yield PinnedCards({ onUnpin: dispatcher.onTogglePinnedWord })
 
     if (pathname == 'main') {
-        yield Component(AppInput)({ onRedirect, onCard })
-        yield ConnectedComp(MainMenu, getUser)({ titleMessage, onRedirect })
+        yield Component(AppInput)(dispatcher)
+        yield ConnectedComp(MainMenu, combine(getDispatcher, getUser))({ titleMessage })
     }
     else if (pathname == 'settings') {
-        yield ConnectedComp(Settings, getSettings)({ onUpdateSettings })
-        yield button('Back', () => onRedirect('main'))
+        yield ConnectedComp(Settings, combine(getDispatcher, getSettings))({})
+        yield button('Back', ({ dispatcher }) => () => dispatcher.onRedirect('main'))
     }
     else if (pathname == 'trainer') {
-        yield ConnectedComp(Trainer,
-            ({ user, trainer }: Pick<RootState, 'trainer' | 'user'>) => ({ user, trainer }))
-            ({ onRedirect, onUpdated: onUpdatedTrainer })
+        yield ConnectedComp(Trainer, combine(getTrainer, getUser))
+            ({ onRedirect: dispatcher.onRedirect, onUpdated: dispatcher.onUpdatedTrainer })
     }
     else if (pathname == 'words' || pathname == '/words') {
         const wordId = pipe(tryKey('wordId', query), mapOpt(Number), toUndefined)
-        yield Component(AppInput)({ onRedirect, onCard })
+        yield Component(AppInput)(dispatcher)
 
-        yield WordsPage({
-            wordId, onRedirect, onReplaceWord, onUpdateWord,
-            onAddExample, onDeleteWord, onTogglePinnedWord
-        })
+        yield WordsPage({ wordId })
     }
     else {
-        yield effect(() => onRedirect('main?message=not_ready'))
+        yield effect(() => dispatcher.onRedirect('main?message=not_ready'))
     }
+
 }
 
-function* MainMenu({ user, onRedirect, titleMessage }: {
+function* MainMenu({ user, titleMessage, dispatcher: { onRedirect } }: {
     user: UserEntityState,
     titleMessage?: string,
-    onRedirect: (path: string) => Promise<void>
-}) {
+} & WithDispatcher) {
     yield message([
         titleMessage ? `${messages[titleMessage]}` : ``,
         `Hello, You have ${user.words.length} words in your database.`
@@ -170,7 +166,35 @@ function* MainMenu({ user, onRedirect, titleMessage }: {
     )
 }
 
-const cnctd = ConnectedComp(MappedApp,
-    ({ path, user }: Pick<RootState, 'path' | 'user'>) => ({ path, userLoaded: !!user }))
-    
-export default cnctd
+
+function contexted<Context>() {
+
+    type NthArg<T extends (...args: any) => any, N extends number> = Parameters<T>[N]
+
+    type Z = NthArg<typeof _input, 0>
+
+    const input = function (
+        callback: (ctx: Context) => NthArg<typeof _input, 0>
+    ) {
+        return new WithContext(
+            (ctx: Context) => _input(callback(ctx))
+        )
+    }
+
+    const button =
+        (
+            text: string,
+            callback: ((ctx: Context) => () => Promise<any>)
+        ) => new WithContext((ctx: Context) => _button(text, callback(ctx)))
+
+    return {
+        input,
+        button
+    }
+}
+
+
+export default ConnectedComp(
+    MappedApp,
+    combine(getDispatcher, combine(getIfUserLoaded, getPath))
+)

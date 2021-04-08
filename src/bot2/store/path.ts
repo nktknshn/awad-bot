@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
 
-type PathState = string | null
+// export type PathState = string | null
 
 const pathSlice = createSlice({
     name: 'path',

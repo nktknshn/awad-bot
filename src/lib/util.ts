@@ -2,7 +2,8 @@ import * as url from 'url'
 import * as querystring from 'querystring'
 import { replicate } from 'fp-ts/Array'
 import { none, some } from 'fp-ts/lib/Option'
-import { InputHandler, InputHandlerData } from './messages'
+import { InputHandlerData } from './messages'
+import { InputHandler } from './render'
 
 type Piper<T,
     A extends keyof T,
@@ -200,7 +201,7 @@ export async function callHandlersChain(
     if (idx > inputHandlers.length - 1)
         return
 
-    return inputHandlers[idx].callback(
+    return inputHandlers[idx].element.callback(
         data,
         () => callHandlersChain(inputHandlers, data, idx + 1)
     )

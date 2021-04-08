@@ -6,7 +6,7 @@ import { Component, ConnectedComp, GetSetState } from "../../lib/elements"
 import { Card } from "../components/Card"
 import { RootState } from "../store"
 import { WordEntityState } from "../store/user"
-import { getUser, Selector } from "../store/selectors"
+import { getUser } from "../store/selectors"
 
 export const getPinnedCards = flow(getUser, ({ user }) => ({
     pinnedCards: user

@@ -1,7 +1,7 @@
 import { IncomingMessage, Message, MessageDocument } from "telegraf/typings/telegram-types";
 import { FileElement } from "./elements";
 import { TextMessage } from "./messages";
-
+import { FileMessage } from "./render";
 
 export type RenderedElement = UserMessage | BotMessage | BotDocumentMessage;
 
@@ -23,7 +23,7 @@ export class BotMessage {
 export class BotDocumentMessage {
     kind: 'BotDocumentMessage' = 'BotDocumentMessage';
     constructor(
-        readonly input: FileElement,
+        readonly input: FileMessage,
         readonly output: MessageDocument
     ) { }
 }

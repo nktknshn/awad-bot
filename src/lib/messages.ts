@@ -1,27 +1,20 @@
 import { Markup } from "telegraf"
 import { ExtraReplyMessage } from "telegraf/typings/telegram-types"
 import { parseFromContext } from "./bot-util"
-import { ButtonElement, ButtonsRowElement, FileElement, Keyboard, RequestLocationButton } from "./elements"
+import { ButtonElement, ButtonsRowElement, FileElement, KeyboardElement, RequestLocationButtonElement } from "./elements"
 import { enumerateListOfLists, flattenList } from "./util"
 
 export type InputHandlerData = ReturnType<typeof parseFromContext>
 
 
-export type Part = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
-
-export class Effect {
-    kind: 'Effect' = 'Effect'
-    constructor(
-        readonly callback: () => Promise<void>
-    ) { }
-}
+// export type Part = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
 
 export class TextMessage {
     kind: 'TextMessage' = 'TextMessage'
     constructor(
         readonly text?: string,
         readonly buttons: ButtonElement[][] = [],
-        readonly keyboardButtons: (RequestLocationButton | Keyboard)[] = [],
+        readonly keyboardButtons: (RequestLocationButtonElement | KeyboardElement)[] = [],
         readonly isComplete = false
     ) { }
 
@@ -76,7 +69,7 @@ export class TextMessage {
         ).extra()
     }
 
-    addKeyboardButton(btn: RequestLocationButton) {
+    addKeyboardButton(btn: RequestLocationButtonElement) {
         return new TextMessage(
             this.text,
             [...this.buttons],
@@ -112,22 +105,3 @@ export class TextMessage {
         )
     }
 }
-
-export class ActionsHandler {
-    kind: 'ActionsHandler' = 'ActionsHandler'
-    constructor(
-        readonly callback: (input: string) => Promise<void>
-    ) { }
-}
-
-export class InputHandler {
-    kind: 'InputHandler' = 'InputHandler'
-    constructor(
-        readonly callback: (
-            input: InputHandlerData,
-            next: () => Promise<boolean | void>
-        ) => Promise<boolean | void>
-    ) { }
-}
-
-

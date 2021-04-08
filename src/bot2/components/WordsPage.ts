@@ -1,21 +1,20 @@
 import { flatten, map, sort, uniq } from "fp-ts/lib/Array"
 import { eqString } from "fp-ts/lib/Eq"
 import { pipe } from "fp-ts/lib/function"
-import { fromNullable, map as mapO } from "fp-ts/lib/Option"
 import { ordString } from "fp-ts/lib/Ord"
 import { parseWordId } from "../../bot/utils"
 import { CheckListStateless } from "../../lib/components/checklist"
-import { button, buttonsRow, input, message, messagePart, nextMessage, radioRow } from "../../lib/elements-constructors"
+import { Component, ConnectedComp, GetSetState } from "../../lib/elements"
+import { button, buttonsRow, input, message, nextMessage, radioRow } from "../../lib/elements-constructors"
 import { InputHandlerData } from "../../lib/messages"
-import { BasicElement, Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp, GetSetState } from "../../lib/elements"
+import { combine } from "../../lib/state"
 import { Getter, toggleItem } from "../../lib/util"
-import { AppDispatch } from "../app"
+import { AppDispatch, WithDispatcher } from "../app"
 import { RootState } from "../store"
-import { getUserAndSettings } from "../store/selectors"
+import { getDispatcher, getUserAndSettings } from "../store/selectors"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
 import { CardPageInput } from "./CardPage"
-// import { CardPage } from "./CardPage"
 import { WordsList } from "./WordsList"
 
 type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
@@ -67,7 +66,9 @@ function* InputBox({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Ca
     onSuccess: (text: string) => Promise<void>,
     onWrongInput: (ctx: InputHandlerData) => Promise<void>,
 }) {
+
     yield input(async (data, next) => {
+
 
         if (data.messageText) {
             await onSuccess(data.messageText)
@@ -87,10 +88,8 @@ function* InputBox({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Ca
 
 export function* WordsPage(
     {
-        user, settings, wordId, pinnedWordsIds,
-        onRedirect, onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onTogglePinnedWord
-    }: Getter<AppDispatch & RootState, 'user', 'settings', 'onRedirect', 'onReplaceWord', 'onUpdateWord', 
-    'onAddExample', 'onDeleteWord', 'onTogglePinnedWord'> & { wordId?: number, pinnedWordsIds: number[] },
+        user, settings, wordId, pinnedWordsIds, dispatcher
+    }: Getter<RootState, 'user', 'settings'> & { wordId?: number, pinnedWordsIds: number[] } & { dispatcher: AppDispatch },
     { getState, setState }: GetSetState<WordsPageState>
 ) {
 
@@ -137,7 +136,7 @@ export function* WordsPage(
         currentFilter
     )
 
-    yield button('Main', () => onRedirect('main'))
+    yield button('Main', () => dispatcher.onRedirect('main'))
 
     if (showTagsPicker) {
         yield nextMessage()
@@ -160,11 +159,7 @@ export function* WordsPage(
         const isPinned = user.pinnedWordsIds.indexOf(word.id) > -1
 
         yield nextMessage()
-        yield Component(CardPage)({
-            word, isPinned, onClose: () => setState({wordId: undefined}),
-            onRedirect, onReplaceWord, onUpdateWord, onAddExample,
-            onDeleteWord, onTogglePinnedWord
-        })
+        yield Component(CardPage)({ word, isPinned, onClose: () => setState({ wordId: undefined }), dispatcher })
     }
 }
 
@@ -172,20 +167,16 @@ export function* WordsPage(
 type Callback<K extends keyof any, T = never> = Record<K, (arg?: T) => Promise<void>>
 
 type Dispatch<T> = Record<'dispatch', T>
+type LocalState = {
+    rename: boolean,
+    deleteConfirmation: boolean,
+    showMenu: boolean
+}
 
 function* CardPage({
-    word, isPinned,
-    onClose,
-    onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect, onTogglePinnedWord
-}: 
-{ word: WordEntityState, isPinned: boolean } 
-& Callback<'onClose'>
-& Getter<AppDispatch, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect', 'onTogglePinnedWord'>,
-    { getState, setState }: GetSetState<{
-        rename: boolean,
-        deleteConfirmation: boolean,
-        showMenu: boolean
-    }>
+    word, isPinned, dispatcher, onClose
+}: { word: WordEntityState, isPinned: boolean } & Callback<'onClose'> & WithDispatcher,
+    { getState, setState }: GetSetState<LocalState>
 ) {
     const { rename, deleteConfirmation, showMenu } = getState({
         rename: false,
@@ -193,10 +184,7 @@ function* CardPage({
         showMenu: false
     })
 
-    yield Component(CardPageInput)({
-        word,
-        onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
-    })
+    yield Component(CardPageInput)({ word, dispatcher })
 
     yield nextMessage()
     yield Component(Card)({ word })
@@ -215,7 +203,7 @@ function* CardPage({
                 data == 'Close' && setState({ showMenu: false });
 
                 (data == 'Unpin' || data == 'Pin') &&
-                    await onTogglePinnedWord(word.id)
+                    await dispatcher.onTogglePinnedWord(word.id)
 
                 data == 'Rename' &&
                     setState({ rename: true })
@@ -224,8 +212,8 @@ function* CardPage({
                     setState({ deleteConfirmation: true })
 
                 data == '❗ Yes, delete!' &&
-                    await onRedirect('words?message=word_removed')
-                        .then(() => onDeleteWord(word))
+                    await dispatcher.onRedirect('words?message=word_removed')
+                        .then(() => dispatcher.onDeleteWord(word))
             }
         )
     else {
@@ -237,14 +225,12 @@ function* CardPage({
     if (rename) {
         yield Component(InputBox)({
             title: 'Enter new word:',
-            onSuccess: wordText => onUpdateWord(word, { word: wordText }),
+            onSuccess: wordText => dispatcher.onUpdateWord(word, { word: wordText }),
             onCancel: () => setState({ rename: false }),
             onWrongInput: (data) => setState({ rename: false })
         })
     }
 
 }
-// 
-const cnctd = ConnectedComp(WordsPage, getUserAndSettings)
 
-export default cnctd
+export default ConnectedComp(WordsPage, combine(getUserAndSettings, getDispatcher))

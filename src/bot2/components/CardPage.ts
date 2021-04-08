@@ -4,15 +4,15 @@ import { WordEntity } from "../../database/entity/word"
 import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/elements-constructors"
 import { Component } from "../../lib/elements"
 import { Getter, PathQuery } from "../../lib/util"
-import { AppDispatch } from "../app"
+import { AppDispatch, WithDispatcher } from "../app"
 import { RootState } from "../store"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
 
 export function* CardPageInput({
     word,
-    onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppDispatch, 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState }) {
+    dispatcher: { onReplaceWord, onUpdateWord, onAddExample }
+}: WithDispatcher & { word: WordEntityState }) {
     yield input(async ({ messageText }, next) => {
         if (!messageText) {
             return
@@ -62,13 +62,13 @@ export function* CardPageInput({
 }
 
 export function* CardPage({
-    user, word, path, query,
-    onReplaceWord, onUpdateWord, onAddExample, onDeleteWord, onRedirect
-}: Getter<AppDispatch & RootState, 'user', 'onUpdateWord', 'onReplaceWord', 'onAddExample', 'onDeleteWord', 'onRedirect'> & { word: WordEntityState, query?: PathQuery, path: string }) {
-
+    word, path, query,
+    dispatcher
+}: WithDispatcher & { word: WordEntityState, query?: PathQuery, path: string }) {
+    const { onUpdateWord, onDeleteWord, onRedirect } = dispatcher
     yield Component(CardPageInput)({
         word,
-        onUpdateWord, onReplaceWord, onAddExample, onDeleteWord, onRedirect
+        dispatcher
     })
     yield nextMessage()
     yield messagePart('')

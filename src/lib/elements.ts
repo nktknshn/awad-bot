@@ -1,7 +1,8 @@
 // import { parseFromContext } from "../bot/bot-utils"
 import { InputFile } from "telegraf/typings/telegram-types"
+import { ButtonElement2 } from "./elements-constructors"
 import { MessagesAndHandlers } from "./elements-to-messages"
-import { ActionsHandler, Effect, InputHandler } from "./messages"
+import { InputHandlerData } from "./messages"
 
 type Diff<T, U> = T extends U ? never : T
 
@@ -14,8 +15,31 @@ export type AppType<P> = (props: P) => ComponentGenerator
 // export function isGenerator(compel: Element): compel is ComponentConstructor {
 //     return Symbol.iterator in Object(compel)
 // }
+export class WithContext<C, R> {
+    kind: 'WithContext' = 'WithContext'
+    constructor(public readonly f: (ctx: C) => R) {
 
-export type BasicElement = TextElement | TextElementPart | NextMessage | ButtonElement | ButtonsRowElement | InputHandler | RequestLocationButton | ActionsHandler | Effect | FileElement | Keyboard
+    }
+}
+
+
+interface Kinded<T> {
+    kind: T 
+}
+
+export type BasicElement = 
+    Appliable 
+    | TextElement 
+    | TextPartElement 
+    | NextMessageElement 
+    | ButtonElement 
+    | ButtonsRowElement 
+    | InputHandlerElement
+    | RequestLocationButtonElement 
+    | ActionsHandlerElement 
+    | EffectElement
+    | FileElement 
+    | KeyboardElement
 
 export type Element = BasicElement | ComponentElement
 
@@ -30,7 +54,7 @@ export type GetSetState<S> = {
     setState: (state: Partial<S>) => Promise<void>
 }
 
-export type ComponentGenerator = Generator<Element, void, void>
+export type ComponentGenerator = Generator<any, void, void>
 
 type CompConstructor<P, R> = ((props: P) => R)
 
@@ -61,7 +85,7 @@ export type ComponentElement =
     | ComponentWithState<any, any>
     | ComponentConnected<any, any, any, any>
 
-export function Component<P, S, R= ComponentGenerator>(cons: CompConstructorWithState<P, S, R>) {
+export function Component<P, S, R = ComponentGenerator>(cons: CompConstructorWithState<P, S, R>) {
     return function (props: P): ComponentWithState<P, S, R> {
         return {
             cons,
@@ -85,14 +109,14 @@ export function ConnectedComp<P extends M, S, M, State, R>(
     }
 }
 
-export class Keyboard {
+export class KeyboardElement {
     kind: 'Keyboard' = 'Keyboard'
     constructor(readonly text: string, readonly hide: boolean = true) { }
 
    
 }
 
-export class RequestLocationButton {
+export class RequestLocationButtonElement {
     kind: 'RequestLocationButton' = 'RequestLocationButton'
     constructor(readonly text: string, readonly hide: boolean = true) { }
 }
@@ -104,20 +128,25 @@ export class TextElement {
     ) { }
 }
 
-export class TextElementPart {
+export class TextPartElement {
     kind: 'TextElementPart' = 'TextElementPart'
     constructor(
         readonly text: string
     ) { }
 }
 
-export class NextMessage {
+export class NextMessageElement {
     kind: 'NextMessage' = 'NextMessage'
     constructor() { }
 }
 
-interface Appliable {
+export interface Appliable<S = unknown> {
+    kind: S
     apply(draft: MessagesAndHandlers): MessagesAndHandlers
+}
+
+export function isAppliable(b: BasicElement | Appliable) : b is Appliable {
+    return 'apply' in b
 }
 
 const buttonElementApply = (b: ButtonElement) => (d: MessagesAndHandlers) => {
@@ -126,16 +155,37 @@ const buttonElementApply = (b: ButtonElement) => (d: MessagesAndHandlers) => {
     }
 }
 
-export class ButtonElement implements Appliable {
+export class ButtonElement {
     kind: 'ButtonElement' = 'ButtonElement'
     constructor(
         readonly text: string,
         readonly data?: string,
         readonly callback?: () => Promise<void>,
     ) { }
-
-    public apply = buttonElementApply(this)
+    
+    // public addContext<C>(ctx: C) {
+    //     return new ButtonElement(this.text, this.data, () => this.callback(ctx))
+    // }
+    // public apply = buttonElementApply(this)
 }
+
+export class InputHandler2<D>
+//  implements Appliable 
+ {
+    kind: 'InputHandler2' = 'InputHandler2'
+    constructor(
+        readonly callback: (
+            input: InputHandlerData,
+            next: () => Promise<boolean | void>,
+            dispatcher: D
+        ) => Promise<boolean | void>
+    ) { }
+
+    public apply = (draft: MessagesAndHandlers) => {
+        return draft
+    }
+}
+
 
 export class ButtonsRowElement {
     kind: 'ButtonsRowElement' = 'ButtonsRowElement'
@@ -150,4 +200,30 @@ export class FileElement {
         readonly file: InputFile
     ) { }
 }
+
+export class EffectElement {
+    kind: 'EffectElement' = 'EffectElement'
+    constructor(
+        readonly callback: () => Promise<void>
+    ) { }
+}
+
+
+export class ActionsHandlerElement {
+    kind: 'ActionsHandlerElement' = 'ActionsHandlerElement'
+    constructor(
+        readonly callback: (input: string) => Promise<void>
+    ) { }
+}
+
+export class InputHandlerElement {
+    kind: 'InputHandlerElement' = 'InputHandlerElement'
+    constructor(
+        readonly callback: (
+            input: InputHandlerData,
+            next: () => Promise<boolean | void>,
+        ) => Promise<boolean | void>
+    ) { }
+}
+
 

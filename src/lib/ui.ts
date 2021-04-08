@@ -1,14 +1,15 @@
 import { TelegrafContext } from "telegraf/typings/context";
 import { parseFromContext } from './bot-util';
-import { elementsToMessagesAndHandlers } from './elements-to-messages';
-import { ActionsHandler, InputHandler } from "./messages";
+import { elementsToMessagesAndHandlers, MessagesAndHandlers } from './elements-to-messages';
 import { BotDocumentMessage, BotMessage, RenderedElement, UserMessage } from "./rendered-messages";
 import { ChatRenderer } from './chatrenderer';
 import { Actions, createRenderActions } from './render-actions';
 import { BasicElement } from "./elements";
 import { callHandlersChain, emptyMessage, isFalse, lastItem } from './util';
+import { Draft } from "@reduxjs/toolkit";
+import { InputHandler } from "./render";
 
-type RenderQueueElement = BasicElement[]
+type RenderQueueElement<E> = E[]
 
 
 function isEmpty<T>(items: T[]) {
@@ -17,7 +18,7 @@ function isEmpty<T>(items: T[]) {
 
 const getMessageId = (ctx: TelegrafContext) => ctx.message?.message_id
 
-export class ChatUI {
+export class ChatUI<Els> {
 
     constructor(
         // readonly renderer: ChatRenderer
@@ -25,7 +26,7 @@ export class ChatUI {
 
     private isRendering = false
     private renderedElements: RenderedElement[] = []
-    private renderQueue: RenderQueueElement[] = []
+    private renderQueue: MessagesAndHandlers[] = []
 
     // private inputHandler?: InputHandler
     // private actionHandler?: ActionsHandler
@@ -94,11 +95,11 @@ export class ChatUI {
                             )
                         )
                     )
-                else if (action.newElement.kind === 'FileElement')
+                else if (action.newElement.kind === 'FileMessage')
                     rendered.push(
                         new BotDocumentMessage(
                             action.newElement,
-                            await renderer.sendFile(action.newElement.file)
+                            await renderer.sendFile(action.newElement.element.file)
                         )
                     )
             }
@@ -134,17 +135,23 @@ export class ChatUI {
         return rendered
     }
 
-    async renderElementsToChat<Els extends BasicElement>(renderer: ChatRenderer, elements: Els[]): Promise<void> {
+    async renderElementsToChat
+        (
+            renderer: ChatRenderer,
+            draft: MessagesAndHandlers
+            // elements: Els[],
+            // func: (els: Els[]) => MessagesAndHandlers
+        ): Promise<void> {
         this.inputHandlers = []
 
         if (this.isRendering) {
-            this.renderQueue.push(elements)
+            this.renderQueue.push(draft)
             return
         }
 
         const {
             messages, handlers, effects, keyboards, inputHandlers
-        } = this.createMessagesFromElements(elements)
+        } = draft
 
         this.inputHandlers = inputHandlers
 
@@ -161,9 +168,9 @@ export class ChatUI {
 
         console.log('Rendering Finished')
 
-        for (const effect of effects) {
-            await effect.callback()
-        }
+        // for (const effect of effects) {
+        //     await effect.callback()
+        // }
 
         this.isRendering = false
 

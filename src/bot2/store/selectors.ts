@@ -7,23 +7,21 @@ import { UserEntityState } from "./user";
 
 import * as F from 'fp-ts/function'
 import { AppSettings } from "./settings";
+import { combine } from "../../lib/state";
+import { TrainerState } from "./trainer";
+import { AwadContextT } from "../chathandler";
 
-export function combine<S1, S2, R1, R2>(
-    sel1: Selector<S1, R1>,
-    sel2: Selector<S2, R2>,
-): Selector<S1 & S2, R1 & R2> {
-    return function (state) {
-        return { ...sel1(state), ...sel2(state) }
-    }
-}
-
-export const getUser = function ({ user }: Record<'user', UserEntityState | null>) {
-    return ({ user })
-}
-
+// export const getState = ({state}: AwadContext) => state
+export const getUser = ({ user }: { 'user': UserEntityState | null }) => ({ user })
 export const getpinnedWordsIds = F.flow(getUser, ({ user }) => ({ pinnedWordsIds: user!.pinnedWordsIds }))
-
 export const getSettings = ({ settings }: Record<'settings', AppSettings>) => ({ settings })
 export const getUserAndSettings = combine(getpinnedWordsIds, combine(getUser, getSettings))
 
-export type Selector<S, R> = (state: S) => R
+export const getIfUserLoaded = F.flow(getUser, ({ user }) => ({ userLoaded: !!user }))
+export const getPath = ({ path }: { path: String }) => ({ path })
+export const getTrainer = ({ trainer }: { trainer: TrainerState }) => ({ trainer })
+export function getDispatcher({dispatcher}: AwadContextT) {
+    return {
+        dispatcher
+    }
+}
