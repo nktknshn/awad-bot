@@ -9,7 +9,7 @@ import { button, buttonsRow, input, message, nextMessage, radioRow } from "../..
 import { InputHandlerData } from "../../lib/messages"
 import { combine } from "../../lib/state"
 import { Getter, toggleItem } from "../../lib/util"
-import { AppDispatch, WithDispatcher } from "../app"
+import { WithDispatcher } from "../app"
 import { RootState } from "../store"
 import { getDispatcher, getUserAndSettings } from "../store/selectors"
 import { WordEntityState } from "../store/user"
@@ -89,7 +89,7 @@ function* InputBox({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Ca
 export function* WordsPage(
     {
         user, settings, wordId, pinnedWordsIds, dispatcher
-    }: Getter<RootState, 'user', 'settings'> & { wordId?: number, pinnedWordsIds: number[] } & { dispatcher: AppDispatch },
+    }: Getter<RootState, 'user', 'settings'> & { wordId?: number, pinnedWordsIds: number[] } & WithDispatcher,
     { getState, setState }: GetSetState<WordsPageState>
 ) {
 
