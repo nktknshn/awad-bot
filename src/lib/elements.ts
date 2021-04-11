@@ -76,14 +76,16 @@ export interface ComponentConnected<P extends M, S, M, RootState, R = ComponentG
     mapper: (state: RootState) => M
     props: Subtract<P, M>
     kind: 'component-with-state-connected'
+    id?: string
 }
 
 export type ComponentElement =
     | ComponentStateless<any>
     | ComponentWithState<any, any>
     | ComponentConnected<any, any, any, any>
+    | ComponentConnected<any, any, any, any, any>
 
-export function Component<P, S, R = ComponentGenerator>(cons: CompConstructorWithState<P, S, R>) {
+export function Component<P, S, R extends ComponentGenerator>(cons: CompConstructorWithState<P, S, R>) {
     return function (props: P): ComponentWithState<P, S, R> {
         return {
             cons,
@@ -93,7 +95,7 @@ export function Component<P, S, R = ComponentGenerator>(cons: CompConstructorWit
     }
 }
 
-export function ConnectedComp<P extends M, S, M, State, R>(
+export function ConnectedComp<P extends M, S, M, State, R extends ComponentGenerator>(
     cons: CompConstructorWithState<P, S, R>,
     mapper: (state: State) => M,
 ): (props: Subtract<P, M>) => ComponentConnected<P, S, M, State, R> {
@@ -107,30 +109,34 @@ export function ConnectedComp<P extends M, S, M, State, R>(
     }
 }
 
-export function Comp<P extends M, S, M, State, R>(
+export function connected1<P extends M, S, M, State, R extends ComponentGenerator>(
     mapper: (state: State) => M,
     cons: CompConstructorWithState<P, S, R>
 ) {
     return ConnectedComp(cons, mapper)
 }
 
-export function Comp2<P extends M, S, M, State, R, PP>(
-    mapper: (state: State) => M,
-    cons: (props: PP) => CompConstructorWithState<P, S, R>
-){   
-    return (props: PP) => ConnectedComp(cons(props), mapper)({} as any)
-}
+// export function Comp2<P extends M, S, M, State, R extends ComponentGenerator, PP>(
+//     mapper: (state: State) => M,
+//     cons: (props: PP) => CompConstructorWithState<P, S, R>
+// ){   
+//     return (props: PP) => ConnectedComp(cons(props), mapper)({} as any)
+// }
 
-export function Comp3<P extends M, S, M, State, R, PP>(
+export function connected2<P extends M, S, M, State, PP, R extends ComponentGenerator>(
     mapper: (state: State) => M,
-    cons: (reqs: M) => (props: PP, getset: GetSetState<S>) => R
-){   
-    return (props: PP) => ConnectedComp(
-        function (pmap: P, getset: GetSetState<S>) {
-            return cons(pmap)(props, getset)
-        },
-        mapper
-    )({} as any)
+    cons: (reqs: P) => (props: PP, getset: GetSetState<S>) => R
+): (props: PP) => ComponentConnected<P & PP, S, M, State, R>
+{   
+    return (props: PP) => (
+        {
+            cons: (reqs: P, getset: GetSetState<S>) => cons(reqs)(props, getset),
+            props: (props as unknown) as Subtract<P & PP, M>,
+            mapper,
+            kind: 'component-with-state-connected',
+            id: cons.toString()
+        }
+    )
 }
 
 

@@ -2,21 +2,23 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { ChatHandler, QueuedChatHandler } from "../lib/chathandler";
 import { ChatRenderer, createChatRenderer, messageTrackingRenderer } from "../lib/chatrenderer";
 import { ChatHandlerFactory } from "../lib/chatsdispatcher";
-import { Appliable, BasicElement, WithContext } from "../lib/elements";
+import { Appliable, BasicElement, ComponentConnected, ComponentElement, InputHandlerElement, WithContext } from "../lib/elements";
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "../lib/elements-to-messages";
 import { ElementsTree, TreeState } from "../lib/tree";
 import { AppReqs, GetAllBasics } from "../lib/types-util";
 import { ChatUI } from "../lib/ui";
 import App from './app';
+import WordsPage from "./components/WordsPage";
 import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore, RootState } from "./store";
 import { updateUser } from "./store/user";
 import { AppDispatch, storeToDispatch } from "./storeToDispatch";
 
 type AppStateRequirements = AppReqs<ReturnType<typeof App>>
-type AppElements = GetAllBasics<ReturnType<typeof App>>
+type AppElements = GetAllBasics<ReturnType<typeof App>> | InputHandlerElement
 // type AppElements = BasicElement | WithContext<any, BasicElement> 
-
+const w = WordsPage({})
+type Z = typeof w extends ComponentElement ? true : false
 
 interface ChatF {
     handleMessage(ctx: TelegrafContext): Promise<ChatF>

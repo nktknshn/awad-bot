@@ -2,17 +2,15 @@ import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
 import { createCardFromWord, isEnglishWord, parseCard } from "../bot/parsing";
 import { parseWordId } from "../bot/utils";
-import { Comp as Comp, Comp2, Comp3, CompConstructorWithState, Component, ConnectedComp, WithContext } from "../lib/elements";
+import { connected1 as connected1, Component, connected2, WithContext } from "../lib/elements";
 import { button as _button, buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
-import { combine, req, Selector } from "../lib/state";
-import { Getter, parsePath, tryKey } from "../lib/util";
-import { AwadContextT } from "./chathandler";
+import { select } from "../lib/state";
+import { parsePath, tryKey } from "../lib/util";
 import Settings from "./components/Settings";
 import { Trainer } from "./components/trainer";
 import WordsPage from "./components/WordsPage";
 import PinnedCards from "./connected/PinnedCards";
-import { getDispatcher, getIfUserLoaded, getPath, getSettings, getTrainer, getUser } from "./store/selectors";
-import { UserEntityState } from "./store/user";
+import { getDispatcher, getIfUserLoaded, getPath, getUser } from "./store/selectors";
 import { AppDispatch } from "./storeToDispatch";
 
 const messages: Record<string, string> = {
@@ -27,33 +25,35 @@ export type WithDispatcher = { dispatcher: AppDispatch }
 
 const { input, button } = contexted<WithDispatcher>()
 
-function* AppInput() {
-    yield input(({ dispatcher: { onCard, onRedirect } }) => async ({ messageText }, next) => {
-        if (!messageText)
-            return
+const AppInput = connected1(
+    select(getDispatcher),
+    function* ({dispatcher}) {
+        yield _input(async ({ messageText }, next) => {
+            if (!messageText)
+                return
+    
+            if (isEnglishWord(messageText)) {
+                await dispatcher.onCard(createCardFromWord(messageText))
+                return
+            }
+    
+            const card = parseCard(messageText)
+    
+            if (card) {
+                await dispatcher.onCard(card)
+            }
+            else if (parseWordId(messageText)) {
+                await dispatcher.onRedirect(messageText)
+            }
+            else
+                await dispatcher.onRedirect('main?message=bad_card')
+        })
+    }
+)
 
-        if (isEnglishWord(messageText)) {
-            await onCard(createCardFromWord(messageText))
-            return
-        }
 
-        const card = parseCard(messageText)
-
-        if (card) {
-            await onCard(card)
-        }
-        else if (parseWordId(messageText)) {
-            await onRedirect(messageText)
-        }
-        else
-            await onRedirect('main?message=bad_card')
-    })
-}
-
-
-
-const App = Comp(
-    req(getDispatcher, getIfUserLoaded, getPath),
+const App = connected1(
+    select(getDispatcher, getIfUserLoaded, getPath),
     function* ({
         path, userLoaded, dispatcher
     }) {
@@ -68,7 +68,7 @@ const App = Comp(
         yield PinnedCards({ onUnpin: dispatcher.onTogglePinnedWord })
 
         if (pathname == 'main') {
-            yield Component(AppInput)(dispatcher)
+            yield AppInput({})
             yield MainMenu({ titleMessage })
         }
         else if (pathname == 'settings') {
@@ -80,8 +80,7 @@ const App = Comp(
         }
         else if (pathname == 'words' || pathname == '/words') {
             const wordId = pipe(tryKey('wordId', query), mapOpt(Number), toUndefined)
-            yield Component(AppInput)(dispatcher)
-
+            yield AppInput({})
             yield WordsPage({ wordId })
         }
         else {
@@ -91,8 +90,8 @@ const App = Comp(
     }
 )
 
-const MainMenu = Comp3(
-    req(getDispatcher, getUser),
+const MainMenu = connected2(
+    select(getDispatcher, getUser),
     ({ user, dispatcher: { onRedirect } }) =>
         function* ({ titleMessage }: { titleMessage?: string }) {
 

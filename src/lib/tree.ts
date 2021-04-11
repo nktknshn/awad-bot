@@ -206,6 +206,8 @@ export function componentToComponentTree<R>(
 ): ComponentTree {
 
     console.log('componentToTree!');
+    console.log(`${componentElement.kind}`);
+    console.log(`${componentElement.cons.toString()}`);
 
     const children: BasicOrComponent[] = []
 
@@ -259,12 +261,15 @@ export function componentToComponentTree<R>(
             ...componentElement.mapper(rootState)
         }
         elements = componentElement.cons(props, getset)
+        console.log(`elements: ${JSON.stringify(elements)}`);
     }
     else {
         props = componentElement.props
         elements = componentElement.cons(props, getset)
     }
 
+    console.log(`elements: ${elements}`);
+    
     for (const element of elements) {
         if (isComponentElement(element)) {
             children.push(
