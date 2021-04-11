@@ -4,25 +4,6 @@ import {  InputHandlerData } from "./messages"
 import { ButtonElement, ButtonsRowElement, TextElement, RequestLocationButtonElement, FileElement, TextPartElement, NextMessageElement, EffectElement, ActionsHandlerElement, InputHandlerElement } from "./elements"
 
 
-// export function startAwareInput(
-//     onStart: () => Promise<void>,
-// ) {
-//     return (callback: (data: InputHandlerData) => Promise<boolean | void>) =>
-//         input(
-//             async (data) => {
-//                 console.log(`data.messageText= ${data.messageText}`)
-
-//                 if (data.messageText && data.messageText == '/start') {
-//                     console.log('/start caught')
-//                     return await onStart()
-//                 } else {
-//                     return await callback(data)
-//                 }
-//             }
-//         )
-// }
-
-
 export function file(f: InputFile) {
     return new FileElement(f)
 }
@@ -69,35 +50,6 @@ export function button(
     let [buttonText, data] = Array.isArray(text) ? text : [text, text]
 
     return new ButtonElement(buttonText, data, callback)
-}
-
-export class ButtonElement2<C> {
-    kind: 'ButtonElement2' = 'ButtonElement2'
-    
-    context!: C 
-    constructor(
-        readonly text: string,
-        readonly data?: string,
-        readonly _callback?: (context: C) => Promise<void> | undefined,
-    ) { }
-    
-    setContext(c: C) {
-        this.context = c
-    }
-
-    callback() {
-        return this._callback!(this.context)
-    }
-}
-
-export function button2<C>(
-    text: (string | [string, string]),
-    callback: (context: C) => Promise<void>
-) {
-
-    let [buttonText, data] = Array.isArray(text) ? text : [text, text]
-
-    return new ButtonElement2<C>(buttonText, data, callback)
 }
 
 export function radioRow(

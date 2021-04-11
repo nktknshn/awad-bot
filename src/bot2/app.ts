@@ -2,10 +2,11 @@ import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
 import { createCardFromWord, isEnglishWord, parseCard } from "../bot/parsing";
 import { parseWordId } from "../bot/utils";
-import { Component, ConnectedComp, WithContext } from "../lib/elements";
+import { Comp as Comp, Comp2, Comp3, CompConstructorWithState, Component, ConnectedComp, WithContext } from "../lib/elements";
 import { button as _button, buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
-import { combine } from "../lib/state";
-import { parsePath, tryKey } from "../lib/util";
+import { combine, req, Selector } from "../lib/state";
+import { Getter, parsePath, tryKey } from "../lib/util";
+import { AwadContextT } from "./chathandler";
 import Settings from "./components/Settings";
 import { Trainer } from "./components/trainer";
 import WordsPage from "./components/WordsPage";
@@ -49,80 +50,79 @@ function* AppInput() {
     })
 }
 
-type MappedAppProps = {
-    path: string
-    userLoaded: boolean
-}
 
-export function* MappedApp({
-    path, userLoaded, dispatcher
-}: MappedAppProps & WithDispatcher) {
 
-    const { pathname, query } = parsePath(path)
-    const titleMessage = pipe(tryKey('message', query), mapOpt(String), toUndefined)
+const App = Comp(
+    req(getDispatcher, getIfUserLoaded, getPath),
+    function* ({
+        path, userLoaded, dispatcher
+    }) {
+        const { pathname, query } = parsePath(path)
+        const titleMessage = pipe(tryKey('message', query), mapOpt(String), toUndefined)
 
-    if (!userLoaded) {
-        yield message('Loading profile...')
-        return
+        if (!userLoaded) {
+            yield message('Loading profile...')
+            return
+        }
+
+        yield PinnedCards({ onUnpin: dispatcher.onTogglePinnedWord })
+
+        if (pathname == 'main') {
+            yield Component(AppInput)(dispatcher)
+            yield MainMenu({ titleMessage })
+        }
+        else if (pathname == 'settings') {
+            yield Settings({})
+            yield button('Back', ({ dispatcher }) => () => dispatcher.onRedirect('main'))
+        }
+        else if (pathname == 'trainer') {
+            yield Trainer({ onRedirect: dispatcher.onRedirect, onUpdated: dispatcher.onUpdatedTrainer })
+        }
+        else if (pathname == 'words' || pathname == '/words') {
+            const wordId = pipe(tryKey('wordId', query), mapOpt(Number), toUndefined)
+            yield Component(AppInput)(dispatcher)
+
+            yield WordsPage({ wordId })
+        }
+        else {
+            yield effect(() => dispatcher.onRedirect('main?message=not_ready'))
+        }
+
     }
-
-    yield PinnedCards({ onUnpin: dispatcher.onTogglePinnedWord })
-
-    if (pathname == 'main') {
-        yield Component(AppInput)(dispatcher)
-        yield MainMenu({ titleMessage })
-    }
-    else if (pathname == 'settings') {
-        yield Settings({})
-        yield button('Back', ({ dispatcher }) => () => dispatcher.onRedirect('main'))
-    }
-    else if (pathname == 'trainer') {
-        yield ConnectedComp(Trainer, combine(getTrainer, getUser))
-            ({ onRedirect: dispatcher.onRedirect, onUpdated: dispatcher.onUpdatedTrainer })
-    }
-    else if (pathname == 'words' || pathname == '/words') {
-        const wordId = pipe(tryKey('wordId', query), mapOpt(Number), toUndefined)
-        yield Component(AppInput)(dispatcher)
-
-        yield WordsPage({ wordId })
-    }
-    else {
-        yield effect(() => dispatcher.onRedirect('main?message=not_ready'))
-    }
-
-}
-
-const MainMenu = ConnectedComp(
-    function* MainMenu({ user, titleMessage, dispatcher: { onRedirect } }: {
-        user: UserEntityState,
-        titleMessage?: string,
-    } & WithDispatcher) {
-        yield message([
-            titleMessage ? `${messages[titleMessage]}` : ``,
-            `Hello, You have ${user.words.length} words in your database.`
-        ])
-
-        yield buttonsRow([
-            ['My words', 'words'],
-            ['Components', 'components'],
-            // ['Tags', 'tags'],
-            // ['Statistics', 'stats'],
-            // ['Random word', 'random'],
-            ['Train', 'trainer'],
-        ],
-            (_, path) => onRedirect(path))
-
-        yield buttonsRow(
-            [
-                ['Settings', 'settings'],
-                ['Minimize', 'main'],
-            ],
-            (_, path) => onRedirect(path)
-        )
-    },
-    combine(getDispatcher, getUser)
 )
 
+const MainMenu = Comp3(
+    req(getDispatcher, getUser),
+    ({ user, dispatcher: { onRedirect } }) =>
+        function* ({ titleMessage }: { titleMessage?: string }) {
+
+            if (!user)
+                return
+
+            yield message([
+                titleMessage ? `${messages[titleMessage]}` : ``,
+                `Hello, You have ${user.words.length} words in your database.`
+            ])
+
+            yield buttonsRow([
+                ['My words', 'words'],
+                ['Components', 'components'],
+                // ['Tags', 'tags'],
+                // ['Statistics', 'stats'],
+                // ['Random word', 'random'],
+                ['Train', 'trainer'],
+            ],
+                (_, path) => onRedirect(path))
+
+            yield buttonsRow(
+                [
+                    ['Settings', 'settings'],
+                    ['Minimize', 'main'],
+                ],
+                (_, path) => onRedirect(path)
+            )
+        }
+)
 
 function contexted<Context>() {
 
@@ -151,7 +151,4 @@ function contexted<Context>() {
 }
 
 
-export default ConnectedComp(
-    MappedApp,
-    combine(getDispatcher, combine(getIfUserLoaded, getPath))
-)
+export default App

@@ -1,6 +1,5 @@
 // import { parseFromContext } from "../bot/bot-utils"
 import { InputFile } from "telegraf/typings/telegram-types"
-import { ButtonElement2 } from "./elements-constructors"
 import { MessagesAndHandlers } from "./elements-to-messages"
 import { InputHandlerData } from "./messages"
 
@@ -21,7 +20,6 @@ export class WithContext<C, R> {
 
     }
 }
-
 
 interface Kinded<T> {
     kind: T 
@@ -108,6 +106,33 @@ export function ConnectedComp<P extends M, S, M, State, R>(
         }
     }
 }
+
+export function Comp<P extends M, S, M, State, R>(
+    mapper: (state: State) => M,
+    cons: CompConstructorWithState<P, S, R>
+) {
+    return ConnectedComp(cons, mapper)
+}
+
+export function Comp2<P extends M, S, M, State, R, PP>(
+    mapper: (state: State) => M,
+    cons: (props: PP) => CompConstructorWithState<P, S, R>
+){   
+    return (props: PP) => ConnectedComp(cons(props), mapper)({} as any)
+}
+
+export function Comp3<P extends M, S, M, State, R, PP>(
+    mapper: (state: State) => M,
+    cons: (reqs: M) => (props: PP, getset: GetSetState<S>) => R
+){   
+    return (props: PP) => ConnectedComp(
+        function (pmap: P, getset: GetSetState<S>) {
+            return cons(pmap)(props, getset)
+        },
+        mapper
+    )({} as any)
+}
+
 
 export class KeyboardElement {
     kind: 'Keyboard' = 'Keyboard'

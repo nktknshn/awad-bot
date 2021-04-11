@@ -29,6 +29,19 @@ export type Getter<T,
     I extends keyof T = never,
     > = Pick<T, Piper<T, A, B, C, D, E, F, G, H, I>>
 
+
+export type Getter2<T,
+    A extends keyof T,
+    B extends keyof T = never,
+    C extends keyof T = never,
+    D extends keyof T = never,
+    E extends keyof T = never,
+    F extends keyof T = never,
+    G extends keyof T = never,
+    H extends keyof T = never,
+    I extends keyof T = never,
+    > = Pick<T, Piper<T, A, B, C, D, E, F, G, H, I>>
+
 export const emptyMessage = '🐻'
 
 export function randomItem<T>(items: T[]) {

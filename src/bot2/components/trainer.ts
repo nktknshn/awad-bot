@@ -1,66 +1,69 @@
-import { UserEntity } from "../../database/entity/user"
-// import { Buttons, Message } from "../ui/chatui/elements"
-import { WordEntity } from "../../database/entity/word"
-import { array, shuffle, parseCallbackData, takeRandom, takeLast } from "../../bot/utils"
-import { flattenList } from "../../lib/util"
+import { array, parseCallbackData, shuffle, takeLast, takeRandom } from "../../bot/utils"
+import { Comp, Comp3, Component } from "../../lib/elements"
 import { button, buttonsRow, message } from "../../lib/elements-constructors"
-// import { TrainerCard, TrainerState } from "./state"
-import { Component, ComponentGenerator } from "../../lib/elements"
+import { req } from "../../lib/state"
+import { getTrainer, getUser } from "../store/selectors"
 import { TrainerCard, TrainerState } from "../store/trainer"
 import { UserEntityState, WordEntityState } from "../store/user"
 
+//             yield ConnectedComp(Trainer, combine(getTrainer, getUser))
+// ({ onRedirect: dispatcher.onRedirect, onUpdated: dispatcher.onUpdatedTrainer })
+export const Trainer =
+    Comp3(
+        req(getUser, getTrainer),
+        ({ user, trainer }) =>
+            function* ({ onRedirect, onUpdated }: {
+                onRedirect: (path: string) => Promise<void>,
+                onUpdated: (trainer: TrainerState) => Promise<void>
+            }) {
+                if (!user)
+                    return
 
-export function* Trainer({ user, trainer, onUpdated, onRedirect }: {
-    user: UserEntityState,
-    trainer: TrainerState,
-    onRedirect: (path: string) => Promise<void>,
-    onUpdated: (trainer: TrainerState) => Promise<void>
-}) {
+                const wordsWithMeanings = user.words.filter(_ => _.meanings.length)
+                const wordsToTrain: WordEntityState[] = takeRandom(wordsWithMeanings, 3)
+                const meanings = wordsWithMeanings.map(_ => _.meanings)
 
-    const wordsWithMeanings = user.words.filter(_ => _.meanings.length)
-    const wordsToTrain: WordEntityState[] = takeRandom(wordsWithMeanings, 3)
-    const meanings = wordsWithMeanings.map(_ => _.meanings)
+                const correctWord = wordsToTrain[0]
+                const otherWords = user.words.filter(_ => _.id != correctWord.id)
 
-    const correctWord = wordsToTrain[0]
-    const otherWords = user.words.filter(_ => _.id != correctWord.id)
+                const wrongs = takeRandom(otherWords, 3)
 
-    const wrongs = takeRandom(otherWords, 3)
+                // const options = array(shuffle([...wrongs, word]))
 
-    // const options = array(shuffle([...wrongs, word]))
+                const card: TrainerCard = (
+                    {
+                        correctWord,
+                        wrongs
+                    }
+                )
 
-    const card: TrainerCard = (
-        {
-            correctWord,
-            wrongs
-        }
+                const cards =
+                    [...takeLast(trainer.cards, 5), card]
+                        .map(card =>
+                            card.answer
+                                ? Component(AnsweredTrainerCard)(card)
+                                : Component(QuestioningTrainerCard)({
+                                    correctWord,
+                                    wrongs,
+                                    onCorrect: async () => {
+                                        await onUpdated({ ...trainer, cards: [...trainer.cards, { ...card, answer: correctWord.id }] })
+                                    },
+                                    onWrong: async (wordId) => {
+                                        await onUpdated({ ...trainer, cards: [...trainer.cards, { ...card, answer: wordId }] })
+                                    },
+                                }))
+
+
+                yield button('Stop training', async () => {
+                    await onRedirect('main')
+                    await onUpdated({ cards: [] })
+                })
+
+                for (const card of cards) {
+                    yield card
+                }
+            }
     )
-
-    const cards = 
-        [...takeLast(trainer.cards, 5), card]
-        .map(card =>
-            card.answer
-                ? Component(AnsweredTrainerCard)(card)
-                : Component(QuestioningTrainerCard)({
-                    correctWord,
-                    wrongs,
-                    onCorrect: async () => {
-                        await onUpdated({ ...trainer, cards: [...trainer.cards, {...card, answer: correctWord.id}] })
-                    },
-                    onWrong: async (wordId) => {
-                        await onUpdated({ ...trainer, cards: [...trainer.cards,  {...card, answer: wordId}] })
-                    },
-                }))
-        
-
-    yield button('Stop training', async () => {
-        await onRedirect('main')
-        await onUpdated({ cards: [] })
-    })
-
-    for(const card of cards) {
-        yield card
-    }
-}
 
 export function* AnsweredTrainerCard({ correctWord, wrongs, answer }: TrainerCard) {
     yield message(

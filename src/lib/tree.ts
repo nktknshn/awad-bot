@@ -342,9 +342,9 @@ export function rerenderTree<RootState>(
     const { newState, componentElement, props, state, result: children } = tree
 
     let rerender = false
-    console.log(`checking ${componentElement.cons.name}`);
+    console.log(`checking ${componentElement.cons.toString()}`);
 
-    if (componentElement.cons.name !== componentElement.cons.name) {
+    if (componentElement.cons.toString() !== componentElement.cons.toString()) {
         console.log(`${componentElement.cons.name} is to updated by new component`);
         rerender = true
     }

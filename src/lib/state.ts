@@ -43,3 +43,24 @@ export function combine<S1, S2, R1, R2>(
     }
 }
 export type Selector<S, R> = (state: S) => R
+
+
+export function req<S1, R1>(sel1: Selector<S1, R1>): Selector<S1, R1>
+export function req<S1, S2, R1, R2>(
+    sel1: Selector<S1, R1>,
+    sel2: Selector<S2, R2>,
+): Selector<S1 & S2, R1 & R2>
+export function req<S1, S2, S3, R1, R2, R3>(
+    sel1: Selector<S1, R1>,
+    sel2: Selector<S2, R2>,
+    sel3: Selector<S3, R3>,
+): Selector<S1 & S2 & S3, R1 & R2 & R3>
+export function req(...args: any[]): any {
+    return function (s: any) {
+        let res = {}
+        for (const sel of args) {
+            res = { ...res, ...sel(s) }
+        }
+        return res
+    }
+}

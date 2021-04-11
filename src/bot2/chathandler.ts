@@ -1,19 +1,22 @@
 import { TelegrafContext } from "telegraf/typings/context";
 import { ChatHandler, QueuedChatHandler } from "../lib/chathandler";
-import { ChatHandlerFactory } from "../lib/chatsdispatcher";
 import { ChatRenderer, createChatRenderer, messageTrackingRenderer } from "../lib/chatrenderer";
+import { ChatHandlerFactory } from "../lib/chatsdispatcher";
+import { Appliable, BasicElement, WithContext } from "../lib/elements";
+import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "../lib/elements-to-messages";
 import { ElementsTree, TreeState } from "../lib/tree";
+import { AppReqs, GetAllBasics } from "../lib/types-util";
 import { ChatUI } from "../lib/ui";
 import App from './app';
-import { AppDispatch, storeToDispatch } from "./storeToDispatch";
 import { AwadServices, userDtoFromCtx } from "./services";
-import { createAwadStore } from "./store";
+import { createAwadStore, RootState } from "./store";
 import { updateUser } from "./store/user";
-import { AppReqs, GetAllBasics, GetAllComps, StateReq } from "../lib/types-util";
-import { elementsToMessagesAndHandlers, emptyDraft, MessagesAndHandlers, RenderDraft } from "../lib/elements-to-messages";
+import { AppDispatch, storeToDispatch } from "./storeToDispatch";
 
 type AppStateRequirements = AppReqs<ReturnType<typeof App>>
 type AppElements = GetAllBasics<ReturnType<typeof App>>
+// type AppElements = BasicElement | WithContext<any, BasicElement> 
+
 
 interface ChatF {
     handleMessage(ctx: TelegrafContext): Promise<ChatF>
@@ -22,9 +25,9 @@ interface ChatF {
 }
 
 export type AwadContextT = {
-    // state: ReturnType<ReturnType<typeof createAwadStore>['getState']>,
+    // state: RootState,
     dispatcher: ReturnType<typeof storeToDispatch>
-}
+} & RootState
 
 // export const withContext = <R>(f: (ctx: WithDispatcher) => R) => {
 //     return new WithContext(f)
@@ -43,7 +46,8 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
         const dispatcher = storeToDispatch(store)
 
         const getContext = (): AwadContextT => ({
-            // state: store.getState(), 
+            // state: store.getState(),
+            ...store.getState(),
             dispatcher
         })
 
@@ -56,7 +60,7 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
             function handle(compel: AppElements) {
                 if (compel.kind == 'WithContext') {
                     handle(
-                        compel.f({ dispatcher })
+                        compel.f(getContext())
                     )
                 }
                 // else if (compel.kind == 'ButtonElement2') {
@@ -81,7 +85,7 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
         let renderFunc = (treeState: TreeState) => (dispatcher: AppDispatch) => {
             const [els, ns] = tree.createElements(
                 App,
-                { ...store.getState(), dispatcher },
+                getContext(),
                 {},
                 treeState
             )
