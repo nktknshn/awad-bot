@@ -7,57 +7,74 @@ import { Getter, PathQuery } from "../../lib/util"
 import { WithDispatcher } from "../app"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
+import { inputGroup, inputOpt, messageText, parseCardOpt, parseCardUpdateOpt, parseExampleOpt } from "../input"
+import { flow, identity } from "fp-ts/lib/function"
+import * as O from 'fp-ts/lib/Option';
 
 export function* CardPageInput({
     word,
     dispatcher: { onReplaceWord, onUpdateWord, onAddExample }
 }: WithDispatcher & { word: WordEntityState }) {
-    yield input(async ({ messageText }, next) => {
-        if (!messageText) {
-            return
-        }
 
-        if (messageText.startsWith('/')) {
-            return await next()
-        }
-
-        const card = parseCard(messageText)
-
-        if (card && card.word == word.theword) {
-            await onReplaceWord(word, card)
-            return
-        }
-        else if (card) {
-            return await next()
-        }
-        else if (parseExample(messageText)) {
-            const example = parseExample(messageText)
-            await onAddExample(word, example!)
-            return
-        }
-        else if (parseCardUpdate(messageText)) {
-            const { tags, meanings } = parseCardUpdate(messageText)!
-            await onUpdateWord(word, { tags, meanings })
-            return true
-        }
-        else if (!word.meanings.length) {
-            await onUpdateWord(word, {
-                // tags: word.tags,
-                meanings: [{
-                    description: messageText,
-                    examples: [],
-                }]
-            })
-            return true
-        }
-        else if (word.meanings.length) {
-            await onAddExample(word, messageText)
-            return true
-        }
-        else {
-            return await next()
-        }
-    })
+    yield inputGroup(
+        [
+            (done, next) => flow(
+                O.chain(messageText),
+                O.map(m => m.startsWith('/')
+                    ? done()
+                    : next()
+                )
+            ),
+            (done, next) => flow(
+                O.chain(messageText),
+                O.chain(parseCardOpt),
+                O.map(card =>
+                    card.word == word.theword
+                        ? onReplaceWord(word, card)
+                        : next()
+                ),
+            ),
+            (done, next) => flow(
+                O.chain(messageText),
+                O.chain(parseExampleOpt),
+                O.map((example) => onAddExample(word, example))
+            ),
+            (done, next) => flow(
+                O.chain(messageText),
+                O.chain(parseCardUpdateOpt),
+                O.map(
+                    ({ tags, meanings }) =>
+                        onUpdateWord(word, { tags, meanings })
+                            .then(_ => true)
+                )
+            ),
+            (done, next) => flow(
+                O.chain(messageText),
+                O.map(description =>
+                    !word.meanings.length
+                        ? onUpdateWord(word, {
+                            meanings: [{
+                                description,
+                                examples: [],
+                            }]
+                        })
+                        : next()
+                )
+            ),
+            (done, next) => flow(
+                O.chain(messageText),
+                O.map(messageText =>
+                    word.meanings.length
+                        ? onAddExample(word, messageText)
+                        : next()
+                )
+            ),
+            (done, next) => flow(
+                identity,
+                O.map(done)
+            )
+        ]
+    )
 }
 
 export function* CardPage({

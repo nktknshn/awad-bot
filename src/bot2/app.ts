@@ -1,8 +1,7 @@
-import { pipe } from "fp-ts/lib/function";
+import { flow, identity, pipe } from "fp-ts/lib/function";
+import * as O from 'fp-ts/lib/Option';
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
-import { createCardFromWord, isEnglishWord, parseCard } from "../bot/parsing";
-import { parseWordId } from "../bot/utils";
-import { connected1 as connected1, Component, connected2, WithContext } from "../lib/elements";
+import { connected1 as connected1, connected2, WithContext } from "../lib/elements";
 import { button as _button, buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
 import { select } from "../lib/state";
 import { parsePath, tryKey } from "../lib/util";
@@ -10,6 +9,7 @@ import Settings from "./components/Settings";
 import { Trainer } from "./components/trainer";
 import WordsPage from "./components/WordsPage";
 import PinnedCards from "./connected/PinnedCards";
+import { createCardFromWordOpt, inputGroup, inputOpt, messageText, parseCardOpt, parseWordIdOpt } from "./input";
 import { getDispatcher, getIfUserLoaded, getPath, getUser } from "./store/selectors";
 import { AppDispatch } from "./storeToDispatch";
 
@@ -23,31 +23,32 @@ const messages: Record<string, string> = {
 
 export type WithDispatcher = { dispatcher: AppDispatch }
 
-const { input, button } = contexted<WithDispatcher>()
+const { button } = contexted<WithDispatcher>()
+
 
 const AppInput = connected1(
     select(getDispatcher),
-    function* ({dispatcher}) {
-        yield _input(async ({ messageText }, next) => {
-            if (!messageText)
-                return
-    
-            if (isEnglishWord(messageText)) {
-                await dispatcher.onCard(createCardFromWord(messageText))
-                return
-            }
-    
-            const card = parseCard(messageText)
-    
-            if (card) {
-                await dispatcher.onCard(card)
-            }
-            else if (parseWordId(messageText)) {
-                await dispatcher.onRedirect(messageText)
-            }
-            else
-                await dispatcher.onRedirect('main?message=bad_card')
-        })
+    function* ({ dispatcher: { onCard, onRedirect } }) {
+        yield inputGroup([
+            _ =>
+                flow(O.chain(messageText),
+                    O.chain(createCardFromWordOpt),
+                    O.map(onCard)),
+            _ =>
+                flow(
+                    O.chain(messageText),
+                    O.chain(parseCardOpt),
+                    O.map(onCard)
+                ),
+            _ =>
+                flow(
+                    O.chain(messageText),
+                    O.chainFirst(parseWordIdOpt),
+                    O.map(onRedirect)
+                ),
+            _ => flow(identity, O.map(() => onRedirect('main?message=bad_card')))
+        ])
+
     }
 )
 
