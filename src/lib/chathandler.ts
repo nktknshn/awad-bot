@@ -118,7 +118,13 @@ export interface Application {
         renderer: ChatRenderer,
         chat: ChatHandler2,
         chatdata: ChatState,
-        ) => Promise<any>
+        ) => Promise<any>,
+        handleAction: (
+            ctx: TelegrafContext,
+            renderer: ChatRenderer,
+            chat: ChatHandler2,
+            chatdata: ChatState,
+            ) => Promise<any>
 }
 
 export const createChatHandlerFactory = (app: Application): ChatHandlerFactory<ChatHandler2> =>
@@ -139,11 +145,12 @@ export const createChatHandlerFactory = (app: Application): ChatHandlerFactory<C
         const chat = new QueuedChatHandler({
             chatdata: emptyChatState(),
             handleAction: async (self, ctx) => {
-                await self.chatdata.actionHandler(ctx)
-                await self.handleEvent(self, ctx, "updated")
+                // await self.chatdata.actionHandler(ctx)
+                // await self.handleEvent(self, ctx, "updated")
+                return app.handleAction(ctx, renderer, chat, self.chatdata)
             },
             handleMessage: async (self, ctx) => {
-                app.handleMessage(ctx, renderer, chat, self.chatdata)
+                return app.handleMessage(ctx, renderer, chat, self.chatdata)
             },
             handleEvent: async (self, ctx: TelegrafContext, typ: string, chatdata) => {
                 if (typ == 'updated') {

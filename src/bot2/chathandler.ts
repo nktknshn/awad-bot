@@ -132,6 +132,10 @@ export function createAwadApplication(services: AwadServices): Application {
                 O.getOrElse(async () => { })
             )
 
+        },
+        handleAction: async(ctx, renderer, chat, chatdata) => {
+                await chatdata.actionHandler(ctx)
+                await chat.handleEvent(ctx, "updated")
         }
     }
 }
