@@ -116,13 +116,6 @@ export function connected1<P extends M, S, M, State, R extends ComponentGenerato
     return ConnectedComp(cons, mapper)
 }
 
-// export function Comp2<P extends M, S, M, State, R extends ComponentGenerator, PP>(
-//     mapper: (state: State) => M,
-//     cons: (props: PP) => CompConstructorWithState<P, S, R>
-// ){   
-//     return (props: PP) => ConnectedComp(cons(props), mapper)({} as any)
-// }
-
 export function connected2<P extends M, S, M, State, PP, R extends ComponentGenerator>(
     mapper: (state: State) => M,
     cons: (reqs: P) => (props: PP, getset: GetSetState<S>) => R
@@ -139,6 +132,12 @@ export function connected2<P extends M, S, M, State, PP, R extends ComponentGene
     )
 }
 
+// export function connected<P extends M, S, M, State, PP, R extends ComponentGenerator>(
+//     mapper: (state: State) => M,
+//     cons: CompConstructorWithState<P, S, R> | ((reqs: P) => (props: PP, getset: GetSetState<S>) => R)
+// ) {
+//     return ConnectedComp(cons, mapper)
+// }
 
 export class KeyboardElement {
     kind: 'Keyboard' = 'Keyboard'

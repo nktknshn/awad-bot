@@ -1,18 +1,20 @@
 import { TelegrafContext } from "telegraf/typings/context";
 import { ChatHandler, QueuedChatHandler } from "../lib/chathandler";
-import { ChatRenderer, createChatRenderer, messageTrackingRenderer } from "../lib/chatrenderer";
+import { createChatRenderer, messageTrackingRenderer } from "../lib/chatrenderer";
 import { ChatHandlerFactory } from "../lib/chatsdispatcher";
-import { Appliable, BasicElement, ComponentConnected, ComponentElement, InputHandlerElement, WithContext } from "../lib/elements";
+import { ComponentElement, InputHandlerElement } from "../lib/elements";
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "../lib/elements-to-messages";
+import { createRenderActions } from "../lib/render-actions";
+import { RenderedElement } from "../lib/rendered-messages";
 import { ElementsTree, TreeState } from "../lib/tree";
 import { AppReqs, GetAllBasics } from "../lib/types-util";
-import { ChatUI } from "../lib/ui";
+import { ChatUI, draftToInputHandler, renderedElementsToActionHandler } from "../lib/ui";
 import App from './app';
 import WordsPage from "./components/WordsPage";
 import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore, RootState } from "./store";
 import { updateUser } from "./store/user";
-import { AppDispatch, storeToDispatch } from "./storeToDispatch";
+import { storeToDispatch } from "./storeToDispatch";
 
 type AppStateRequirements = AppReqs<ReturnType<typeof App>>
 type AppElements = GetAllBasics<ReturnType<typeof App>> | InputHandlerElement
@@ -35,7 +37,14 @@ export type AwadContextT = {
 //     return new WithContext(f)
 // }
 
-export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFactory<ChatImpl<AppElements>> =>
+interface ChatState {
+    treeState: TreeState,
+    renderedElements: RenderedElement[],
+    inputHandler: (ctx: TelegrafContext) => Promise<void | boolean>,
+    actionHandler: (ctx: TelegrafContext) => Promise<void>,
+}
+
+export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFactory<ChatHandler> =>
     async ctx => {
 
         const renderer = messageTrackingRenderer(
@@ -43,17 +52,15 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
             createChatRenderer(ctx)
         )
 
-        const ui = new ChatUI<AppElements>()
+        const ui = new ChatUI()
         const store = createAwadStore(services)
         const dispatcher = storeToDispatch(store)
+        let tree = new ElementsTree()
 
         const getContext = (): AwadContextT => ({
-            // state: store.getState(),
             ...store.getState(),
             dispatcher
         })
-
-        let tree = new ElementsTree()
 
         const createDraft = (elements: AppElements[]): RenderDraft => {
 
@@ -61,17 +68,8 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
 
             function handle(compel: AppElements) {
                 if (compel.kind == 'WithContext') {
-                    handle(
-                        compel.f(getContext())
-                    )
+                    handle(compel.f(getContext()))
                 }
-                // else if (compel.kind == 'ButtonElement2') {
-                //     // draft.inputHandlers.push()
-                //     // compel.setContext({dispatcher: dispatch})
-                // }
-                // else if (compel.kind == 'ABCD') {
-
-                // }
                 else {
                     elementsToMessagesAndHandlers(compel, draft)
                 }
@@ -84,25 +82,46 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
             return draft
         }
 
-        let renderFunc = (treeState: TreeState) => (dispatcher: AppDispatch) => {
-            const [els, ns] = tree.createElements(
-                App,
-                getContext(),
-                {},
-                treeState
-            )
+        let renderFunc = (ss: ChatState) => async (gc = getContext): Promise<ChatState> => {
+            const [els, ns] = tree.createElements(App, gc(), {}, ss.treeState)
 
-            ss.renderFunc = renderFunc(ns)
+            const draft = createDraft(els)
+            const inputHandler = draftToInputHandler(draft)
+            const actions = createRenderActions(ss.renderedElements, draft.messages)
 
-            return ui.renderElementsToChat(renderer, createDraft(els))
+            for (const effect of draft.effects) {
+                await effect.element.callback()
+            }
+
+            const renderedElements = await ui.renderUiActions(renderer, actions)
+
+            if (!renderedElements)
+                return ss
+
+            const actionHandler = renderedElementsToActionHandler(renderedElements)
+
+            return {
+                treeState: ns,
+                inputHandler,
+                actionHandler,
+                renderedElements
+            }
         }
 
-        let ss = {
-            renderFunc: renderFunc({})
+        let ss: ChatState = {
+            treeState: {},
+            renderedElements: [],
+            inputHandler: async function () { },
+            actionHandler: async function () { },
         }
 
-        const onStateUpdated = () => ss.renderFunc(dispatcher)
-        store.subscribe(onStateUpdated)
+        const onStateUpdated = (src: string) => async () => {
+            console.log(`onStateUpdated by ${src}`);
+            const newChatState = await renderFunc(ss)(getContext)
+            for (const k in ss) {
+                (ss as any)[k] = (newChatState as any)[k]
+            }
+        }
 
         const user = await services.getOrCreateUser(userDtoFromCtx(ctx))
 
@@ -116,69 +135,98 @@ export const createChatHandlerFactory = (services: AwadServices): ChatHandlerFac
 
         user.renderedMessagesIds = []
 
+        const handleEvent = async (ctx: TelegrafContext, data: string) => {
+            if (data == 'updated') {
+                await onStateUpdated("handleEvent")()
+            }
+        }
+
+        const chat = new QueuedChatHandler({
+            handleAction: async (ctx) => {
+                await ss.actionHandler(ctx)
+                await handleEvent(ctx, "updated")
+            },
+            handleMessage: async (ctx) => {
+                if (ctx.message?.message_id) {
+                    await services.users.addRenderedMessage(
+                        ctx.chat?.id!, ctx.message?.message_id)
+                }
+
+                if (ctx.message?.text == '/start') {
+                    await ui.deleteAll(renderer, ss.renderedElements)
+                    ss.renderedElements = []
+                    await handleEvent(ctx, "updated")
+                } else {
+                    if (await ss.inputHandler(ctx))
+                        renderer.delete(ctx.message?.message_id!)
+                        await handleEvent(ctx, "updated")
+                }
+            },
+            handleEvent
+        })
+
+        store.subscribe(() => chat.handleEvent(ctx, "updated"))
         store.dispatch(updateUser(user))
 
-        return new ChatImpl(
-            ui, services, renderer, onStateUpdated
-        )
+        return chat
     }
 
-class ChatImpl<Els> implements ChatHandler {
+// class ChatImpl<Els> implements ChatHandler {
 
-    private queued: QueuedChatHandler
+//     private queued: QueuedChatHandler
 
-    constructor(
-        public readonly ui: ChatUI<Els>,
-        public readonly services: AwadServices,
-        public readonly renderer: ChatRenderer,
-        public readonly handleStateUpdated: () => Promise<void>
-    ) {
-        this.queued = new QueuedChatHandler({
-            handleMessage: this._handleMessage,
-            handleAction: this._handleAction
-        })
-    }
+//     constructor(
+//         public readonly ui: ChatUI<Els>,
+//         public readonly services: AwadServices,
+//         public readonly renderer: ChatRenderer,
+//         public readonly handleStateUpdated: () => Promise<void>
+//     ) {
+//         this.queued = new QueuedChatHandler({
+//             handleMessage: this._handleMessage,
+//             handleAction: this._handleAction
+//         })
+//     }
 
-    private _handleMessage = async (ctx: TelegrafContext) => {
-        if (ctx.chat?.type != 'private')
-            return
+//     private _handleMessage = async (ctx: TelegrafContext) => {
+//         if (ctx.chat?.type != 'private')
+//             return
 
-        console.log(`handleMessage ${ctx.message?.text}`)
+//         console.log(`handleMessage ${ctx.message?.text}`)
 
-        if (ctx.message?.message_id) {
-            await this.services.users.addRenderedMessage(
-                ctx.chat?.id!, ctx.message?.message_id)
-        }
+//         if (ctx.message?.message_id) {
+//             await this.services.users.addRenderedMessage(
+//                 ctx.chat?.id!, ctx.message?.message_id)
+//         }
 
-        if (ctx.message?.text == '/start') {
-            await this.ui.deleteAll(this.renderer)
-            await this.handleStateUpdated()
-        } else {
-            if (await this.ui.handleMessage(ctx))
-                this.renderer.delete(ctx.message?.message_id!)
-            await this.handleStateUpdated()
-        }
-    }
+//         if (ctx.message?.text == '/start') {
+//             // await this.ui.deleteAll(this.renderer)
+//             await this.handleStateUpdated()
+//         } else {
+//             // if (await this.ui.handleMessage(ctx))
+//                 this.renderer.delete(ctx.message?.message_id!)
+//             await this.handleStateUpdated()
+//         }
+//     }
 
-    private _handleAction = async (ctx: TelegrafContext) => {
+//     private _handleAction = async (ctx: TelegrafContext) => {
 
-        if (ctx.chat?.type != 'private')
-            return
+//         if (ctx.chat?.type != 'private')
+//             return
 
-        console.log(`handleAction ${ctx.match![0]}`)
+//         console.log(`handleAction ${ctx.match![0]}`)
 
-        await this.ui.handleAction(ctx)
-        await this.handleStateUpdated()
+//         // await this.ui.handleAction(ctx)
+//         await this.handleStateUpdated()
 
-    }
+//     }
 
-    public handleMessage = async (ctx: TelegrafContext) => {
-        return this.queued.handleMessage(ctx)
-    }
+//     public handleMessage = async (ctx: TelegrafContext) => {
+//         return this.queued.handleMessage(ctx)
+//     }
 
 
-    public handleAction = async (ctx: TelegrafContext) => {
-        return this.queued.handleAction(ctx)
-    }
-}
+//     public handleAction = async (ctx: TelegrafContext) => {
+//         return this.queued.handleAction(ctx)
+//     }
+// }
 

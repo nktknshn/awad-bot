@@ -5,7 +5,7 @@ import { ordString } from "fp-ts/lib/Ord"
 import { CheckListStateless } from "../../lib/components/checklist"
 import { Component, connected2, GetSetState } from "../../lib/elements"
 import { button, buttonsRow, input, message, nextMessage, radioRow } from "../../lib/elements-constructors"
-import { action, inputGroup2, nextHandler, on, otherwise } from "../../lib/input"
+import { action, inputHandler, nextHandlerAction, on, otherwise } from "../../lib/input"
 import { InputHandlerData } from "../../lib/messages"
 import { select } from "../../lib/state"
 import { toggleItem } from "../../lib/util"
@@ -28,9 +28,9 @@ interface WordsPageState {
 }
 
 function WordsPageInput({ onWordId }: { onWordId: (wordId: number) => Promise<void> }) {
-  return inputGroup2(
+  return inputHandler(
     on(caseWordId, action(onWordId)),
-    otherwise(nextHandler)
+    otherwise(nextHandlerAction)
   )
 }
 
@@ -89,7 +89,7 @@ const WordsPage = connected2(
       if (showTagsPicker) {
         yield nextMessage()
 
-        yield Component(CheckListStateless)({
+        yield CheckListStateless({
           items: allTags.map(_ => _.slice(1)),
           selectedIds: pipe(filteredTags, map(_ => allTags.indexOf(_))),
           onClick: (idx) => setState({
@@ -135,7 +135,7 @@ const CardPage = Component(
     yield CardPageInput({ word, dispatcher })
 
     yield nextMessage()
-    yield Component(Card)({ word })
+    yield Card({ word })
 
     if (showMenu)
       yield buttonsRow(

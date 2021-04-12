@@ -31,7 +31,7 @@ export function* PinnedCards(
         return
 
     for (const word of pinnedCards) {
-        yield Component(Card)({ word })
+        yield Card({ word })
         yield nextMessage()
     }
 

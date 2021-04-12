@@ -45,10 +45,11 @@ export function inputGroup(
 
 export type Matcher2 = (d: O.Option<InputHandlerData>) => O.Option<Promise<any> | 'done' | 'next'>;
 
-export const done = (): 'done' => 'done';
-export const next = (): 'next' => 'next';
+export const nextHandler = (): 'done' => 'done';
+export const nextMatcher = (): 'next' => 'next';
+export const stop = (): undefined => undefined;
 
-export function inputGroup2(
+export function inputHandler(
     ...matchers: Matcher2[]
 ) {
     return new InputHandlerElement(
@@ -92,4 +93,6 @@ export const action = O.map;
 
 export const messageText = (d: InputHandlerData) => O.fromNullable(d.messageText);
 export const caseText = O.chain(messageText);
-export const nextHandler = action(done)
+export const nextHandlerAction = action(nextHandler)
+// export const ifTrue = (pred: () => boolean) => <T>(m: O.Option<T>) => pred() ? m : O.none
+export const ifTrue = O.filter

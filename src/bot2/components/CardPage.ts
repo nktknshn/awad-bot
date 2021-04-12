@@ -1,29 +1,32 @@
 import { Component } from "../../lib/elements"
 import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/elements-constructors"
-import { action, caseText, done, inputGroup2, next, on, otherwise } from "../../lib/input"
+import { action, caseText, nextHandler, inputHandler, nextMatcher, on, otherwise, ifTrue } from "../../lib/input"
 import { PathQuery } from "../../lib/util"
-import { WithDispatcher } from "../app"
+import { WithDispatcher, WithDispatcher2 } from "../app"
 import { caseCard, caseCardUpdate, caseExample } from "../input"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
+import * as O from 'fp-ts/lib/Option';
+import { flow, identity } from "fp-ts/lib/function";
+
 
 export function CardPageInput({
     word,
     dispatcher: { onReplaceWord, onUpdateWord, onAddExample }
-}: WithDispatcher & { word: WordEntityState }) {
-
-    return inputGroup2(
+}: WithDispatcher2<{ word: WordEntityState }>) {
+    
+    return inputHandler(
         on(caseText,
             action(m => m.startsWith('/')
-                ? done()
-                : next()
+                ? nextHandler()
+                : nextMatcher()
             )
         ),
         on(caseCard,
             action(card =>
                 card.word == word.theword
                     ? onReplaceWord(word, card)
-                    : done()
+                    : nextHandler()
             ),
         ),
         on(caseExample,
@@ -36,33 +39,29 @@ export function CardPageInput({
                         .then(_ => true)
             )
         ),
-        on(caseText,
+        on(caseText, 
+            ifTrue(() => Boolean(!word.meanings.length)),
             action(description =>
-                !word.meanings.length
-                    ? onUpdateWord(word, {
-                        meanings: [{
-                            description,
-                            examples: [],
-                        }]
-                    })
-                    : next()
+                onUpdateWord(word, {
+                    meanings: [{
+                        description,
+                        examples: [],
+                    }]
+                })
             )
         ),
         on(caseText,
-            action(messageText =>
-                word.meanings.length
-                    ? onAddExample(word, messageText)
-                    : next()
-            )
+            ifTrue(() => Boolean(word.meanings.length)),
+            action(messageText => onAddExample(word, messageText))
         ),
-        otherwise(action(done))
+        otherwise(action(nextHandler))
     )
 }
 
 export function* CardPage({
     word, path, query,
     dispatcher
-}: WithDispatcher & { word: WordEntityState, query?: PathQuery, path: string }) {
+}: WithDispatcher2<{ word: WordEntityState, query?: PathQuery, path: string }>) {
     const { onUpdateWord, onDeleteWord, onRedirect } = dispatcher
     yield CardPageInput({
         word,
@@ -98,7 +97,7 @@ export function* CardPage({
         }
     )
 
-    yield Component(Card)({ word })
+    yield Card({ word })
 
     if (rename) {
         yield input(({ messageText }) =>

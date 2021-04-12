@@ -1,13 +1,10 @@
 import { TelegrafContext } from "telegraf/typings/context";
 import { parseFromContext } from './bot-util';
-import { elementsToMessagesAndHandlers, MessagesAndHandlers } from './elements-to-messages';
-import { BotDocumentMessage, BotMessage, RenderedElement, UserMessage } from "./rendered-messages";
 import { ChatRenderer } from './chatrenderer';
-import { Actions, createRenderActions } from './render-actions';
-import { BasicElement } from "./elements";
+import { RenderDraft } from './elements-to-messages';
+import { Actions } from './render-actions';
+import { BotDocumentMessage, BotMessage, RenderedElement } from "./rendered-messages";
 import { callHandlersChain, emptyMessage, isFalse, lastItem } from './util';
-import { Draft } from "@reduxjs/toolkit";
-import { InputHandler } from "./render";
 
 type RenderQueueElement<E> = E[]
 
@@ -18,48 +15,12 @@ function isEmpty<T>(items: T[]) {
 
 const getMessageId = (ctx: TelegrafContext) => ctx.message?.message_id
 
-export class ChatUI<Els> {
-
-    constructor(
-        // readonly renderer: ChatRenderer
-    ) { }
-
-    private isRendering = false
-    private renderedElements: RenderedElement[] = []
-    private renderQueue: MessagesAndHandlers[] = []
-
-    // private inputHandler?: InputHandler
-    // private actionHandler?: ActionsHandler
-    private inputHandlers: InputHandler[] = []
-
-    private parseContext = parseFromContext
-    private createUiActions = createRenderActions
-    private createMessagesFromElements = elementsToMessagesAndHandlers
-
-    async handleMessage(ctx: TelegrafContext) {
-        let deleteMessage = true
-
-        if (!isEmpty(this.inputHandlers)) {
-            const doNotDelete = await callHandlersChain(
-                this.inputHandlers.reverse(),
-                this.parseContext(ctx)
-            )
-            return !isFalse(doNotDelete)
-        }
-
-        return deleteMessage
-
-        // if (deleteMessage && ctx.message?.message_id)
-        //     await this.renderer.delete(ctx.message?.message_id)
-        // else if (ctx.message)
-        //     this.renderedElements.push(new UserMessage(ctx.message))
-    }
-
-    async handleAction(ctx: TelegrafContext) {
+export function renderedElementsToActionHandler(renderedElements: RenderedElement[]) {
+    return async (ctx: TelegrafContext) => {
         const action = ctx.match![0]
         const repliedTo = ctx.callbackQuery?.message?.message_id
 
-        const callbackTo = this.renderedElements.find(
+        const callbackTo = renderedElements.find(
             _ => _.output.message_id == repliedTo
         )
 
@@ -68,7 +29,7 @@ export class ChatUI<Els> {
             await ctx.answerCbQuery()
         }
         else {
-            for (const el of this.renderedElements) {
+            for (const el of renderedElements) {
                 if (el.kind === 'BotMessage') {
                     if (await el.input.callback(action)) {
                         await ctx.answerCbQuery()
@@ -79,98 +40,105 @@ export class ChatUI<Els> {
             }
         }
     }
+}
 
-    async renderActions(renderer: ChatRenderer, actions: Actions[]) {
-        let rendered: RenderedElement[] = []
+export function draftToInputHandler(draft: RenderDraft, parseContext = parseFromContext) {
 
-        for (const action of actions) {
-            if (action.kind === 'Create') {
-                if (action.newElement.kind === 'TextMessage')
-                    rendered.push(
-                        new BotMessage(
-                            action.newElement,
-                            await renderer.message(
-                                action.newElement.text ?? emptyMessage,
-                                action.newElement.getExtra()
-                            )
-                        )
-                    )
-                else if (action.newElement.kind === 'FileMessage')
-                    rendered.push(
-                        new BotDocumentMessage(
-                            action.newElement,
-                            await renderer.sendFile(action.newElement.element.file)
-                        )
-                    )
-            }
-            else if (action.kind === 'Keep') {
-                if (action.newElement.kind === 'TextMessage')
-                    rendered.push(new BotMessage(
-                        action.newElement, action.element.output
-                    ))
-                // else if (action.newElement instanceof FileElement)
-                //     rendered.push(new BotDocumentMessage(
-                //         action.newElement, action.element.message
-                //     ))
-            }
-            else if (action.kind === 'Remove') {
-                renderer.delete(action.element.output.message_id)
-            }
-            else if (action.kind === 'Replace') {
-                if (action.newElement.kind === 'TextMessage')
-                    rendered.push(
-                        new BotMessage(
-                            action.newElement,
-                            await renderer.message(
-                                action.newElement.text ?? emptyMessage,
-                                action.newElement.getExtra(),
-                                action.element.output,
-                                false
-                            )
-                        )
-                    )
-            }
+    return async (ctx: TelegrafContext) => {
+        let deleteMessage = true
+
+        if (!isEmpty(draft.inputHandlers)) {
+            const doNotDelete = await callHandlersChain(
+                draft.inputHandlers.reverse(),
+                parseContext(ctx)
+            )
+            return !isFalse(doNotDelete)
         }
 
-        return rendered
+        return deleteMessage
+    }
+}
+
+export async function renderActions(renderer: ChatRenderer, actions: Actions[]) {
+    let rendered: RenderedElement[] = []
+
+    for (const action of actions) {
+        if (action.kind === 'Create') {
+            if (action.newElement.kind === 'TextMessage')
+                rendered.push(
+                    new BotMessage(
+                        action.newElement,
+                        await renderer.message(
+                            action.newElement.text ?? emptyMessage,
+                            action.newElement.getExtra()
+                        )
+                    )
+                )
+            else if (action.newElement.kind === 'FileMessage')
+                rendered.push(
+                    new BotDocumentMessage(
+                        action.newElement,
+                        await renderer.sendFile(action.newElement.element.file)
+                    )
+                )
+        }
+        else if (action.kind === 'Keep') {
+            if (action.newElement.kind === 'TextMessage')
+                rendered.push(new BotMessage(
+                    action.newElement, action.element.output
+                ))
+            // else if (action.newElement instanceof FileElement)
+            //     rendered.push(new BotDocumentMessage(
+            //         action.newElement, action.element.message
+            //     ))
+        }
+        else if (action.kind === 'Remove') {
+            renderer.delete(action.element.output.message_id)
+        }
+        else if (action.kind === 'Replace') {
+            if (action.newElement.kind === 'TextMessage')
+                rendered.push(
+                    new BotMessage(
+                        action.newElement,
+                        await renderer.message(
+                            action.newElement.text ?? emptyMessage,
+                            action.newElement.getExtra(),
+                            action.element.output,
+                            false
+                        )
+                    )
+                )
+        }
     }
 
-    async renderElementsToChat
+    return rendered
+}
+
+export class ChatUI {
+
+    constructor(
+    ) { }
+
+    private isRendering = false
+    private renderQueue: Actions[][] = []
+
+    async renderUiActions
         (
             renderer: ChatRenderer,
-            draft: MessagesAndHandlers
-            // elements: Els[],
-            // func: (els: Els[]) => MessagesAndHandlers
-        ): Promise<void> {
-        this.inputHandlers = []
+            actions: Actions[]
+        ): Promise<RenderedElement[ ]| undefined> {
+        let renderedElements: RenderedElement[] = []
 
         if (this.isRendering) {
-            this.renderQueue.push(draft)
+            this.renderQueue.push(actions)
             return
         }
 
-        const {
-            messages, handlers, effects, keyboards, inputHandlers
-        } = draft
-
-        this.inputHandlers = inputHandlers
-
-        if (!messages.length)
-            console.error(`Empty messages!`)
-
-        console.log('Rendering Started')
-
-        const actions = this.createUiActions(this.renderedElements, messages)
-
         this.isRendering = true
 
-        this.renderedElements = await this.renderActions(renderer, actions)
+        renderedElements = await renderActions(renderer, actions)
 
         console.log('Rendering Finished')
-
-        for (const effect of effects) {
-            await effect.element.callback()
-        }
 
         this.isRendering = false
 
@@ -178,19 +146,16 @@ export class ChatUI<Els> {
 
         if (moreRender) {
             this.renderQueue = []
-            await this.renderElementsToChat(renderer, moreRender)
+            return await this.renderUiActions(renderer, moreRender)
         }
+        return renderedElements
     }
 
-    async deleteAll(renderer: ChatRenderer) {
-        await this.clear(renderer)
-        this.renderedElements = []
+    async deleteAll(renderer: ChatRenderer, renderedElements: RenderedElement[]) {
+        await this.clear(renderer, renderedElements)
     }
 
-    async clear(renderer: ChatRenderer, messages?: RenderedElement[]) {
-        if (!messages)
-            messages = this.renderedElements
-
+    async clear(renderer: ChatRenderer, messages: RenderedElement[]) {
         for (const el of messages) {
             try {
                 await renderer.delete(el.output.message_id)

@@ -10,15 +10,16 @@ export type CheckListProps = {
     items: string[],
 }
 
-export function* CheckListStateless({
-    items, selectedIds, onClick
-}: {
-    items: string[],
-    selectedIds: number[]
-} & OnClick<number>) {
-    yield Component(CheckListInput)({ items, selectedIds, onClick })
-    yield Component(CheckListBody)({ items, selectedIds })
-}
+export const CheckListStateless =
+    Component(function* CheckListStateless({
+        items, selectedIds, onClick
+    }: {
+        items: string[],
+        selectedIds: number[]
+    } & OnClick<number>) {
+        yield Component(CheckListInput)({ items, selectedIds, onClick })
+        yield Component(CheckListBody)({ items, selectedIds })
+    })
 
 export function* CheckList(
     {

@@ -3,10 +3,11 @@ import { TelegrafContext } from "telegraf/typings/context"
 export interface ChatHandler {
     handleMessage(ctx: TelegrafContext): Promise<unknown>
     handleAction(ctx: TelegrafContext): Promise<unknown>
+    handleEvent(ctx: TelegrafContext, data: string): Promise<unknown>
 }
 
 
-type IncomingItem = IncomingMessage | IncomingAction
+type IncomingItem = IncomingMessage | IncomingAction | IncomingEvent
 
 class IncomingMessage {
     kind: 'IncomingMessage' = 'IncomingMessage'
@@ -18,6 +19,13 @@ class IncomingMessage {
 class IncomingAction {
     kind: 'IncomingAction' = 'IncomingAction'
     constructor(readonly ctx: TelegrafContext) {
+
+    }
+}
+
+class IncomingEvent {
+    kind: 'IncomingEvent' = 'IncomingEvent'
+    constructor(readonly ctx: TelegrafContext, public readonly typ: string) {
 
     }
 }
@@ -48,6 +56,9 @@ export class QueuedChatHandler implements ChatHandler {
         } 
         else if(item.kind === 'IncomingAction') {
             await this.chat.handleAction(item.ctx)
+        } 
+        else if(item.kind === 'IncomingEvent') {
+            await this.chat.handleEvent(item.ctx, item.typ)
         }
         this.busy = false
     }
@@ -58,5 +69,9 @@ export class QueuedChatHandler implements ChatHandler {
 
     async handleMessage(ctx: TelegrafContext) {
         await this.push(new IncomingMessage(ctx))
+    }
+
+    async handleEvent(ctx: TelegrafContext, data: string) {
+        await this.push(new IncomingEvent(ctx, data))
     }
 }
