@@ -1,19 +1,13 @@
-import { WordEntity } from "../../database/entity/word";
-import { message, messagePart } from "../../lib/elements-constructors";
-import { textColumns, zip } from "../../lib/util";
-import { splitAt } from 'fp-ts/Array';
-import { sortBy } from 'fp-ts/Array';
+import { sortBy, splitAt } from 'fp-ts/Array';
 import { ord, ordString } from 'fp-ts/Ord';
-import { Component } from "../../lib/elements";
+import { messagePart } from "../../lib/elements-constructors";
+import { textColumns, zip } from "../../lib/util";
 import { WordEntityState } from "../store/user";
 
-
-// export function paginated
 
 const sortByWord = sortBy(
     [ord.contramap(ordString, (w: WordEntityState) => w.theword)]
 );
-
 
 export function* WordsList({ words, columns = 1 }: {
     words: WordEntityState[];

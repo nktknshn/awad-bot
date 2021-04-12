@@ -1,15 +1,15 @@
-import { flow, identity, pipe } from "fp-ts/lib/function";
-import * as O from 'fp-ts/lib/Option';
+import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
 import { connected1 as connected1, connected2, WithContext } from "../lib/elements";
 import { button as _button, buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
+import { action, inputGroup2, messageText, on, otherwise } from "../lib/input";
 import { select } from "../lib/state";
 import { parsePath, tryKey } from "../lib/util";
 import Settings from "./components/Settings";
 import { Trainer } from "./components/trainer";
 import WordsPage from "./components/WordsPage";
 import PinnedCards from "./connected/PinnedCards";
-import { createCardFromWordOpt, inputGroup, inputOpt, messageText, parseCardOpt, parseWordIdOpt } from "./input";
+import { caseCard, caseEnglishWord, caseIfWordId, caseWordId } from "./input";
 import { getDispatcher, getIfUserLoaded, getPath, getUser } from "./store/selectors";
 import { AppDispatch } from "./storeToDispatch";
 
@@ -25,33 +25,27 @@ export type WithDispatcher = { dispatcher: AppDispatch }
 
 const { button } = contexted<WithDispatcher>()
 
-
 const AppInput = connected1(
     select(getDispatcher),
     function* ({ dispatcher: { onCard, onRedirect } }) {
-        yield inputGroup([
-            _ =>
-                flow(O.chain(messageText),
-                    O.chain(createCardFromWordOpt),
-                    O.map(onCard)),
-            _ =>
-                flow(
-                    O.chain(messageText),
-                    O.chain(parseCardOpt),
-                    O.map(onCard)
-                ),
-            _ =>
-                flow(
-                    O.chain(messageText),
-                    O.chainFirst(parseWordIdOpt),
-                    O.map(onRedirect)
-                ),
-            _ => flow(identity, O.map(() => onRedirect('main?message=bad_card')))
-        ])
+
+        yield inputGroup2(
+            on(caseEnglishWord, action(onCard)),
+            on(caseCard, action(onCard)),
+            on(caseIfWordId, action(onRedirect)),
+            otherwise(action(() => onRedirect('main?message=bad_card')))
+        )
 
     }
 )
 
+const AppInput2 = ({ dispatcher: { onCard, onRedirect } }: { dispatcher: AppDispatch }) =>
+    inputGroup2(
+        on(caseEnglishWord, action(onCard)),
+        on(caseCard, action(onCard)),
+        on(caseIfWordId, action(onRedirect)),
+        otherwise(action(() => onRedirect('main?message=bad_card')))
+    )
 
 const App = connected1(
     select(getDispatcher, getIfUserLoaded, getPath),
@@ -69,7 +63,7 @@ const App = connected1(
         yield PinnedCards({ onUnpin: dispatcher.onTogglePinnedWord })
 
         if (pathname == 'main') {
-            yield AppInput({})
+            yield AppInput2({ dispatcher })
             yield MainMenu({ titleMessage })
         }
         else if (pathname == 'settings') {
@@ -81,10 +75,11 @@ const App = connected1(
         }
         else if (pathname == 'words' || pathname == '/words') {
             const wordId = pipe(tryKey('wordId', query), mapOpt(Number), toUndefined)
-            yield AppInput({})
+            yield AppInput2({ dispatcher })
             yield WordsPage({ wordId })
         }
         else {
+            yield message('redirecting')
             yield effect(() => dispatcher.onRedirect('main?message=not_ready'))
         }
 

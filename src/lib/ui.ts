@@ -168,9 +168,9 @@ export class ChatUI<Els> {
 
         console.log('Rendering Finished')
 
-        // for (const effect of effects) {
-        //     await effect.callback()
-        // }
+        for (const effect of effects) {
+            await effect.element.callback()
+        }
 
         this.isRendering = false
 

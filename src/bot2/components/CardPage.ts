@@ -1,79 +1,61 @@
-// import { Card } from "../../bot/components"
-import { parseCard, parseCardUpdate, parseExample } from "../../bot/parsing"
-import { WordEntity } from "../../database/entity/word"
-import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/elements-constructors"
 import { Component } from "../../lib/elements"
-import { Getter, PathQuery } from "../../lib/util"
+import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/elements-constructors"
+import { action, caseText, done, inputGroup2, next, on, otherwise } from "../../lib/input"
+import { PathQuery } from "../../lib/util"
 import { WithDispatcher } from "../app"
+import { caseCard, caseCardUpdate, caseExample } from "../input"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
-import { inputGroup, inputOpt, messageText, parseCardOpt, parseCardUpdateOpt, parseExampleOpt } from "../input"
-import { flow, identity } from "fp-ts/lib/function"
-import * as O from 'fp-ts/lib/Option';
 
-export function* CardPageInput({
+export function CardPageInput({
     word,
     dispatcher: { onReplaceWord, onUpdateWord, onAddExample }
 }: WithDispatcher & { word: WordEntityState }) {
 
-    yield inputGroup(
-        [
-            (done, next) => flow(
-                O.chain(messageText),
-                O.map(m => m.startsWith('/')
-                    ? done()
-                    : next()
-                )
-            ),
-            (done, next) => flow(
-                O.chain(messageText),
-                O.chain(parseCardOpt),
-                O.map(card =>
-                    card.word == word.theword
-                        ? onReplaceWord(word, card)
-                        : next()
-                ),
-            ),
-            (done, next) => flow(
-                O.chain(messageText),
-                O.chain(parseExampleOpt),
-                O.map((example) => onAddExample(word, example))
-            ),
-            (done, next) => flow(
-                O.chain(messageText),
-                O.chain(parseCardUpdateOpt),
-                O.map(
-                    ({ tags, meanings }) =>
-                        onUpdateWord(word, { tags, meanings })
-                            .then(_ => true)
-                )
-            ),
-            (done, next) => flow(
-                O.chain(messageText),
-                O.map(description =>
-                    !word.meanings.length
-                        ? onUpdateWord(word, {
-                            meanings: [{
-                                description,
-                                examples: [],
-                            }]
-                        })
-                        : next()
-                )
-            ),
-            (done, next) => flow(
-                O.chain(messageText),
-                O.map(messageText =>
-                    word.meanings.length
-                        ? onAddExample(word, messageText)
-                        : next()
-                )
-            ),
-            (done, next) => flow(
-                identity,
-                O.map(done)
+    return inputGroup2(
+        on(caseText,
+            action(m => m.startsWith('/')
+                ? done()
+                : next()
             )
-        ]
+        ),
+        on(caseCard,
+            action(card =>
+                card.word == word.theword
+                    ? onReplaceWord(word, card)
+                    : done()
+            ),
+        ),
+        on(caseExample,
+            action((example) => onAddExample(word, example))
+        ),
+        on(caseCardUpdate,
+            action(
+                ({ tags, meanings }) =>
+                    onUpdateWord(word, { tags, meanings })
+                        .then(_ => true)
+            )
+        ),
+        on(caseText,
+            action(description =>
+                !word.meanings.length
+                    ? onUpdateWord(word, {
+                        meanings: [{
+                            description,
+                            examples: [],
+                        }]
+                    })
+                    : next()
+            )
+        ),
+        on(caseText,
+            action(messageText =>
+                word.meanings.length
+                    ? onAddExample(word, messageText)
+                    : next()
+            )
+        ),
+        otherwise(action(done))
     )
 }
 
@@ -82,7 +64,7 @@ export function* CardPage({
     dispatcher
 }: WithDispatcher & { word: WordEntityState, query?: PathQuery, path: string }) {
     const { onUpdateWord, onDeleteWord, onRedirect } = dispatcher
-    yield Component(CardPageInput)({
+    yield CardPageInput({
         word,
         dispatcher
     })

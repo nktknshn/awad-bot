@@ -2,14 +2,15 @@ import { flatten, map, sort, uniq } from "fp-ts/lib/Array"
 import { eqString } from "fp-ts/lib/Eq"
 import { pipe } from "fp-ts/lib/function"
 import { ordString } from "fp-ts/lib/Ord"
-import { parseWordId } from "../../bot/utils"
 import { CheckListStateless } from "../../lib/components/checklist"
 import { Component, connected2, GetSetState } from "../../lib/elements"
 import { button, buttonsRow, input, message, nextMessage, radioRow } from "../../lib/elements-constructors"
+import { action, inputGroup2, nextHandler, on, otherwise } from "../../lib/input"
 import { InputHandlerData } from "../../lib/messages"
 import { select } from "../../lib/state"
 import { toggleItem } from "../../lib/util"
 import { WithDispatcher } from "../app"
+import { caseWordId } from "../input"
 import { getDispatcher, getSettings, getUser } from "../store/selectors"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
@@ -26,18 +27,11 @@ interface WordsPageState {
   wordId?: number
 }
 
-function* WordsPageInput({ onWordId }: { onWordId: (wordId: number) => Promise<void> }) {
-  yield input(async ({ messageText }, next) => {
-
-    if (messageText && parseWordId(messageText)) {
-      const [_, wordId] = parseWordId(messageText)!
-
-      await onWordId(wordId)
-      return
-    }
-
-    return await next()
-  })
+function WordsPageInput({ onWordId }: { onWordId: (wordId: number) => Promise<void> }) {
+  return inputGroup2(
+    on(caseWordId, action(onWordId)),
+    otherwise(nextHandler)
+  )
 }
 
 
@@ -71,10 +65,9 @@ const WordsPage = connected2(
         words = filterTags(user.words, filteredTags)
       }
 
-      yield Component(WordsPageInput)({
+      yield WordsPageInput({
         onWordId: async (wordId) => {
           setState({ wordId })
-          // await onRedirect(`words?wordId=${wordId}`)
         }
       })
 
@@ -139,7 +132,7 @@ const CardPage = Component(
       showMenu: false
     })
 
-    yield Component(CardPageInput)({ word, dispatcher })
+    yield CardPageInput({ word, dispatcher })
 
     yield nextMessage()
     yield Component(Card)({ word })

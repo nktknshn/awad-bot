@@ -71,7 +71,7 @@ export function parseWordId(text: string) {
 
     if (text[1] == 'w' && text[2] == '_') {
         const id = Number.parseInt(text.slice(3))
-        return ['w', id] as const
+        return id
     }
 
 }
