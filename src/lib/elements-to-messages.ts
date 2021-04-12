@@ -26,6 +26,22 @@ export const emptyDraft = (): RenderDraft => ({
     inputHandlers: []
 })
 
+export const defaultCreateDraft = (elements: BasicElement[]): RenderDraft => {
+
+    const draft = emptyDraft()
+
+    function handle(compel: BasicElement) {
+        elementsToMessagesAndHandlers(compel, draft)
+    }
+
+    for (const compel of elements) {
+        handle(compel)
+    }
+
+    return draft
+}
+
+
 export function elementsToMessagesAndHandlers(
     compel: BasicElement,
     draft: RenderDraft

@@ -1,8 +1,9 @@
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
 import { createConnection } from "typeorm"
-import { createChatHandlerFactory } from "./bot2/chathandler"
+import { createAwadApplication } from "./bot2/chathandler"
 import { getAwadServices } from "./bot2/services"
+import { createChatHandlerFactory } from "./lib/chathandler"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
 
 import { token } from "./telegram-token.json"
@@ -17,7 +18,7 @@ async function main() {
 
     const dispatcher = new ChatsDispatcher(
         async (ctx) => {
-            const chat = await createChatHandlerFactory(services)(ctx)
+            const chat = await createChatHandlerFactory(createAwadApplication(services))(ctx)
             if(chat) {
                 // chat.
             }

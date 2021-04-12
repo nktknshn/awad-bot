@@ -130,6 +130,8 @@ export class ChatUI {
         let renderedElements: RenderedElement[] = []
 
         if (this.isRendering) {
+            console.log("this.isRendering == TRUE");
+            
             this.renderQueue.push(actions)
             return
         }
@@ -163,6 +165,17 @@ export class ChatUI {
                 console.error(e);
                 continue
             }
+        }
+    }
+}
+
+export async function deleteAll(renderer: ChatRenderer, messages: RenderedElement[]) {
+    for (const el of messages) {
+        try {
+            await renderer.delete(el.output.message_id)
+        } catch (e) {
+            console.error(e);
+            continue
         }
     }
 }

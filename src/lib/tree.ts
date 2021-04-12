@@ -419,7 +419,7 @@ export class ElementsTree {
 
     private equal = equal
 
-    public createElements<
+    public static createElements<
         P,
         C extends ComponentElement,
         S extends AppReqs<C>,
@@ -431,8 +431,6 @@ export class ElementsTree {
         props: P,
         s: TreeState
     ): [Els[], TreeState] {
-
-        const { equal } = this
 
         console.log(`renderFunc`)
 
