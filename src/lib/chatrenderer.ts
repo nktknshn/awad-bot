@@ -1,16 +1,17 @@
 import { TelegrafContext } from "telegraf/typings/context"
-import { ExtraReplyMessage, InputFile, Message, MessageDocument } from "telegraf/typings/telegram-types"
+import { ExtraReplyMessage, InputFile, Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types"
+import { ContextOpt } from "./handler";
 import { randomAnimal } from './util'
 
 export interface ChatRenderer {
-    // ctx: TelegrafContext
     chatId: number,
     message(text: string,
         extra?: ExtraReplyMessage,
         targetMessage?: Message,
         removeTarget?: boolean): Promise<Message>,
     delete(messageId: number): Promise<boolean>,
-    sendFile(f: InputFile): Promise<MessageDocument>
+    sendFile(f: InputFile): Promise<MessageDocument>,
+    sendPhoto(f: InputFile): Promise<MessagePhoto>
 }
 
 export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
@@ -27,6 +28,7 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
                 await this.delete(targetMessage.message_id)
             }
             else {
+                
                 const ret = await ctx.telegram.editMessageText(
                     ctx.chat?.id!,
                     targetMessage.message_id,
@@ -67,6 +69,9 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
     },
     async sendFile(f: InputFile) {
         return await ctx.telegram.sendDocument(ctx.chat?.id!, f)
+    },
+    async sendPhoto(f: InputFile) {
+        return await ctx.telegram.sendPhoto(ctx.chat?.id!, f)
     }
 })
 
@@ -99,5 +104,57 @@ export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => Cha
                 await tracker.addRenderedMessage(r.chatId, sent.message_id!)
 
             return sent
+        },
+        async sendPhoto(f: InputFile) {
+            const sent = await r.sendPhoto(f)
+
+            if (r.chatId)
+                await tracker.addRenderedMessage(r.chatId, sent.message_id!)
+
+            return sent
         }
     })
+
+export async function removeMessages(renderedMessagesIds: number[], renderer: ChatRenderer) {
+    for (const messageId of renderedMessagesIds ?? []) {
+        try {
+            await renderer.delete(messageId)
+        } catch (e) {
+            console.log(`Error deleting ${messageId}`)
+        }
+    }
+
+    // user.renderedMessagesIds = []
+}
+
+export function trackingRenderer(t: Tracker) {
+    return {
+        renderer: function (ctx: TelegrafContext) {
+            return messageTrackingRenderer(
+                t,
+                createChatRenderer(ctx)
+            )
+        },
+        saveMessageHandler: saveMessageHandler(t)
+    }
+}
+import { Do } from 'fp-ts-contrib/lib/Do'
+import * as O from 'fp-ts/lib/Option'
+import { ChatHandler2, ChatState } from "./chathandler";
+
+
+export function saveMessageHandler(registrar: Tracker) {
+    return function (
+        c: ContextOpt
+    ) {
+        return Do(O.option)
+            .sequenceS(c)
+            .return(({ chatId, messageId }) =>
+                (ctx: TelegrafContext,
+                    renderer: ChatRenderer,
+                    chat: ChatHandler2<ChatState>,
+                    chatdata: ChatState) => registrar.addRenderedMessage(chatId, messageId)
+            )
+
+    }
+}

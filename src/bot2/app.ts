@@ -1,7 +1,7 @@
 import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
-import { connected1 as connected1, connected2, WithContext } from "../lib/elements";
-import { button , buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
+import { connected1 as connected1, connected2 } from "../lib/elements";
+import { button, buttonsRow, effect, message } from "../lib/elements-constructors";
 import { action, inputHandler, on, otherwise } from "../lib/input";
 import { select } from "../lib/state";
 import { parsePath, tryKey } from "../lib/util";
@@ -11,7 +11,7 @@ import WordsPage from "./components/WordsPage";
 import PinnedCards from "./connected/PinnedCards";
 import { caseCard, caseEnglishWord, caseIfWordId } from "./input";
 import { getDispatcher, getIfUserLoaded, getPath, getUser } from "./store/selectors";
-import { AppDispatch } from "./storeToDispatch";
+import { WithDispatcher } from "./storeToDispatch";
 
 const messages: Record<string, string> = {
     'word_added': '👌 Word added',
@@ -21,12 +21,8 @@ const messages: Record<string, string> = {
     'not_ready': '❌ The component isn\'t ready yet',
 }
 
-export type WithDispatcher = { dispatcher: AppDispatch }
-export type WithDispatcher2<T = {}> = T & { dispatcher: AppDispatch }
 
-// const { button } = contexted<WithDispatcher>()
-
-const AppInput = ({ dispatcher: { onCard, onRedirect } }: WithDispatcher2) =>
+const AppInput = ({ dispatcher: { onCard, onRedirect } }: WithDispatcher) =>
     inputHandler(
         on(caseEnglishWord, action(onCard)),
         on(caseCard, action(onCard)),
@@ -105,32 +101,6 @@ const MainMenu = connected2(
             )
         }
 )
-
-// function contexted<Context>() {
-
-//     type NthArg<T extends (...args: any) => any, N extends number> = Parameters<T>[N]
-
-//     type Z = NthArg<typeof _input, 0>
-
-//     const input = function (
-//         callback: (ctx: Context) => NthArg<typeof _input, 0>
-//     ) {
-//         return new WithContext(
-//             (ctx: Context) => _input(callback(ctx))
-//         )
-//     }
-
-//     const button =
-//         (
-//             text: string,
-//             callback: ((ctx: Context) => () => Promise<any>)
-//         ) => new WithContext((ctx: Context) => button(text, callback(ctx)))
-
-//     return {
-//         input,
-//         button
-//     }
-// }
 
 
 export default App

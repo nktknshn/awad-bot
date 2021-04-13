@@ -2,6 +2,7 @@ import * as O from 'fp-ts/lib/Option';
 import { InputHandlerElement } from "./elements";
 import { InputHandlerData } from "./messages";
 import { flow, identity } from "fp-ts/lib/function";
+import { pipe } from 'fp-ts/lib/pipeable';
 
 
 export class InputOpt<T> {
@@ -91,7 +92,9 @@ export function inputOpt<T>(
 }
 export const action = O.map;
 
-export const messageText = (d: InputHandlerData) => O.fromNullable(d.messageText);
+export const messageText = (d: InputHandlerData) => pipe(O.fromNullable(d.messageText), O.filter(t => !!t.length));
+
+export const casePhoto = O.chain((d: InputHandlerData) => O.fromNullable(d.photo))
 export const caseText = O.chain(messageText);
 export const nextHandlerAction = action(nextHandler)
 // export const ifTrue = (pred: () => boolean) => <T>(m: O.Option<T>) => pred() ? m : O.none

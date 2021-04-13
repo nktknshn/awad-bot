@@ -1,90 +1,169 @@
-import { readFile } from "fs"
-import Telegraf, { BaseScene } from "telegraf"
+import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
-import { createConnection } from "typeorm"
-import { createChatHandlerFactory } from "./bot2/chathandler"
-import { getAwadServices } from "./bot2/services"
+import { PhotoSize } from "telegraf/typings/telegram-types"
+import { Application, createChatHandlerFactory, genericRenderFunction } from "./lib/chathandler"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
-
-import { session, Stage } from 'telegraf'
-
+import { connected2, GetSetState } from "./lib/elements"
+import { button, file, message, messagePart, photo } from "./lib/elements-constructors"
+import { defaultHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler"
+import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input"
+import { select } from "./lib/state"
+import { AppReqs } from "./lib/types-util"
 import { token } from "./telegram-token.json"
-import { UserEntity } from "./database/entity/user"
-import { UserEntityState } from "./bot2/store/user"
-import { SceneContextMessageUpdate } from "telegraf/typings/stage"
 
-const { enter, leave } = Stage
+type Context = ReturnType<typeof createStore>['store']['state'] & ReturnType<typeof createStore>['dispatcher']
+
+export const casePassword =
+    (password: string) => on(caseText, ifTrue(text => text == password))
+
+const App = connected2(
+    select(
+        ({ onSetVisible, onAddItem, onSetSecondsLeft }: Context) => ({ onSetVisible, onAddItem, onSetSecondsLeft }),
+        ({ isVisible, items, secondsLeft }: Context) => ({ isVisible, items, secondsLeft })
+    ),
+    ({ onSetVisible, isVisible, onAddItem, onSetSecondsLeft, items, secondsLeft }) =>
+        function* (
+            { password }: { password: string },
+            { getState, setState }: GetSetState<{
+                stringCandidate?: string,
+                photoCandidate?: PhotoSize[]
+            }>
+        ) {
+
+            yield inputHandler(
+                on(casePassword(password), action(() => onSetVisible(true))),
+                on(caseText, action(text => setState({ stringCandidate: text }))),
+                on(casePhoto, action(photo => setState({ photoCandidate: [photo[0]] })))
+            )
+
+            const { stringCandidate, photoCandidate } = getState({})
+
+            if (isVisible) {
+                for (const item of items) {
+                    if (typeof item === 'string')
+                        yield message(item)
+                    else
+                        for (const p of item)
+                            yield photo(p.file_id)
+                }
+                yield message("Secrets!")
+                yield button(`Hide`, () => onSetVisible(false))
+                yield button(`More time (${secondsLeft} secs)`, () => onSetSecondsLeft(15))
+
+            }
+            else if (stringCandidate) {
+                yield message(`Add '${stringCandidate}?'`)
+                yield button(`Yes`, async () => {
+                    setState({ stringCandidate: undefined })
+                    await onAddItem(stringCandidate)
+                })
+                yield button(`no`, () => setState({ stringCandidate: undefined }))
+            }
+            else if (photoCandidate) {
+                yield message(`Add?`)
+                yield button(`Yes`, async () => {
+                    setState({ photoCandidate: undefined })
+                    await onAddItem(photoCandidate)
+                })
+                yield button(`no`, () => setState({ photoCandidate: undefined }))
+
+                for (const p of photoCandidate)
+                    yield photo(p.file_id)
+
+            }
+            else {
+                yield message("hi")
+            }
+        }
+)
 
 
-interface ContextWithState extends SceneContextMessageUpdate {
-    state: {
-        username: string,
-        user?: UserEntityState,
-        error?: string
-    },
-    session: {
-        counter: number
+
+function createStore() {
+    const store: {
+        state: {
+            isVisible: boolean,
+            items: (string | PhotoSize[])[],
+            secondsLeft: number,
+            timer?: NodeJS.Timeout
+        },
+        notify: () => Promise<void>
+    } = {
+        state: {
+            isVisible: false,
+            items: [],
+            secondsLeft: 0
+        },
+        notify: async () => { }
+    }
+
+    const onSetSecondsLeft = async(secondsLeft: number) => {
+        store.state = { ...store.state, secondsLeft }
+        await store.notify()
+    }
+    const onSetVisible = async (visible: boolean) => {
+        store.state = { ...store.state, isVisible: visible }
+
+        if (visible) {
+            let timer = setInterval(() => {
+                if(store.state.secondsLeft > 0)
+                    onSetSecondsLeft(store.state.secondsLeft - 1)
+                else 
+                    onSetVisible(false)
+            }, 1000)
+            
+            store.state = { ...store.state, secondsLeft: 15, timer }
+        }
+        else {
+            store.state.timer && clearInterval(store.state.timer)
+            store.state = { ...store.state, timer: undefined }
+        }
+
+        await store.notify()
+    }
+
+    const onAddItem = async (item: string | PhotoSize[]) => {
+        store.state = { ...store.state, items: [...store.state.items, item] }
+        await store.notify()
+    }
+
+    return {
+        store,
+        dispatcher: {
+            onSetVisible,
+            onAddItem,
+            onSetSecondsLeft
+        }
     }
 }
 
-const wordsScene = new BaseScene<ContextWithState>('words')
+function createApp(): Application {
 
-wordsScene.enter(ctx => ctx.reply('wordsScene'))
-wordsScene.use((ctx) => ctx.reply('in wordsScene'))
+    const { store, dispatcher } = createStore()
 
-const stage = new Stage<ContextWithState>([wordsScene])
-
-// stage.command('cancel', leave())
-
-stage.register(wordsScene)
+    return {
+        renderFunc: genericRenderFunction(App, { password: 'abcdef' }, () => ({ ...dispatcher, ...store.state })),
+        init: async (ctx, renderer, chat, chatdata) => {
+            store.notify = () => {
+                return chat.handleEvent(ctx, "updated")
+            }
+        },
+        handleMessage: withContextOpt(
+            handlerChain([
+                or(startHandler, defaultHandler)
+            ]))
+    }
+}
 
 async function main() {
 
-    const connection = await createConnection()
+    const bot = new Telegraf(token)
+    const dispatcher = new ChatsDispatcher(
+        createChatHandlerFactory(createApp())
+    )
 
-    const bot = new Telegraf<ContextWithState>(token)
-
-    const services = getAwadServices(connection)
-
-    bot.use(session({
-        ttl: 30
-    }))
-
-    bot.use(stage.middleware())
-
-    bot.use(async (ctx, next) => {
-        ctx.state.username = ctx.chat?.username ?? 'none'
-
-        if (ctx.chat?.id) {
-            const user = await services.getUser(ctx.chat?.id)
-            if (user)
-                ctx.state.user = user
-            else
-                ctx.state.error = "Can't load user"
-        }
-        else
-            ctx.state.error = "Missing chat id"
-
-        return next()
-    })
-
-    bot.command('words', ctx => ctx.scene.enter('words'))
-
-    bot.on('message', async (ctx, next) => {
-        ctx.session.counter ??= 0
-
-        await ctx.reply(`counter = ${ctx.session.counter}`)
-        await ctx.reply(`username = ${ctx.state.username}`)
-
-        if (ctx.state.error)
-            await ctx.reply(`error = ${ctx.state.username}`)
-        else if (ctx.state.user)
-            await ctx.reply(`words = ${ctx.state.user.words.map(_ => _.theword)
-                .join(', ')}`)
-
-        ctx.session.counter += 1
-    })
-
+    bot.on('message', dispatcher.messageHandler)
+    bot.action(/.+/, dispatcher.actionHandler)
 
     bot.catch((err: any, ctx: TelegrafContext) => {
         console.log(`Ooops, encountered an error for ${ctx.updateType}`, err)

@@ -20,7 +20,7 @@ export const getPinnedCards = flow(getUser, ({ user }) => ({
 export function* PinnedCards(
     { pinnedCards, onUnpin }: {
         pinnedCards: WordEntityState[],
-        onUnpin: (wordId: number) => Promise<void>
+        onUnpin: (wordId: number) => void
     },
     { getState, setState }: GetSetState<{ showMenu: boolean }>
 ) {

@@ -48,7 +48,7 @@ export function isComponentElement(el: Element): el is ComponentElement {
 }
 
 export type GetSetState<S> = {
-    getState: (initialState?: S) => S
+    getState: (initialState: S) => S
     setState: (state: Partial<S>) => Promise<void>
 }
 
@@ -227,7 +227,7 @@ export class ButtonsRowElement {
 export class FileElement {
     kind: 'FileElement' = 'FileElement'
     constructor(
-        readonly file: InputFile
+        readonly file: InputFile, readonly isPhoto = false
     ) { }
 }
 

@@ -62,6 +62,25 @@ export function draftToInputHandler(draft: RenderDraft, parseContext = parseFrom
 export async function renderActions(renderer: ChatRenderer, actions: Actions[]) {
     let rendered: RenderedElement[] = []
 
+    const acts = actions.map(act => ({
+        kind: act.kind,
+        ...(
+            act.kind === 'Create'
+                ? { newElement: act.newElement.kind }
+                : act.kind === 'Keep'
+                    ? { oldElement: act.element.kind, newElement: act.newElement.kind }
+                    : act.kind === 'Remove'
+                        ? { oldElement: act.element.kind }
+                        : { oldElement: act.element.kind, newElement: act.newElement.kind }
+        )
+    }))
+
+    console.log("actions")
+    console.log(
+        JSON.stringify(acts, null, 2)
+    );
+
+
     for (const action of actions) {
         if (action.kind === 'Create') {
             if (action.newElement.kind === 'TextMessage')
@@ -78,7 +97,9 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
                 rendered.push(
                     new BotDocumentMessage(
                         action.newElement,
-                        await renderer.sendFile(action.newElement.element.file)
+                        action.newElement.element.isPhoto
+                            ? await renderer.sendPhoto(action.newElement.element.file)
+                            : await renderer.sendFile(action.newElement.element.file)
                     )
                 )
         }
@@ -87,10 +108,11 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
                 rendered.push(new BotMessage(
                     action.newElement, action.element.output
                 ))
-            // else if (action.newElement instanceof FileElement)
-            //     rendered.push(new BotDocumentMessage(
-            //         action.newElement, action.element.message
-            //     ))
+            else if (action.newElement.kind == 'FileMessage')
+                rendered.push(action.element)
+            // rendered.push(new BotDocumentMessage(
+            //     action.newElement, action.element.
+            // ))
         }
         else if (action.kind === 'Remove') {
             renderer.delete(action.element.output.message_id)
@@ -108,6 +130,13 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
                         )
                     )
                 )
+            // else if (action.newElement.kind === 'FileMessage' && action.element.kind == 'BotDocumentMessage')
+            //     rendered.push(
+            //         new BotDocumentMessage(
+            //             action.newElement,
+            //             action.element.output
+            //         )
+            //     )
         }
     }
 
@@ -126,12 +155,12 @@ export class ChatUI {
         (
             renderer: ChatRenderer,
             actions: Actions[]
-        ): Promise<RenderedElement[ ]| undefined> {
+        ): Promise<RenderedElement[] | undefined> {
         let renderedElements: RenderedElement[] = []
 
         if (this.isRendering) {
             console.log("this.isRendering == TRUE");
-            
+
             this.renderQueue.push(actions)
             return
         }

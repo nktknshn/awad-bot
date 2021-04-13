@@ -24,3 +24,51 @@
 //     onToggleOption: idx => async store => store.dispatch(toggleIndex(idx)),
 //     onTogglePinnedWord: idx => async store => store.dispatch(togglePinnedWord(idx)),
 // }
+
+
+// const createDraft = (getContext: () => AwadContextT) => (elements: AppElements[]): RenderDraft => {
+
+//     const draft = emptyDraft()
+
+//     // function handle(compel: AppElements) {
+//     //     if (compel.kind == 'WithContext') {
+//     //         handle(compel.f(getContext()))
+//     //     }
+//     //     else {
+//     //         elementsToMessagesAndHandlers(compel, draft)
+//     //     }
+//     // }
+
+//     for (const compel of elements) {
+//         // handle(compel)
+//     }
+
+//     return draft
+// }
+
+
+// function contexted<Context>() {
+
+//     type NthArg<T extends (...args: any) => any, N extends number> = Parameters<T>[N]
+
+//     type Z = NthArg<typeof _input, 0>
+
+//     const input = function (
+//         callback: (ctx: Context) => NthArg<typeof _input, 0>
+//     ) {
+//         return new WithContext(
+//             (ctx: Context) => _input(callback(ctx))
+//         )
+//     }
+
+//     const button =
+//         (
+//             text: string,
+//             callback: ((ctx: Context) => () => Promise<any>)
+//         ) => new WithContext((ctx: Context) => button(text, callback(ctx)))
+
+//     return {
+//         input,
+//         button
+//     }
+// }

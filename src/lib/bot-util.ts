@@ -27,13 +27,16 @@ export const parseFromContext = (ctx: TelegrafContext) => {
 
     if (messageText && !isNaN(parseFloat(messageText)))
         float = parseFloat(messageText)
+    
+    const photo = ctx.message?.photo
 
     return {
         messageText,
         location,
         action,
         integer,
-        float
+        float,
+        photo
     }
 }
 

@@ -8,6 +8,12 @@ export function file(f: InputFile) {
     return new FileElement(f)
 }
 
+
+export function photo(f: InputFile) {
+    return new FileElement(f, true)
+}
+
+
 export function effect(callback: () => Promise<void>) {
     return new EffectElement(callback)
 }

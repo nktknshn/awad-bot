@@ -1,13 +1,14 @@
 import { areSameTextMessages } from "./bot-util";
 import { MessageType } from "./elements-to-messages";
-import { TextMessage } from "./messages";
-import { BotDocumentMessage, BotMessage, RenderedElement, UserMessage } from "./rendered-messages";
-import { FileElement } from "./elements";
+import { RenderedElement } from "./rendered-messages";
 
-export function createRenderTasks<T, B>(
+
+type R<B> = { replacable: (other: B) => boolean }
+
+export function createRenderTasks<T extends R<B>, B>(
     present: T[],
     next: B[],
-    compareFunc: (a: T, b: B) => boolean,
+    areSame: (a: T, b: B) => boolean,
     actionLeave: (item: T, newItem: B) => void =
         item => console.log(`leave ${item}`),
     actionReplace: (item: T, newItem: B) => void
@@ -24,11 +25,8 @@ export function createRenderTasks<T, B>(
 
     while (result[idx] !== undefined || next.length) {
 
-        // console.log(`result=${result}, next=${next}`)
-
         const r = result[idx]
         const n = next.shift()
-        // console.log(`r=${r} n=${n}`);
 
         if (n === undefined) {
             result.splice(idx, 1)
@@ -39,27 +37,46 @@ export function createRenderTasks<T, B>(
             actionCreate(n)
             continue
         }
-        else if (compareFunc(r, n)) {
+        else if (areSame(r, n)) {
             actionLeave(r, n)
         }
         else if (
-            present.findIndex(v => compareFunc(v, n)) > idx
+            present.findIndex(v => areSame(v, n)) > idx
         ) {
             result.splice(idx, 1)
             next = [n, ...next]
             idx -= 1
             actionDelete(r)
         }
-        else if (present.findIndex(v => compareFunc(v, next[0])) > idx) {
-            actionReplace(r, n)
-            // result[idx] = n
+        else if (present.findIndex(v => areSame(v, next[0])) > idx) {
+            if (r.replacable(n))
+                actionReplace(r, n)
+            else {
+                result.splice(idx, 1)
+                next = [n, ...next]
+                idx -= 1
+                actionDelete(r)
+            }
         }
         else if (next[0] === undefined) {
-            actionReplace(r, n)
-            // result[idx] = n
+            if (r.replacable(n))
+                actionReplace(r, n)
+            else {
+                result.splice(idx, 1)
+                next = [n, ...next]
+                idx -= 1
+                actionDelete(r)
+            }
         }
         else {
-            actionReplace(r, n)
+            if (r.replacable(n))
+                actionReplace(r, n)
+            else {
+                result.splice(idx, 1)
+                next = [n, ...next]
+                idx -= 1
+                actionDelete(r)
+            }
         }
 
         idx += 1
@@ -69,15 +86,19 @@ export function createRenderTasks<T, B>(
 }
 
 
-function compareFunc(a: RenderedElement, b: MessageType) {
-    if (a instanceof UserMessage) {
+function areSame(a: RenderedElement, b?: MessageType) {
+
+    if (!b)
+        return false
+
+    if (a.kind === 'UserMessage') {
         return false
     }
-    else if (a instanceof BotMessage && b instanceof TextMessage) {
+    else if (a.kind === 'BotMessage' && b.kind === 'TextMessage') {
         return areSameTextMessages(a.input, b)
     }
-    else if (a instanceof BotDocumentMessage && b instanceof FileElement) {
-        return false
+    else if (a.kind === 'BotDocumentMessage' && b.kind === 'FileMessage') {
+        return a.input.element.file == b.element.file
     }
     return false
 }
@@ -108,10 +129,15 @@ export function createRenderActions(renderedElements: RenderedElement[], nextEle
 
     const actions: Actions[] = []
 
+    console.log("createRenderActions.renderedElements");
+    console.log(JSON.stringify(renderedElements));
+    console.log("createRenderActions.nextElements");
+    console.log(JSON.stringify(nextElements));
+
     createRenderTasks(
         renderedElements,
         nextElements,
-        compareFunc,
+        areSame,
         (leaveThis, leaveThat) => {
             actions.push(new Actions.Keep(leaveThis, leaveThat))
         },
