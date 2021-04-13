@@ -1,7 +1,7 @@
 import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
 import { connected1 as connected1, connected2, WithContext } from "../lib/elements";
-import { button as _button, buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
+import { button , buttonsRow, effect, input as _input, message } from "../lib/elements-constructors";
 import { action, inputHandler, on, otherwise } from "../lib/input";
 import { select } from "../lib/state";
 import { parsePath, tryKey } from "../lib/util";
@@ -24,7 +24,7 @@ const messages: Record<string, string> = {
 export type WithDispatcher = { dispatcher: AppDispatch }
 export type WithDispatcher2<T = {}> = T & { dispatcher: AppDispatch }
 
-const { button } = contexted<WithDispatcher>()
+// const { button } = contexted<WithDispatcher>()
 
 const AppInput = ({ dispatcher: { onCard, onRedirect } }: WithDispatcher2) =>
     inputHandler(
@@ -55,7 +55,7 @@ const App = connected1(
         }
         else if (pathname == 'settings') {
             yield Settings({})
-            yield button('Back', ({ dispatcher }) => () => dispatcher.onRedirect('main'))
+            yield button('Back', () => dispatcher.onRedirect('main'))
         }
         else if (pathname == 'trainer') {
             yield Trainer({ onRedirect: dispatcher.onRedirect, onUpdated: dispatcher.onUpdatedTrainer })
@@ -106,31 +106,31 @@ const MainMenu = connected2(
         }
 )
 
-function contexted<Context>() {
+// function contexted<Context>() {
 
-    type NthArg<T extends (...args: any) => any, N extends number> = Parameters<T>[N]
+//     type NthArg<T extends (...args: any) => any, N extends number> = Parameters<T>[N]
 
-    type Z = NthArg<typeof _input, 0>
+//     type Z = NthArg<typeof _input, 0>
 
-    const input = function (
-        callback: (ctx: Context) => NthArg<typeof _input, 0>
-    ) {
-        return new WithContext(
-            (ctx: Context) => _input(callback(ctx))
-        )
-    }
+//     const input = function (
+//         callback: (ctx: Context) => NthArg<typeof _input, 0>
+//     ) {
+//         return new WithContext(
+//             (ctx: Context) => _input(callback(ctx))
+//         )
+//     }
 
-    const button =
-        (
-            text: string,
-            callback: ((ctx: Context) => () => Promise<any>)
-        ) => new WithContext((ctx: Context) => _button(text, callback(ctx)))
+//     const button =
+//         (
+//             text: string,
+//             callback: ((ctx: Context) => () => Promise<any>)
+//         ) => new WithContext((ctx: Context) => button(text, callback(ctx)))
 
-    return {
-        input,
-        button
-    }
-}
+//     return {
+//         input,
+//         button
+//     }
+// }
 
 
 export default App

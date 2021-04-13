@@ -1,8 +1,8 @@
 import Debug from 'debug'
 import { TelegrafContext } from "telegraf/typings/context"
-import { ChatHandler2 as ChatHandler } from './chathandler'
+import { ChatHandler2 as ChatHandler, ChatState } from './chathandler'
 
-export type ChatHandlerFactory<T extends ChatHandler> = (ctx: TelegrafContext) => Promise<T | undefined>
+export type ChatHandlerFactory<T extends ChatHandler<ChatState>> = (ctx: TelegrafContext) => Promise<T | undefined>
 
 // export interface ChatHandler {
 //     handleMessage(ctx: TelegrafContext): Promise<void>
@@ -13,10 +13,10 @@ type Dict<V> = { [key: string]: V }
 type DictNumber<V> = { [key: number]: V }
 
 
-export class ChatsDispatcher<T extends ChatHandler> {
+export class ChatsDispatcher<T extends ChatHandler<ChatState>> {
     
-    private chats: { [chatId: number]: ChatHandler } = {}
-    private pendingChats: DictNumber<Promise<ChatHandler | undefined>> = {}
+    private chats: { [chatId: number]: ChatHandler<ChatState> } = {}
+    private pendingChats: DictNumber<Promise<ChatHandler<ChatState> | undefined>> = {}
 
     constructor(
         readonly chatFactory: ChatHandlerFactory<T>,
