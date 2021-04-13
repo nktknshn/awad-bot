@@ -43,7 +43,7 @@ export type StatesKeys<A> = GetRootStates<A> extends infer T
 
 export type FindKey<K, X> = X extends { [KK in keyof X]: X[KK] } ? K extends keyof X ? X[K] : never : never
 
-export type StateReq<T> = GetRootStates<T> extends infer J ? { [K in StatesKeys<T>]?: FindKey<K, J> } : never
+export type StateReq<T> = GetRootStates<T> extends infer J ? { [K in StatesKeys<T>]: FindKey<K, J> } : never
 
 export type AppReqs<A> = StateReq<GetAllComps<A>>
 

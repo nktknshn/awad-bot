@@ -190,7 +190,12 @@ export const createChatHandlerFactory = (app: Application<ChatState>): ChatHandl
 export const genericRenderFunction = <
     P, C extends ComponentElement, S extends AppReqs<C>, Els extends GetAllBasics<C>
 >
-    (app: (props: P) => C, props: P, gc: () => S, createDraft: ((els: Els[]) => RenderDraft) = defaultCreateDraft) =>
+    (
+        app: (props: P) => C,
+        props: P,
+        gc: () => S,
+        createDraft: ((els: Els[]) => RenderDraft) = defaultCreateDraft
+    ) =>
     (chatState: ChatState): readonly [{
         draft: RenderDraft,
         treeState: TreeState,

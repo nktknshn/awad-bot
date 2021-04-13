@@ -4,24 +4,46 @@ import { PhotoSize } from "telegraf/typings/telegram-types"
 import { Application, createChatHandlerFactory, genericRenderFunction } from "./lib/chathandler"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
 import { connected2, GetSetState } from "./lib/elements"
-import { button, file, message, messagePart, photo } from "./lib/elements-constructors"
+import { button, effect, message, photo } from "./lib/elements-constructors"
 import { defaultHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler"
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input"
-import { select } from "./lib/state"
-import { AppReqs } from "./lib/types-util"
 import { token } from "./telegram-token.json"
 
-type Context = ReturnType<typeof createStore>['store']['state'] & ReturnType<typeof createStore>['dispatcher']
+type Store<S> = {
+    state: S,
+    notify: () => Promise<void>
+}
+
+function createStore<S>(state: S) {
+    const store: Store<S> = {
+        state,
+        notify: async () => { console.log("set notify function") }
+    }
+    const notify = () => store.notify()
+    const getState = () => store.state
+    const update = (f: (s: S) => S) => {
+        store.state = f(store.state)
+    }
+    const updateC = (u: Partial<S>) => update(s => ({ ...s, ...u }))
+
+    return {
+        store, notify, getState, update, updateC
+    }
+}
+
+type Context = ReturnType<typeof createBotStore>['store']['state'] & {
+    dispatcher: ReturnType<typeof createBotStore>['dispatcher']
+}
 
 export const casePassword =
     (password: string) => on(caseText, ifTrue(text => text == password))
 
 const App = connected2(
-    select(
-        ({ onSetVisible, onAddItem, onSetSecondsLeft }: Context) => ({ onSetVisible, onAddItem, onSetSecondsLeft }),
-        ({ isVisible, items, secondsLeft }: Context) => ({ isVisible, items, secondsLeft })
-    ),
-    ({ onSetVisible, isVisible, onAddItem, onSetSecondsLeft, items, secondsLeft }) =>
+    (ctx: Context) => ctx,
+    ({
+        isVisible, items, secondsLeft,
+        dispatcher: { onSetVisible, onAddItem, onSetSecondsLeft, onDeleteItem }
+    }) =>
         function* (
             { password }: { password: string },
             { getState, setState }: GetSetState<{
@@ -40,91 +62,115 @@ const App = connected2(
 
             if (isVisible) {
                 for (const item of items) {
-                    if (typeof item === 'string')
+                    if (typeof item === 'string') {
                         yield message(item)
+                        yield button('Delete', async () => { onDeleteItem(item) })
+                    }
                     else
-                        for (const p of item)
+                        for (const p of item) {
                             yield photo(p.file_id)
+                            yield message("Photo")
+                            yield button('Delete', async () => { onDeleteItem(item) })
+                        }
                 }
                 yield message("Secrets!")
                 yield button(`Hide`, () => onSetVisible(false))
-                yield button(`More time (${secondsLeft} secs)`, () => onSetSecondsLeft(15))
-
+                yield button(`More time (${secondsLeft} secs)`, () => onSetSecondsLeft(secondsLeft + 30))
             }
-            else if (stringCandidate) {
-                yield message(`Add '${stringCandidate}?'`)
-                yield button(`Yes`, async () => {
-                    setState({ stringCandidate: undefined })
-                    await onAddItem(stringCandidate)
-                })
-                yield button(`no`, () => setState({ stringCandidate: undefined }))
+
+            if (stringCandidate) {
+                if (!isVisible) {
+                    yield message(`Add '${stringCandidate}?'`)
+                    yield button(`Yes`, async () => {
+                        await onAddItem(stringCandidate)
+                    })
+                    yield button(`No`, () => setState({ stringCandidate: undefined }))
+                }
+                else {
+                    yield effect(() => onAddItem(stringCandidate))
+                }
+                setState({ stringCandidate: undefined })
+
             }
             else if (photoCandidate) {
-                yield message(`Add?`)
-                yield button(`Yes`, async () => {
-                    setState({ photoCandidate: undefined })
-                    await onAddItem(photoCandidate)
-                })
-                yield button(`no`, () => setState({ photoCandidate: undefined }))
+                if (!isVisible) {
 
-                for (const p of photoCandidate)
-                    yield photo(p.file_id)
+                    yield message(`Add?`)
+                    yield button(`Yes`, async () => {
+                        await onAddItem(photoCandidate)
+                    })
+                    yield button(`No`, () => setState({ photoCandidate: undefined }))
 
+                    for (const p of photoCandidate)
+                        yield photo(p.file_id)
+
+                }
+                else {
+                    yield effect(() => onAddItem(photoCandidate))
+                }
+                setState({ photoCandidate: undefined })
             }
-            else {
+            else if (!isVisible) {
                 yield message("hi")
             }
         }
 )
 
 
-
-function createStore() {
-    const store: {
-        state: {
-            isVisible: boolean,
-            items: (string | PhotoSize[])[],
-            secondsLeft: number,
-            timer?: NodeJS.Timeout
-        },
-        notify: () => Promise<void>
-    } = {
-        state: {
-            isVisible: false,
-            items: [],
-            secondsLeft: 0
-        },
-        notify: async () => { }
+function createBotStore() {
+    type State = {
+        isVisible: boolean,
+        items: (string | PhotoSize[])[],
+        secondsLeft: number,
+        timer: NodeJS.Timeout | undefined
     }
 
-    const onSetSecondsLeft = async(secondsLeft: number) => {
-        store.state = { ...store.state, secondsLeft }
-        await store.notify()
-    }
-    const onSetVisible = async (visible: boolean) => {
-        store.state = { ...store.state, isVisible: visible }
+    const { store, notify, updateC, getState } = createStore<State>({
+        isVisible: false,
+        items: [],
+        secondsLeft: 0,
+        timer: undefined
+    })
 
-        if (visible) {
-            let timer = setInterval(() => {
-                if(store.state.secondsLeft > 0)
-                    onSetSecondsLeft(store.state.secondsLeft - 1)
-                else 
-                    onSetVisible(false)
-            }, 1000)
-            
-            store.state = { ...store.state, secondsLeft: 15, timer }
+    const onSetSecondsLeft = async (secondsLeft: number) => {
+        updateC({ secondsLeft })
+        await notify()
+    }
+
+    const updateSeconds = () => {
+        const { secondsLeft } = getState()
+        if (secondsLeft > 0)
+            onSetSecondsLeft(secondsLeft - 1)
+        else
+            onSetVisible(false)
+    }
+
+    const onSetVisible = async (isVisible: boolean) => {
+        updateC({ isVisible })
+
+        if (isVisible) {
+            updateC({
+                secondsLeft: 15,
+                timer: setInterval(updateSeconds, 1000)
+            })
         }
         else {
-            store.state.timer && clearInterval(store.state.timer)
-            store.state = { ...store.state, timer: undefined }
+            const { timer } = getState()
+            timer && clearInterval(timer)
+            updateC({ timer: undefined })
         }
 
-        await store.notify()
+        await notify()
     }
 
     const onAddItem = async (item: string | PhotoSize[]) => {
-        store.state = { ...store.state, items: [...store.state.items, item] }
-        await store.notify()
+        updateC({ items: [...getState().items, item] })
+        await notify()
+    }
+
+    const onDeleteItem = async (item: string | PhotoSize[]) => {
+        updateC({ items: getState().items.filter(_ => _ != item) })
+        await notify()
     }
 
     return {
@@ -132,17 +178,22 @@ function createStore() {
         dispatcher: {
             onSetVisible,
             onAddItem,
-            onSetSecondsLeft
+            onSetSecondsLeft,
+            onDeleteItem
         }
     }
 }
 
 function createApp(): Application {
 
-    const { store, dispatcher } = createStore()
+    const { store, dispatcher } = createBotStore()
 
     return {
-        renderFunc: genericRenderFunction(App, { password: 'abcdef' }, () => ({ ...dispatcher, ...store.state })),
+        renderFunc: genericRenderFunction(
+            App, { password: 'Abcdef' },
+            () => ({ dispatcher, ...store.state })
+        ),
+
         init: async (ctx, renderer, chat, chatdata) => {
             store.notify = () => {
                 return chat.handleEvent(ctx, "updated")
