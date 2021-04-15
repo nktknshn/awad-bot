@@ -4,7 +4,8 @@ import { InputHandlerData } from "./messages";
 import { flow, identity } from "fp-ts/lib/function";
 import { pipe } from 'fp-ts/lib/pipeable';
 
-
+export type Matcher2<R=Promise<any>> = (d: O.Option<InputHandlerData>) => O.Option<R | 'done' | 'next'>;
+                
 export class InputOpt<T> {
     constructor(
         public readonly matcher: (d: O.Option<InputHandlerData>) => O.Option<T>,
@@ -44,7 +45,6 @@ export function inputGroup(
 }
 
 
-export type Matcher2 = (d: O.Option<InputHandlerData>) => O.Option<Promise<any> | 'done' | 'next'>;
 
 export const nextHandler = (): 'done' => 'done';
 export const nextMatcher = (): 'next' => 'next';

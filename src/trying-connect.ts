@@ -1,6 +1,7 @@
 import { RootState } from "./bot2/store"
 import { messagePart, nextMessage } from "./lib/elements-constructors"
-import { CompConstructorWithState, Component, ComponentConnected, Subtract } from "./lib/elements"
+import { Subtract } from "./lib/elements"
+import { CompConstructorWithState, Component, ComponentConnected } from "./lib/component"
 
 function selector<S, P = unknown>(func: (state: S) => P) {
     return func

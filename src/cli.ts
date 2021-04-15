@@ -25,7 +25,7 @@ async function main() {
             const conn = await createConnection()
             const reports = await conn.manager.find(getEntity[entity])
 
-            console.log(JSON.stringify(reports));
+            mylog(JSON.stringify(reports));
 
             await conn.close()
         })
@@ -44,7 +44,7 @@ async function main() {
             const conn = await createConnection()
             const result = await conn.manager.getRepository(getEntity[entity]).insert(obj)
 
-            console.log(result);
+            mylog(result);
 
             await conn.close()
         })

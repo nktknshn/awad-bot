@@ -1,5 +1,6 @@
 import { button, input, message, messagePart } from "../elements-constructors"
-import { Component, GetSetState } from "../elements"
+import { GetSetState } from "../elements"
+import { Component } from "../component"
 import { enumerate, partitate, textColumns, toggleItem } from "../util"
 
 type OnClick<T> = { onClick: (arg: T) => Promise<void> }

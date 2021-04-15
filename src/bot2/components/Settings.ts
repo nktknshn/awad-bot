@@ -1,10 +1,10 @@
-import { ConnectedComp } from "../../lib/elements";
+import { ConnectedComp } from "../../lib/component";
 import { message, radioRow } from "../../lib/elements-constructors";
 import { combine, select } from "../../lib/state";
 import { Getter } from "../../lib/util";
-import { WithDispatcher } from "../app";
 import { RootState } from "../store";
 import { getDispatcher, getSettings } from "../store/selectors";
+import { WithDispatcher } from "../storeToDispatch";
 
 export default ConnectedComp(
     function* Settings({

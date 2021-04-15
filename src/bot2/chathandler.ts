@@ -1,5 +1,6 @@
 import { Application, ChatState, genericRenderFunction, storeWithDispatcher } from "../lib/chathandler";
-import { removeMessages, trackingRenderer } from "../lib/chatrenderer";
+import { removeMessages, getTrackingRenderer } from "../lib/chatrenderer";
+import { defaultCreateDraft } from "../lib/elements-to-messages";
 import { defaultHandler, handlerChain, or, startHandler, withContextOpt } from '../lib/handler';
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
@@ -16,14 +17,14 @@ import { storeToDispatch } from "./storeToDispatch";
 
 export function createAwadApplication(services: AwadServices): Application<ChatState> {
 
-    const { renderer, saveMessageHandler } = trackingRenderer(services.users)
+    const { renderer, saveMessageHandler } = getTrackingRenderer(services.users)
     const store = createAwadStore(services)
 
     const getContext = storeWithDispatcher(store, storeToDispatch)
 
     return {
         renderer,
-        renderFunc: genericRenderFunction(App, {}, getContext),
+        renderFunc: genericRenderFunction(App, {}, getContext, defaultCreateDraft),
         init: async (ctx, renderer, chat, chatdata) => {
             const user = await services.getOrCreateUser(userDtoFromCtx(ctx))
 

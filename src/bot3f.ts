@@ -7,22 +7,28 @@ import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
 import { PhotoSize } from "telegraf/typings/telegram-types"
 import { mediaGroup, PhotoGroupElement, photos } from './bot3/mediagroup'
-import { createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler"
+import { Application, ChatState, createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
-import { connected4 } from "./lib/component"
+import { connected1, connected4 } from "./lib/component"
 import { BasicElement, GetSetState } from "./lib/elements"
 import { button, effect, message } from "./lib/elements-constructors"
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./lib/elements-to-messages"
 import { defaultHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler"
-import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input"
+import { action, casePhoto, caseText, ifTrue, inputHandler, nextHandler, on } from "./lib/input"
 import { initLogging, mylog } from './lib/logging'
 import { createStore } from "./lib/store2"
 import { token } from "./telegram-token.json"
+import { ButtonElementF, buttonF, InputHandlerElementF, InputHandlerF, inputHandlerF } from './lib/handlerF'
 
 type Item = string | PhotoSize
 
-type Context = ReturnType<typeof createBotStore>['store']['state'] & {
-    dispatcher: ReturnType<typeof createBotStore>['dispatcher']
+type Context = ReturnType<typeof createBotStoreF>['store']['state'] & {
+    dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
+}
+
+type T = {
+    <A, B extends A>(refinement: Refinement<A, B>): (fa: Array<A>) => Separated<Array<A>, Array<B>>
+    <A>(predicate: Predicate<A>): (fa: Array<A>) => Separated<Array<A>, Array<A>>
 }
 
 
@@ -57,8 +63,8 @@ const VisibleSecrets = connected4(
         }
 
         yield message("Secrets!")
-        yield button(`Hide`, () => onSetVisible(false))
-        yield button([`More time (${secondsLeft} secs)`, 'more'], () => {
+        yield buttonF(`Hide`, () => onSetVisible(false))
+        yield buttonF([`More time (${secondsLeft} secs)`, 'more'], () => {
             mylog(`TRACE More time clicked ${secondsLeft} -> onSetSecondsLeft(${secondsLeft + 30})`)
             return onSetSecondsLeft(secondsLeft + 30)
         })
@@ -77,9 +83,12 @@ const App = connected4(
         }>
     ) {
 
-        yield inputHandler(
+        yield inputHandlerF(
             on(casePassword(password), action(() => onSetVisible(true))),
-            on(caseText, action(text => setState({ stringCandidate: text }))),
+            on(caseText, action(text => {
+                setState({ stringCandidate: text })
+                return nextHandler()
+            })),
             on(casePhoto, action(photo => {
 
                 const { photoCandidates } = getState({})
@@ -87,7 +96,8 @@ const App = connected4(
                 mylog({ photo });
                 mylog({ photoCandidates });
 
-                return setState({ photoCandidates: [...photoCandidates ?? [], photo[0]] })
+                setState({ photoCandidates: [...photoCandidates ?? [], photo[0]] })
+                return nextHandler()
             }))
         )
 
@@ -98,37 +108,35 @@ const App = connected4(
         }
 
         if (stringCandidate) {
-            const addItem = () => onAddItem(stringCandidate)
-                .then(() => setState({ stringCandidate: undefined }))
+            const addItem = () => { setState({ stringCandidate: undefined }); return onAddItem(stringCandidate) }
 
-            const rejectItem = () => setState({ stringCandidate: undefined })
+            const rejectItem = () => { setState({ stringCandidate: undefined }); return undefined }
 
             if (!isVisible) {
                 yield message(`Add '${stringCandidate}?'`)
-                yield button(`Yes`, addItem)
-                yield button(`No`, rejectItem)
+                // yield buttonF(`Yes`, addItem)
+                // yield buttonF(`No`, rejectItem)
             }
             else {
-                yield effect(addItem)
+                // yield effect(addItem)
             }
         }
         else if (photoCandidates) {
 
-            const addItem = () => onAddItem(photoCandidates)
-                .then(() => setState({ photoCandidates: undefined }))
+            const addItem = () => { setState({ photoCandidates: undefined }); return onAddItem(photoCandidates) }
 
-            const rejectItem = () => setState({ photoCandidates: undefined })
+            const rejectItem = () => { setState({ photoCandidates: undefined }); return undefined }
 
             if (!isVisible) {
                 yield message(`Add?`)
-                yield button(`Yes`, addItem)
-                yield button(`No`, rejectItem)
+                // yield buttonF(`Yes`, addItem)
+                // yield buttonF(`No`, rejectItem)
 
                 if (photoCandidates.length)
                     yield photos(photoCandidates.map(_ => _.file_id))
             }
             else {
-                yield effect(addItem)
+                // yield effect(addItem)
             }
         }
         else if (!isVisible) {
@@ -139,14 +147,20 @@ const App = connected4(
 
 
 function createDraftWithImages(
-    elements: (BasicElement | PhotoGroupElement)[]
+    elements: (BasicElement | PhotoGroupElement | InputHandlerElementF<any>)[]
 ): RenderDraft {
     const draft = emptyDraft()
 
-    function handle(compel: BasicElement | PhotoGroupElement) {
+    function handle(compel: BasicElement | PhotoGroupElement | InputHandlerElementF<any>) {
         if (compel.kind === 'PhotoGroupElement') {
             mediaGroup.appendDraft(draft, compel)
         }
+        else if (compel.kind === 'InputHandlerElementF') {
+            draft.inputHandlersF.push(new InputHandlerF(compel))
+        }
+        // else if (compel.kind === 'ButtonElementF') {
+        //     mediaGroup.appendDraft(draft, compel)
+        // }
         else {
             elementsToMessagesAndHandlers(compel, draft)
         }
@@ -161,11 +175,13 @@ function createDraftWithImages(
 
 function createApp() {
 
-    const chatState = () => {
+    const chatState = (): ChatState<ReturnType<typeof createBotStoreF>> => {
         return {
-            ...emptyChatState(),
-            ...createBotStore()
-            // ...createBotStoreF()
+            treeState: {},
+            renderedElements: [],
+            inputHandler: ctx => function () { return a => a},
+            actionHandler: async function () { },
+            ...createBotStoreF()
         }
     }
 
@@ -173,11 +189,11 @@ function createApp() {
         chatData: chatState,
         renderFunc: genericRenderFunction(
             App, { password: 'a' },
-            d => ({ dispatcher: d.dispatcher, ...d.store.state }),
+            (d) => ({ dispatcher: d.dispatcher, ...d.store.state }),
             createDraftWithImages
         ),
         init: async (ctx, renderer, chat, chatdata) => {
-            chatdata.store.subscribe(() => chat.handleEvent(ctx, "updated"))
+            // chatdata.store.subscribe(() => chat.handleEvent(ctx, "updated"))
         },
         handleMessage: withContextOpt(
             handlerChain([
@@ -191,6 +207,139 @@ type State = {
     items: (string | PhotoSize)[],
     secondsLeft: number,
     timer: NodeJS.Timeout | undefined
+}
+
+interface ActionF<S> {
+    (s: S): S
+}
+
+type ActionG<S> = (s: S) => Generator<Action<S>>
+
+type Action<S> = ActionF<S>
+// | ActionG<S>
+
+class StoreF<S> {
+    state: S
+    constructor(initial: S) {
+        this.state = { ...initial }
+    }
+
+    public notify = (a: Action<S>) => { mylog("set notify function"); }
+
+    apply(f: (u: S) => S) {
+        return new StoreF(f(this.state))
+    }
+
+    applyg(g: Generator<(u: S) => S>) {
+
+        let s: StoreF<S> = this
+        for (const f of g) {
+            s = new StoreF(f(s.state))
+        }
+        return s
+    }
+    dispatch(f: Action<S>) {
+        function isGenerator(fn: any): fn is Generator<(u: S) => S> {
+            return fn.constructor.name === 'GeneratorFunction';
+        }
+
+        function isFunction(fn: any): fn is (u: S) => S {
+            return fn.constructor.name === 'Function';
+        }
+
+        if (isGenerator(f)) {
+            return this.applyg(f)
+        }
+        else if (isFunction(f)) {
+            return this.apply(f)
+        }
+    }
+}
+
+
+const dispatch = <S>(f: Action<S>) => (s: StoreF<S>) => {
+    function isGenerator(fn: any): fn is Generator<(u: S) => S> {
+        return fn.constructor.name === 'GeneratorFunction';
+    }
+
+    function isFunction(fn: any): fn is (u: S) => S {
+        return fn.constructor.name === 'Function';
+    }
+
+    if (isGenerator(f)) {
+        return s.applyg(f)
+    }
+    else if (isFunction(f)) {
+        return s.apply(f)
+    }
+}
+
+function createStoreF<S>(initial: S) {
+    return {
+        store: new StoreF(initial)
+    }
+}
+
+function createBotStoreF() {
+    const { store } = createStoreF<State>({
+        isVisible: false,
+        items: [],
+        secondsLeft: 0,
+        timer: undefined
+    })
+
+    const upd = (u: Partial<State>) => (s: State) => ({ ...s, ...u })
+    const updF = (
+        f: (s: State) => Action<State>
+    ) => (s: State) => f
+
+    const onSetSecondsLeft = (secondsLeft: number): Action<State> => (s: State) => {
+        return upd({ secondsLeft })(s)
+    }
+
+    const updateSeconds = (): Action<State> => (s: State) => {
+        if (s.secondsLeft > 0)
+            return onSetSecondsLeft(s.secondsLeft - 1)(s)
+        else
+            return onSetVisible(false)(s)
+    }
+
+    const onSetVisible = (isVisible: boolean): Action<State> => (s) => {
+
+        s = upd({ isVisible })(s)
+
+        if (isVisible) {
+            const timer = setInterval(() => store.notify(updateSeconds()), 1000)
+            return upd({
+                secondsLeft: 15,
+                timer
+            })(s)
+        }
+        else {
+            s.timer && clearInterval(s.timer)
+
+            return upd({ timer: undefined })(s)
+        }
+    }
+
+    const onAddItem = (item: string | PhotoSize[]) => (s: State) => {
+        return upd({ items: [...s.items, ...Array.isArray(item) ? item : [item]] })(s)
+    }
+
+    const onDeleteItem = (item: string | PhotoSize) => (s: State) => {
+        return upd({ items: s.items.filter(_ => _ != item) })(s)
+    }
+
+    return {
+        store,
+        dispatcher: {
+            onSetVisible,
+            onAddItem,
+            onSetSecondsLeft,
+            onDeleteItem
+        }
+    }
+
 }
 
 function createBotStore() {

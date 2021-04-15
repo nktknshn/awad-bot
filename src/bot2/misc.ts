@@ -8,7 +8,7 @@
 //         const userPayload = await store.dispatch(addWord(card))
 //         const user: UserEntity = userPayload.payload as UserEntity
 //         const word = lastItem([...user.words].sort((a, b) => a.id - b.id))
-//         console.log(user.words.map(w => w.theword));
+//         mylog(user.words.map(w => w.theword));
 //         store.dispatch(redirect(`/words?wordId=${word!.id}`))
 //     },
 //     onUpdatedTrainer: trainer => async store =>

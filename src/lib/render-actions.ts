@@ -1,20 +1,22 @@
+import { areSameMediaGroup, mediaGroup } from "../bot3/mediagroup";
 import { areSameTextMessages } from "./bot-util";
-import { MessageType } from "./elements-to-messages";
+import { OutcomingMessageType } from "./elements-to-messages";
+import { mylog } from "./logging";
 import { RenderedElement } from "./rendered-messages";
 
 
-type R<B> = { replacable: (other: B) => boolean }
+type R<B> = { canReplace: (other: B) => boolean }
 
 export function createRenderTasks<T extends R<B>, B>(
     present: T[],
     next: B[],
     areSame: (a: T, b: B) => boolean,
     actionLeave: (item: T, newItem: B) => void =
-        item => console.log(`leave ${item}`),
+        item => mylog(`leave ${item}`),
     actionReplace: (item: T, newItem: B) => void
-        = (item, newItem) => console.log(`replace ${item} with ${newItem}`),
-    actionDelete: (item: T) => void = (item) => console.log(`delete ${item}`),
-    actionCreate: (item: B) => void = (item) => console.log(`create ${item}`)
+        = (item, newItem) => mylog(`replace ${item} with ${newItem}`),
+    actionDelete: (item: T) => void = (item) => mylog(`delete ${item}`),
+    actionCreate: (item: B) => void = (item) => mylog(`create ${item}`)
 ) {
 
     present = [...present]
@@ -49,7 +51,7 @@ export function createRenderTasks<T extends R<B>, B>(
             actionDelete(r)
         }
         else if (present.findIndex(v => areSame(v, next[0])) > idx) {
-            if (r.replacable(n))
+            if (r.canReplace(n))
                 actionReplace(r, n)
             else {
                 result.splice(idx, 1)
@@ -59,7 +61,7 @@ export function createRenderTasks<T extends R<B>, B>(
             }
         }
         else if (next[0] === undefined) {
-            if (r.replacable(n))
+            if (r.canReplace(n))
                 actionReplace(r, n)
             else {
                 result.splice(idx, 1)
@@ -69,7 +71,7 @@ export function createRenderTasks<T extends R<B>, B>(
             }
         }
         else {
-            if (r.replacable(n))
+            if (r.canReplace(n))
                 actionReplace(r, n)
             else {
                 result.splice(idx, 1)
@@ -85,8 +87,7 @@ export function createRenderTasks<T extends R<B>, B>(
     return result
 }
 
-
-function areSame(a: RenderedElement, b?: MessageType) {
+function areSame(a: RenderedElement, b?: OutcomingMessageType) {
 
     if (!b)
         return false
@@ -100,17 +101,21 @@ function areSame(a: RenderedElement, b?: MessageType) {
     else if (a.kind === 'BotDocumentMessage' && b.kind === 'FileMessage') {
         return a.input.element.file == b.element.file
     }
+    else if (a.kind === 'RenderedPhotoGroup' && b.kind === 'OutcomingPhotoGroupMessage') {
+        return mediaGroup.equals(a, b)
+    }
+
     return false
 }
 
 export namespace Actions {
     export class Keep {
         kind: 'Keep' = 'Keep'
-        constructor(readonly element: RenderedElement, readonly newElement: MessageType) { }
+        constructor(readonly element: RenderedElement, readonly newElement: OutcomingMessageType) { }
     }
     export class Replace {
         kind: 'Replace' = 'Replace'
-        constructor(readonly element: RenderedElement, readonly newElement: MessageType) { }
+        constructor(readonly element: RenderedElement, readonly newElement: OutcomingMessageType) { }
     }
     export class Remove {
         kind: 'Remove' = 'Remove'
@@ -118,21 +123,19 @@ export namespace Actions {
     }
     export class Create {
         kind: 'Create' = 'Create'
-        constructor(readonly newElement: MessageType) { }
+        constructor(readonly newElement: OutcomingMessageType) { }
     }
 }
 
 
 export type Actions = Actions.Keep | Actions.Replace | Actions.Remove | Actions.Create
 
-export function createRenderActions(renderedElements: RenderedElement[], nextElements: MessageType[]) {
+export function createRenderActions(renderedElements: RenderedElement[], nextElements: OutcomingMessageType[]) {
 
     const actions: Actions[] = []
 
-    console.log("createRenderActions.renderedElements");
-    console.log(JSON.stringify(renderedElements));
-    console.log("createRenderActions.nextElements");
-    console.log(JSON.stringify(nextElements));
+    mylog({ "renderedElements": renderedElements });
+    mylog({ "nextElements": nextElements });
 
     createRenderTasks(
         renderedElements,

@@ -1,7 +1,9 @@
 import { TelegrafContext } from "telegraf/typings/context";
+import { mediaGroup, RenderedMediaGroup } from "../bot3/mediagroup";
 import { parseFromContext } from './bot-util';
 import { ChatRenderer } from './chatrenderer';
 import { RenderDraft } from './elements-to-messages';
+import { mylog } from "./logging";
 import { Actions } from './render-actions';
 import { BotDocumentMessage, BotMessage, RenderedElement } from "./rendered-messages";
 import { callHandlersChain, emptyMessage, isFalse, lastItem } from './util';
@@ -21,7 +23,10 @@ export function renderedElementsToActionHandler(renderedElements: RenderedElemen
         const repliedTo = ctx.callbackQuery?.message?.message_id
 
         const callbackTo = renderedElements.find(
-            _ => _.output.message_id == repliedTo
+            _ =>
+                Array.isArray(_.output)
+                    ? _.output.map(_ => _.message_id).find((_ => _ == repliedTo))
+                    : _.output.message_id == repliedTo
         )
 
         if (callbackTo && callbackTo.kind === 'BotMessage') {
@@ -75,8 +80,8 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
         )
     }))
 
-    console.log("actions")
-    console.log(
+    mylog("actions")
+    mylog(
         JSON.stringify(acts, null, 2)
     );
 
@@ -102,23 +107,22 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
                             : await renderer.sendFile(action.newElement.element.file)
                     )
                 )
+            else if (action.newElement.kind === 'OutcomingPhotoGroupMessage')
+                rendered.push(
+                    await mediaGroup.actions.create(action.newElement)(renderer)
+                )
         }
         else if (action.kind === 'Keep') {
-            if (action.newElement.kind === 'TextMessage')
-                rendered.push(new BotMessage(
-                    action.newElement, action.element.output
-                ))
-            else if (action.newElement.kind == 'FileMessage')
-                rendered.push(action.element)
-            // rendered.push(new BotDocumentMessage(
-            //     action.newElement, action.element.
-            // ))
+            rendered.push(action.element)
         }
         else if (action.kind === 'Remove') {
-            renderer.delete(action.element.output.message_id)
+            if (action.element.kind === 'RenderedPhotoGroup')
+                await mediaGroup.actions.remove(action.element)(renderer)
+            else
+                await renderer.delete(action.element.output.message_id)
         }
         else if (action.kind === 'Replace') {
-            if (action.newElement.kind === 'TextMessage')
+            if (action.newElement.kind === 'TextMessage' && action.element.kind === 'BotMessage')
                 rendered.push(
                     new BotMessage(
                         action.newElement,
@@ -143,65 +147,74 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
     return rendered
 }
 
-export class ChatUI {
+// export class ChatUI {
 
-    constructor(
-    ) { }
+//     constructor(
+//     ) { }
 
-    private isRendering = false
-    private renderQueue: Actions[][] = []
+//     private isRendering = false
+//     private renderQueue: Actions[][] = []
 
-    async renderUiActions
-        (
-            renderer: ChatRenderer,
-            actions: Actions[]
-        ): Promise<RenderedElement[] | undefined> {
-        let renderedElements: RenderedElement[] = []
+//     async renderUiActions
+//         (
+//             renderer: ChatRenderer,
+//             actions: Actions[]
+//         ): Promise<RenderedElement[] | undefined> {
+//         let renderedElements: RenderedElement[] = []
 
-        if (this.isRendering) {
-            console.log("this.isRendering == TRUE");
+//         if (this.isRendering) {
+//             mylog("this.isRendering == TRUE");
 
-            this.renderQueue.push(actions)
-            return
-        }
+//             this.renderQueue.push(actions)
+//             return
+//         }
 
-        this.isRendering = true
+//         this.isRendering = true
 
-        renderedElements = await renderActions(renderer, actions)
+//         renderedElements = await renderActions(renderer, actions)
 
-        console.log('Rendering Finished')
+//         mylog('Rendering Finished')
 
-        this.isRendering = false
+//         this.isRendering = false
 
-        const moreRender = lastItem(this.renderQueue)
+//         const moreRender = lastItem(this.renderQueue)
 
-        if (moreRender) {
-            this.renderQueue = []
-            return await this.renderUiActions(renderer, moreRender)
-        }
-        return renderedElements
-    }
+//         if (moreRender) {
+//             this.renderQueue = []
+//             return await this.renderUiActions(renderer, moreRender)
+//         }
+//         return renderedElements
+//     }
 
-    async deleteAll(renderer: ChatRenderer, renderedElements: RenderedElement[]) {
-        await this.clear(renderer, renderedElements)
-    }
+//     async deleteAll(renderer: ChatRenderer, renderedElements: RenderedElement[]) {
+//         await this.clear(renderer, renderedElements)
+//     }
 
-    async clear(renderer: ChatRenderer, messages: RenderedElement[]) {
-        for (const el of messages) {
-            try {
-                await renderer.delete(el.output.message_id)
-            } catch (e) {
-                console.error(e);
-                continue
-            }
-        }
-    }
-}
+//     async clear(renderer: ChatRenderer, messages: RenderedElement[]) {
+//         for (const el of messages) {
+//             try {
+//                 // await renderer.delete(el.output.message_id)
+//                 if (Array.isArray(el.output))
+//                     for (const m of el.output)
+//                         await renderer.delete(m.message_id)
+//                 else
+//                     await renderer.delete(el.output.message_id)
+//             } catch (e) {
+//                 console.error(e);
+//                 continue
+//             }
+//         }
+//     }
+// }
 
 export async function deleteAll(renderer: ChatRenderer, messages: RenderedElement[]) {
     for (const el of messages) {
         try {
-            await renderer.delete(el.output.message_id)
+            if (Array.isArray(el.output))
+                for (const m of el.output)
+                    await renderer.delete(m.message_id)
+            else
+                await renderer.delete(el.output.message_id)
         } catch (e) {
             console.error(e);
             continue

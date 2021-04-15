@@ -17,7 +17,7 @@ function doTheActions(rendered: number[], next: number[]) {
         },
         (item, newItem) => {
             result = result.map(v => v === item ? newItem : v)
-            // console.log(`replace ${item} with ${newItem}`);
+            // mylog(`replace ${item} with ${newItem}`);
             actions.push('replace')
         },
         (item) => {
@@ -38,8 +38,8 @@ test('render', () => {
     function check(a: number[], b: number[], expectedActions: string[]) {
         const { actions, result } = doTheActions(a, b)
 
-        console.log(actions);
-        console.log(result);
+        mylog(actions);
+        mylog(result);
 
         expect(result).toEqual(b)
         expect(actions).toEqual(expectedActions)

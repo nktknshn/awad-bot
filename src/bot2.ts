@@ -30,14 +30,14 @@ async function main() {
     bot.action(/.+/, dispatcher.actionHandler)
 
     bot.catch((err: any, ctx: TelegrafContext) => {
-        console.log(`Ooops, encountered an error for ${ctx.updateType}`, err)
+        mylog(`Ooops, encountered an error for ${ctx.updateType}`, err)
     })
 
-    console.log('Starting the bot...')
+    mylog('Starting the bot...')
 
     await bot.launch()
 
-    console.log('Started...')
+    mylog('Started...')
 }
 
 main()

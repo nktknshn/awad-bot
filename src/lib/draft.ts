@@ -9,7 +9,7 @@ export class ActionsHandler {
     kind: 'ActionsHandler' = 'ActionsHandler'
 }
 
-export class FileMessage {
+export class OutcomingFileMessage {
     kind: 'FileMessage' = 'FileMessage'
     constructor(public readonly  element: FileElement) {}
 }

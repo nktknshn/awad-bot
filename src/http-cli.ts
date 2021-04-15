@@ -53,7 +53,7 @@ async function main() {
 
             if (result.kind === 'success') {
                 log('success')
-                console.log(result.data);
+                mylog(result.data);
             } else {
                 log('error')
                 console.error(result.code);
@@ -85,7 +85,7 @@ async function main() {
 
                 if (result.kind === 'success') {
                     log('success')
-                    // console.log(result.data);
+                    // mylog(result.data);
                 } else {
                     log('error')
                     console.error(result.code);

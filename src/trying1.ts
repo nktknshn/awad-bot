@@ -128,17 +128,17 @@ function renderTree(tree: ZippedTree, component: ComponentElement): Tree {
     let rerender = false
 
     if (component.comp.name !== comp.comp.name) {
-        console.log(`${comp.comp.name} is to updated by new component`);
+        mylog(`${comp.comp.name} is to updated by new component`);
         rerender = true
     }
 
     if (!equal(component.props, props)) {
-        console.log(`${comp.comp.name} is to updated by props`);
+        mylog(`${comp.comp.name} is to updated by props`);
         rerender = true
     }
 
     if (!equal(newState, state)) {
-        console.log(`${comp.comp.name} is to updated by state`);
+        mylog(`${comp.comp.name} is to updated by state`);
         rerender = true
     }
 
@@ -179,14 +179,14 @@ function printStateTree(stateTree: StateTree, depth = 0) {
     const [state, states] = stateTree
 
     if (states.length) {
-        console.log(`${nspaces(depth)}Comp(${str(state)}) {`);
+        mylog(`${nspaces(depth)}Comp(${str(state)}) {`);
         for (const kid of states) {
             printStateTree(kid, depth + 1)
         }
-        console.log(`${nspaces(depth)}}`);
+        mylog(`${nspaces(depth)}}`);
     }
     else {
-        console.log(`${nspaces(depth)}Comp(${str(state)}) { }`);
+        mylog(`${nspaces(depth)}Comp(${str(state)}) { }`);
     }
 }
 
@@ -301,15 +301,15 @@ function zipTreeWithStateTree(tree: Tree, stateTree: StateTree): ZippedTree {
 function printZippedTree(tree: ZippedTree, depth = 0) {
     const [compNewState, comp, props, state, children] = tree
 
-    console.log(`${nspaces(depth)}${comp.comp.name}(props=${str(props)}, state=${str(state)}) new state ${str(compNewState)}`)
+    mylog(`${nspaces(depth)}${comp.comp.name}(props=${str(props)}, state=${str(state)}) new state ${str(compNewState)}`)
 
     for (const item of children) {
         if (Array.isArray(item)) {
             printZippedTree(item, depth + 1)
         }
         else {
-            // console.log(,);
-            console.log(
+            // mylog(,);
+            mylog(
                 `${nspaces(depth + 1)}${toString(item)}`);
         }
     }
@@ -319,15 +319,15 @@ function printZippedTree(tree: ZippedTree, depth = 0) {
 function printTree(tree: Tree, depth = 0) {
     const [comp, props, state, children] = tree
 
-    console.log(`${nspaces(depth)}${comp.comp.name}(${str(props)}, ${str(state)})`);
+    mylog(`${nspaces(depth)}${comp.comp.name}(${str(props)}, ${str(state)})`);
 
     for (const item of children) {
         if (isTree(item)) {
             printTree(item, depth + 1)
         }
         else {
-            // console.log(,);
-            console.log(
+            // mylog(,);
+            mylog(
                 `${nspaces(depth + 1)}${toString(item)}`);
         }
     }
@@ -438,23 +438,23 @@ function ComponentWithState<P, S>(comp: CompConstructorWithState<P, Elements, S>
     const stateTree = copyStateTree(tree)
 
     // const elements = getRenderFromTree(tree)
-    console.log();
+    mylog();
 
     printTree(tree);
 
-    console.log();
+    mylog();
     printStateTree(stateTree);
 
     stateTree[1][3][0].value = { page: 11 }
 
-    console.log();
+    mylog();
     printStateTree(stateTree);
 
     const zipped = zipTreeWithStateTree(tree, stateTree)
 
     printZippedTree(zipped);
 
-    console.log();
+    mylog();
 
     const newTree = renderTree(zipped, App({ n: 4 }))
 
@@ -462,9 +462,9 @@ function ComponentWithState<P, S>(comp: CompConstructorWithState<P, Elements, S>
 
     const elements = getRenderFromTree(newTree)
 
-    console.log();
+    mylog();
 
-    console.log(elements);
+    mylog(elements);
 
 })()
 

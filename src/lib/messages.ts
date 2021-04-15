@@ -6,10 +6,7 @@ import { enumerateListOfLists, flattenList } from "./util"
 
 export type InputHandlerData = ReturnType<typeof parseFromContext>
 
-
-// export type Part = TextMessage | InputHandler | ActionsHandler | Effect | FileElement
-
-export class TextMessage {
+export class OutcomingTextMessage {
     kind: 'TextMessage' = 'TextMessage'
     constructor(
         readonly text?: string,
@@ -19,7 +16,7 @@ export class TextMessage {
     ) { }
 
     complete() {
-        return new TextMessage(
+        return new OutcomingTextMessage(
             this.text,
             this.buttons,
             this.keyboardButtons,
@@ -28,7 +25,7 @@ export class TextMessage {
     }
 
     concatText(data: string) {
-        return new TextMessage(
+        return new OutcomingTextMessage(
             [(this.text ?? ''), data].join('\n'),
             this.buttons,
             this.keyboardButtons
@@ -70,7 +67,7 @@ export class TextMessage {
     }
 
     addKeyboardButton(btn: RequestLocationButtonElement) {
-        return new TextMessage(
+        return new OutcomingTextMessage(
             this.text,
             [...this.buttons],
             [...this.keyboardButtons, btn],
@@ -87,7 +84,7 @@ export class TextMessage {
 
         buttons[0].push(btn)
 
-        return new TextMessage(
+        return new OutcomingTextMessage(
             this.text,
             buttons,
             this.keyboardButtons
@@ -98,7 +95,7 @@ export class TextMessage {
         let buttons = [...this.buttons.map(_ => [..._])]
         buttons.push(btns.buttons)
 
-        return new TextMessage(
+        return new OutcomingTextMessage(
             this.text,
             buttons,
             this.keyboardButtons

@@ -1,11 +1,13 @@
 import { TelegrafContext } from "telegraf/typings/context"
 import { areSameTextMessages, parseFromContext } from "./bot-util"
 import { elementsToMessagesAndHandlers } from "./elements-to-messages"
-import { ActionsHandler, TextMessage, InputHandler } from "./messages"
 import { RenderedElement, BotMessage } from "./rendered-messages"
 import { ChatRenderer } from "./chatrenderer"
-import { ComponentGenerator, BasicElement } from "./elements"
+import { BasicElement } from "./elements"
+import { ComponentGenerator } from "./component"
 import { emptyMessage, zip } from "./util"
+import { OutcomingTextMessage } from "./messages"
+import { ActionsHandler, InputHandler } from "./draft"
 
 type SpawnedComponent = {
     elements: RenderedElement[],
@@ -40,45 +42,45 @@ export class LinearUI {
         delete this.spawnedComponent
     }
 
-    async spawnComponent(
-        elements: BasicElement[],
-        target?: SpawnedComponent
-    ) {
-        const { messages, handlers, effects } =
-            elementsToMessagesAndHandlers(elements)
+    // async spawnComponent(
+    //     elements: BasicElement[],
+    //     target?: SpawnedComponent
+    // ) {
+    //     const { messages, handlers, effects } =
+    //         elementsToMessagesAndHandlers(elements)
 
-        const spawnedComponent: SpawnedComponent = {
-            elements: [],
-            handlers
-        }
+    //     const spawnedComponent: SpawnedComponent = {
+    //         elements: [],
+    //         handlers
+    //     }
 
-        for (const [el, spawnedEl] of zip(
-            messages.filter(_ => _ instanceof TextMessage),
-            (target?.elements ?? []).filter(_ => _ instanceof BotMessage))
-        ) {
-            if (el instanceof TextMessage) {
+    //     for (const [el, spawnedEl] of zip(
+    //         messages.filter(_ => _ instanceof TextMessage),
+    //         (target?.elements ?? []).filter(_ => _ instanceof BotMessage))
+    //     ) {
+    //         if (el instanceof TextMessage) {
 
-                if (spawnedEl instanceof BotMessage
-                    && areSameTextMessages(spawnedEl.input, el)
-                ) {
-                    spawnedComponent.elements.push(spawnedEl)
-                    continue
-                }
+    //             if (spawnedEl instanceof BotMessage
+    //                 && areSameTextMessages(spawnedEl.input, el)
+    //             ) {
+    //                 spawnedComponent.elements.push(spawnedEl)
+    //                 continue
+    //             }
 
-                const message = await this.renderer.message(
-                    el.text ? el.text : emptyMessage,
-                    el.getExtra(),
-                    spawnedEl?.output
-                )
+    //             const message = await this.renderer.message(
+    //                 el.text ? el.text : emptyMessage,
+    //                 el.getExtra(),
+    //                 spawnedEl?.output
+    //             )
 
-                spawnedComponent.elements.push(
-                    new BotMessage(el, message)
-                )
-            }
-        }
+    //             spawnedComponent.elements.push(
+    //                 new BotMessage(el, message)
+    //             )
+    //         }
+    //     }
 
-        return spawnedComponent
-    }
+    //     return spawnedComponent
+    // }
 
     async handleMessage(ctx: TelegrafContext) {
         if (await this.handler.handleMessage(this, ctx) !== false) {
@@ -89,9 +91,9 @@ export class LinearUI {
 
             for (const h of this.spawnedComponent.handlers.reverse()) {
                 if (h instanceof InputHandler) {
-                    if (await h.callback(parsed, async () => {}) !== false) {
-                        await this.renderer.delete(ctx.message?.message_id!)
-                    }
+                    // if (await h.callback(parsed, async () => {}) !== false) {
+                    //     await this.renderer.delete(ctx.message?.message_id!)
+                    // }
                     break
                 }
             }

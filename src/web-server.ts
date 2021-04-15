@@ -10,7 +10,7 @@ async function bootstrap() {
             const app = await NestFactory.create(AppModule,
                 { cors: true, logger: ['log', 'debug', 'verbose', 'error', 'warn'] });
 
-            console.log(`Running at ${cmdObj.port}`);
+            mylog(`Running at ${cmdObj.port}`);
             await app.listen(cmdObj.port);
         })
 

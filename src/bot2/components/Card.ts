@@ -1,6 +1,6 @@
 import { exampleSymbol, descriptionSymbol } from "../../bot/parsing";
 import { WordEntity } from "../../database/entity/word";
-import { Component } from "../../lib/elements";
+import { Component } from "../../lib/component";
 import { messagePart } from "../../lib/elements-constructors";
 import { WordEntityState } from "../store/user";
 

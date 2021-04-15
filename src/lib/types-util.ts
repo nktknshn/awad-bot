@@ -1,4 +1,5 @@
-import { Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp, WithContext } from "../lib/elements";
+import { WithContext } from "../lib/elements";
+import { Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp } from "./component";
 
 
 export type GetCompGenerator<T> =

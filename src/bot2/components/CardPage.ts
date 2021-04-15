@@ -1,19 +1,19 @@
-import { Component } from "../../lib/elements"
+import { Component } from "../../lib/component"
 import { button, buttonsRow, input, message, messagePart, nextMessage } from "../../lib/elements-constructors"
 import { action, caseText, nextHandler, inputHandler, nextMatcher, on, otherwise, ifTrue } from "../../lib/input"
 import { PathQuery } from "../../lib/util"
-import { WithDispatcher, WithDispatcher2 } from "../app"
 import { caseCard, caseCardUpdate, caseExample } from "../input"
 import { WordEntityState } from "../store/user"
 import { Card } from "./Card"
 import * as O from 'fp-ts/lib/Option';
 import { flow, identity } from "fp-ts/lib/function";
+import { WithDispatcher } from "../storeToDispatch"
 
 
 export function CardPageInput({
     word,
     dispatcher: { onReplaceWord, onUpdateWord, onAddExample }
-}: WithDispatcher2<{ word: WordEntityState }>) {
+}: WithDispatcher<{ word: WordEntityState }>) {
     
     return inputHandler(
         on(caseText,
@@ -61,7 +61,7 @@ export function CardPageInput({
 export function* CardPage({
     word, path, query,
     dispatcher
-}: WithDispatcher2<{ word: WordEntityState, query?: PathQuery, path: string }>) {
+}: WithDispatcher<{ word: WordEntityState, query?: PathQuery, path: string }>) {
     const { onUpdateWord, onDeleteWord, onRedirect } = dispatcher
     yield CardPageInput({
         word,

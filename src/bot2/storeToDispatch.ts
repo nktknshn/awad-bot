@@ -21,7 +21,7 @@ export function storeToDispatch(store: ReturnType<typeof createAwadStore>) {
             const userPayload = await store.dispatch(addWord(card));
             const user: UserEntity = userPayload.payload as UserEntity;
             const word = lastItem([...user.words].sort((a, b) => a.id - b.id));
-            console.log(user.words.map(w => w.theword));
+            // mylog(user.words.map(w => w.theword));
             store.dispatch(redirect(`/words?wordId=${word!.id}`));
         },
         onUpdatedTrainer: async (trainer: TrainerState) => { store.dispatch(updateTrainer(trainer)) },

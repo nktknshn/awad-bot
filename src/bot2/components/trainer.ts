@@ -1,5 +1,5 @@
 import { array, parseCallbackData, shuffle, takeLast, takeRandom } from "../../bot/utils"
-import { connected1, connected2, Component } from "../../lib/elements"
+import { connected1, connected2, Component } from "../../lib/component"
 import { button, buttonsRow, message } from "../../lib/elements-constructors"
 import { select } from "../../lib/state"
 import { getTrainer, getUser } from "../store/selectors"

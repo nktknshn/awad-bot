@@ -1,5 +1,5 @@
 import { TelegrafContext } from "telegraf/typings/context"
-import { ExtraReplyMessage, InputFile, Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types"
+import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessageMedia, MessagePhoto } from "telegraf/typings/telegram-types"
 import { ContextOpt } from "./handler";
 import { randomAnimal } from './util'
 
@@ -11,7 +11,8 @@ export interface ChatRenderer {
         removeTarget?: boolean): Promise<Message>,
     delete(messageId: number): Promise<boolean>,
     sendFile(f: InputFile): Promise<MessageDocument>,
-    sendPhoto(f: InputFile): Promise<MessagePhoto>
+    sendPhoto(f: InputFile): Promise<MessagePhoto>,
+    sendMediaGroup(fs: InputFile[]): Promise<Message[]>,
 }
 
 export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
@@ -24,17 +25,17 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
         if (targetMessage) {
 
             if (removeTarget) {
-                console.log('removing reply markup');
+                mylog('removing reply markup');
                 await this.delete(targetMessage.message_id)
             }
             else {
-                
+
                 const ret = await ctx.telegram.editMessageText(
                     ctx.chat?.id!,
                     targetMessage.message_id,
                     undefined,
                     text,
-                    {...extra, parse_mode: 'HTML'}
+                    { ...extra, parse_mode: 'HTML' }
                 )
 
                 if (typeof ret !== 'boolean')
@@ -45,7 +46,7 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
         return await ctx.replyWithHTML(text, extra)
     },
     async delete(messageId: number) {
-        console.log(`renderer.delete(${messageId})`)
+        mylog(`renderer.delete(${messageId})`)
         try {
             return await ctx.deleteMessage(messageId)
         } catch (e) {
@@ -72,13 +73,22 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
     },
     async sendPhoto(f: InputFile) {
         return await ctx.telegram.sendPhoto(ctx.chat?.id!, f)
+    },
+    async sendMediaGroup(fs: InputFile[]) {
+        return await ctx.telegram.sendMediaGroup(ctx.chat?.id!,
+            fs.map((_: InputFile): InputMediaPhoto => ({
+                media: _,
+                type: 'photo'
+            })))
     }
 })
 
 export type Tracker = {
     addRenderedMessage(chatId: number, messageId: number): Promise<void>
     removeRenderedMessage(chatId: number, messageId: number): Promise<void>
+    // getRenderedMessage(chatId: number): Promise<number[]>
 }
+
 
 export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => ChatRenderer =
     (tracker, r) => ({
@@ -112,6 +122,15 @@ export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => Cha
                 await tracker.addRenderedMessage(r.chatId, sent.message_id!)
 
             return sent
+        },
+        async sendMediaGroup(fs: InputFile[]) {
+            const sent = await r.sendMediaGroup(fs)
+
+            if (r.chatId)
+                for(const m of sent)
+                    await tracker.addRenderedMessage(r.chatId, m.message_id!)
+
+            return sent
         }
     })
 
@@ -120,14 +139,14 @@ export async function removeMessages(renderedMessagesIds: number[], renderer: Ch
         try {
             await renderer.delete(messageId)
         } catch (e) {
-            console.log(`Error deleting ${messageId}`)
+            mylog(`Error deleting ${messageId}`)
         }
     }
 
     // user.renderedMessagesIds = []
 }
 
-export function trackingRenderer(t: Tracker) {
+export function getTrackingRenderer(t: Tracker) {
     return {
         renderer: function (ctx: TelegrafContext) {
             return messageTrackingRenderer(
@@ -141,6 +160,8 @@ export function trackingRenderer(t: Tracker) {
 import { Do } from 'fp-ts-contrib/lib/Do'
 import * as O from 'fp-ts/lib/Option'
 import { ChatHandler2, ChatState } from "./chathandler";
+import { send } from "node:process";
+import { mylog } from "./logging";
 
 
 export function saveMessageHandler(registrar: Tracker) {
@@ -148,12 +169,14 @@ export function saveMessageHandler(registrar: Tracker) {
         c: ContextOpt
     ) {
         return Do(O.option)
-            .sequenceS(c)
+            .bind('chatId', c.chatId)
+            .bind('messageId', c.messageId)
             .return(({ chatId, messageId }) =>
                 (ctx: TelegrafContext,
                     renderer: ChatRenderer,
                     chat: ChatHandler2<ChatState>,
-                    chatdata: ChatState) => registrar.addRenderedMessage(chatId, messageId)
+                    chatdata: ChatState
+                ) => registrar.addRenderedMessage(chatId, messageId)
             )
 
     }

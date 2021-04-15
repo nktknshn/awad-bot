@@ -1,5 +1,5 @@
 import { TelegrafContext } from 'telegraf/typings/context'
-import { TextMessage } from './messages';
+import { OutcomingTextMessage } from './messages';
 import deq from 'fast-deep-equal';
 
 
@@ -65,7 +65,7 @@ export function getLocation(line: string): [number, number] | undefined {
     }
 }
 
-export function areSameTextMessages(a: TextMessage, b: TextMessage) {
+export function areSameTextMessages(a: OutcomingTextMessage, b: OutcomingTextMessage) {
     return a.text == b.text
         && deq(
             a.getExtra(),

@@ -260,11 +260,11 @@ async function main() {
     // bot.on('edited_message', messageHandler(connection, bot.telegram))
     bot.action(/.+/, actionHandler(connection, bot.telegram))
 
-    console.log('Starting the bot...')
+    mylog('Starting the bot...')
 
     await bot.launch()
 
-    console.log('Started...')
+    mylog('Started...')
 }
 
 main()

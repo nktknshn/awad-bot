@@ -52,17 +52,20 @@ export function defaultHandler(c: ContextOpt) {
 }
 
 
-export const defaultH = (messageId: number) => {
+export const defaultH =  <R>(messageId: number) => {
     return async function def(
         ctx: TelegrafContext,
         renderer: ChatRenderer,
-        chat: ChatHandler2<ChatState>,
-        chatdata: ChatState,
+        chat: ChatHandler2<ChatState<R>>,
+        chatdata: ChatState<R>,
     ) {
-        if (await chatdata.inputHandler(ctx))
-            await renderer.delete(messageId)
+        // if (chatdata.inputHandler(ctx))
+        //     await renderer.delete(messageId)
 
-        await chat.handleEvent(ctx, "updated")
+        return chatdata.inputHandler(ctx)
+        // mylog("defaultH");
+        
+        // await chat.handleEvent(ctx, "updated")
     }
 }
 
@@ -83,9 +86,7 @@ export const handlerChain = <C>(chain: ((a: C) => O.Option<FuncF>)[]) => {
         ) =>
             Promise.all(pipe(
                 chain,
-                A.map(
-                    z => z(a)
-                ),
+                A.map(z => z(a)),
                 A.map(
                     O.map(z => z(ctx, renderer, chat, chatdata))
                 ),
@@ -93,6 +94,7 @@ export const handlerChain = <C>(chain: ((a: C) => O.Option<FuncF>)[]) => {
                 A.map(a => T.of(a.value))
             ))
 }
+
 export const or = <C>(a: (a: C) => O.Option<FuncF>, b:  (a: C) => O.Option<FuncF>) => (c: C) =>  pipe(a(c), O.alt(() => b(c)))
 
 export const withContextOpt = <R>(f: (ctxOpt: ContextOpt) => FuncF): FuncF => {
@@ -106,10 +108,10 @@ export const withContextOpt = <R>(f: (ctxOpt: ContextOpt) => FuncF): FuncF => {
     }
 }
 
-export async function defaultHandleAction(ctx: TelegrafContext,
+export async function defaultHandleAction<R>(ctx: TelegrafContext,
     renderer: ChatRenderer,
-    chat: ChatHandler2<ChatState>,
-    chatdata: ChatState) {
+    chat: ChatHandler2<ChatState<R>>,
+    chatdata: ChatState<R>) {
     await chatdata.actionHandler(ctx)
     await chat.handleEvent(ctx, "updated")
 }

@@ -25,7 +25,7 @@
 //         selectedIds: [0, 1, 4]
 //     })
     
-//     console.log(
+//     mylog(
 //         elementsToMessagesAndHandlers(comp)
 //     );
     

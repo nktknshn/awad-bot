@@ -17,13 +17,13 @@ export class State<S> {
         return this.state
     }
     updateState = async (updates: Partial<S>) =>  {
-        // console.log(`this.state={${JSON.stringify(updates)}}`)
+        // mylog(`this.state={${JSON.stringify(updates)}}`)
 
         this.state = deepmerge(this.state, updates, {
             arrayMerge: (destinationArray, sourceArray, options) => sourceArray
         })
 
-        // console.log(`this.state={${JSON.stringify(this.state)}}`)
+        // mylog(`this.state={${JSON.stringify(this.state)}}`)
 
         if(this.onUpdated)
             await this.onUpdated(this)

@@ -1,34 +1,40 @@
 import { filterMapWithIndex } from 'fp-ts/Array'
 import { none, some } from 'fp-ts/Option'
-import { TextMessage } from "./messages"
+import { OutcomingTextMessage } from "./messages"
 import { KeyboardElement, BasicElement, isAppliable } from "./elements"
-import { FileMessage, InputHandler, ActionsHandler, Effect } from './render'
+import { OutcomingFileMessage, InputHandler, ActionsHandler, Effect } from './draft'
+import { OutcomingPhotoGroupMessage } from '../bot3/mediagroup'
+import { mylog } from './logging'
+import { InputHandlerF } from './handlerF'
 
-export type MessageType = (TextMessage | FileMessage)
+export type OutcomingMessageType = (OutcomingTextMessage | OutcomingFileMessage) | OutcomingPhotoGroupMessage
 
 type HandlerType = InputHandler | ActionsHandler
 
-export type MessagesAndHandlers = {
-    messages: MessageType[],
+export type RenderDraft = {
+    messages: OutcomingMessageType[],
     handlers: HandlerType[],
     effects: Effect[],
     keyboards: KeyboardElement[],
-    inputHandlers: InputHandler[]
+    inputHandlers: InputHandler[],
+    inputHandlersF: InputHandlerF<any>[]
+
 }
 
-export type RenderDraft = MessagesAndHandlers
+// export type RenderDraft = MessagesAndHandlers
 
 export const emptyDraft = (): RenderDraft => ({
     messages: [],
     handlers: [],
     effects: [],
     keyboards: [],
-    inputHandlers: []
+    inputHandlers: [],
+    inputHandlersF: [],
 })
 
-export const defaultCreateDraft = (elements: BasicElement[]): RenderDraft => {
+export const defaultCreateDraft = (elements: BasicElement[], d?: RenderDraft): RenderDraft => {
 
-    const draft = emptyDraft()
+    const draft = d ?? emptyDraft()
 
     function handle(compel: BasicElement) {
         elementsToMessagesAndHandlers(compel, draft)
@@ -45,11 +51,11 @@ export const defaultCreateDraft = (elements: BasicElement[]): RenderDraft => {
 export function elementsToMessagesAndHandlers(
     compel: BasicElement,
     draft: RenderDraft
-): MessagesAndHandlers {
+): RenderDraft {
 
-    console.log(`componentToMessagesAndHandlers`);
+    mylog(`elementsToMessagesAndHandlers: ${compel.kind}`);
 
-    let messages: MessageType[] = draft.messages
+    let messages: OutcomingMessageType[] = draft.messages
     let handlers: HandlerType[] = draft.handlers
     let effects: Effect[] = draft.effects
     let keyboards: KeyboardElement[] = draft.keyboards
@@ -57,11 +63,11 @@ export function elementsToMessagesAndHandlers(
 
     const lastMessage = (): {
         idx: number,
-        message: TextMessage
+        message: OutcomingTextMessage
     } => {
         const res = filterMapTextMessages(messages)
         if (!res.length) {
-            const message = new TextMessage()
+            const message = new OutcomingTextMessage()
             messages.push(message)
             return {
                 idx: messages.length - 1,
@@ -73,7 +79,7 @@ export function elementsToMessagesAndHandlers(
         }
     }
 
-    const setLastMessage = (message: TextMessage) => {
+    const setLastMessage = (message: OutcomingTextMessage) => {
         messages[messages.length - 1] = message
     }
 
@@ -110,14 +116,14 @@ export function elementsToMessagesAndHandlers(
         )
     }
     else if (compel.kind === 'TextElement') {
-        messages.push(new TextMessage(compel.text))
+        messages.push(new OutcomingTextMessage(compel.text))
     }
     else if (compel.kind === 'TextElementPart') {
         const { message, idx } = lastMessage()
         if (!message.isComplete)
             setLastMessage(message.concatText(compel.text))
         else
-            messages.push(new TextMessage(compel.text))
+            messages.push(new OutcomingTextMessage(compel.text))
     }
     else if (compel.kind === 'NextMessage') {
         const { message, idx } = lastMessage()
@@ -127,7 +133,7 @@ export function elementsToMessagesAndHandlers(
         effects.push(new Effect(compel))
     }
     else if (compel.kind === 'FileElement') {
-        messages.push(new FileMessage(compel))
+        messages.push(new OutcomingFileMessage(compel))
     }
     else if (compel.kind === 'Keyboard') {
         // messages.push(compel)
@@ -147,13 +153,13 @@ export function elementsToMessagesAndHandlers(
     return draft
 }
 
-export function filterTextMessages(messages: MessageType[]) {
-    return messages.filter((_): _ is TextMessage => _.kind === 'TextMessage')
+export function filterTextMessages(messages: OutcomingMessageType[]) {
+    return messages.filter((_): _ is OutcomingTextMessage => _.kind === 'TextMessage')
 }
 
 
-export function filterMapTextMessages(messages: MessageType[]) {
-    return filterMapWithIndex((idx, message: MessageType) =>
+export function filterMapTextMessages(messages: OutcomingMessageType[]) {
+    return filterMapWithIndex((idx, message: OutcomingMessageType) =>
         message.kind === 'TextMessage'
             ? some({ idx, message })
             : none)(messages)

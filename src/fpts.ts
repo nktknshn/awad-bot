@@ -27,7 +27,7 @@ function main() {
     S.state
 
     const f = (name: String): R.Reader<Deps, void> => deps => {
-        console.log(`${name} ${deps}`);
+        mylog(`${name} ${deps}`);
     }
 
     const g = (): R.Reader<Deps, void> =>

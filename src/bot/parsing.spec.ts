@@ -120,6 +120,6 @@ test('parseCardUpdate', () => {
         ].join('\n')
     )
 
-    console.log(JSON.stringify(result, undefined, 2));
+    mylog(JSON.stringify(result, undefined, 2));
     
 })
