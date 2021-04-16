@@ -547,5 +547,5 @@ export class ElementsTree {
 
 const str = <V>(value: V) => {
     const result = JSON.stringify(value)
-    return result.length < 100 ? result : result.slice(0, 50)
+    return result.length < 100 ? result : result.slice(0, 200)
 }

@@ -12,6 +12,9 @@ import { RenderedElement } from "./rendered-messages"
 import { ElementsTree, TreeState } from "./tree"
 import { AppActions, AppReqs, GetAllBasics } from "./types-util"
 import { draftToInputHandler, renderActions, renderedElementsToActionHandler } from "./ui"
+import * as A from 'fp-ts/lib/Array';
+import { pipe } from "fp-ts/lib/pipeable"
+import * as O from 'fp-ts/lib/Option';
 
 export interface ChatHandler<R> {
     chatdata: R,
@@ -57,7 +60,7 @@ class IncomingEvent<R> {
 
 export class QueuedChatHandler<R> implements ChatHandler2<R> {
     incomingQueue: IncomingItem[] = []
-    eventQueue: IncomingEvent<any>[] = []
+    // eventQueue: IncomingEvent<any>[] = []
 
     busy = false
 
@@ -73,7 +76,19 @@ export class QueuedChatHandler<R> implements ChatHandler2<R> {
         if (this.busy) {
             mylog(`busy so item was queued ${item.kind}`);
 
-            this.incomingQueue.push(item)
+            if (item.kind === 'IncomingEvent') {
+                this.incomingQueue = pipe(
+                    this.incomingQueue,
+                    A.findLastIndex(_ => _.kind === 'IncomingEvent'),
+                    O.fold(
+                        () => A.insertAt(0, item as IncomingItem)(this.incomingQueue),
+                        idx => A.insertAt(idx + 1, item as IncomingItem)(this.incomingQueue),
+                    ),
+                    O.fold(() => this.incomingQueue, v => v)
+                )
+            }
+            else
+                this.incomingQueue.push(item)
         } else {
             mylog(`processing ${item.kind}  ${item.ctx.message?.message_id}`);
             await this.processItem(item)

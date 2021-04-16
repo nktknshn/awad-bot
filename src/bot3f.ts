@@ -89,7 +89,7 @@ const App = connected4(
                 const { photoCandidates } = getState({})
 
                 mylog('inputHandler');
-                mylog({ photo });
+                // mylog({ photo });
                 mylog({ photoCandidates });
 
                 return setStateF({ photoCandidates: [...photoCandidates ?? [], photo[0]] })
@@ -97,6 +97,8 @@ const App = connected4(
         )
 
         const { photoCandidates } = getState({})
+        mylog('App');
+        mylog({ photoCandidates });
 
         if (isVisible) {
             yield VisibleSecrets({})
@@ -121,10 +123,16 @@ const App = connected4(
         }
         else if (photoCandidates) {
 
-            const addItem = () => [
-                setStateF({ photoCandidates: undefined }),
-                onAddItem(photoCandidates)
-            ]
+            const addItem = () => {
+                const { photoCandidates } = getState({})
+                mylog('addItem addItem');
+                mylog({ photoCandidates });
+
+                return [
+                    onAddItem(photoCandidates!),
+                    setStateF({ photoCandidates: undefined }),
+                ]
+            }
 
             const rejectItem = () => setStateF({ photoCandidates: undefined })
 
@@ -160,13 +168,6 @@ function createDraftWithImages<AppAction extends any>(
         else if (compel.kind === 'InputHandlerElementF') {
             inputHandlersF.push(new InputHandlerF(compel))
         }
-        // else if (compel.kind === 'ButtonElementF') {
-        //     // mediaGroup.appendDraft(draft, compel)
-        //     pipe(
-        //         A.last(filterMapTextMessages(draft.messages)),
-        //         O.map(_ => _.message.addButton(compel))
-        //     )
-        // }
         else {
             elementsToMessagesAndHandlers(compel, draft)
         }
@@ -259,15 +260,15 @@ function createApp() {
                 or(startHandler, byMessageId(connect(deleteMessage, routeAction(actionToStateAction))))
             ])),
         handleAction: async (ctx, renderer, chat, chatdata) => {
-            return pipe(
+            return await pipe(
                 O.fromNullable(chatdata.actionHandler)
                 , O.chainNullableK(f => f(ctx))
                 , O.map(actionToStateAction)
                 , O.map(A.map(a => chat.handleEvent(ctx, "updated", a)))
                 , O.map(a => {
-                    console.log(a); return a
+                    console.log(a); return Promise.all(a)
                 })
-                , O.getOrElseW(() => undefined)
+                , O.getOrElseW(() => async () => {})
             )
         }
     })
@@ -328,6 +329,9 @@ function createBotStoreF() {
     }
 
     const onAddItem = (item: string | PhotoSize[]) => (s: State) => {
+        mylog('TRACE onAddItem')
+        mylog(item)
+
         return upd({ items: [...s.items, ...Array.isArray(item) ? item : [item]] })(s)
     }
 
@@ -356,18 +360,19 @@ const grep = (ss: string) => (s: string, fs: StackFrame[]) => s.indexOf(ss) > -1
 
 async function main() {
     initLogging([
-        // () => true
+        () => true
         // byfunc('.renderActions'),
         // byfunc('createChatHandlerFactory'),
-        grep('handleMessage'),
-        // grep('handleAction'),
-        grep('QueuedChatHandler'),
-        grep('TRACE'),
-        grep('routeAction'),
-        grep('deleteMessage'),
-        grep('inputHandler'),
-        grep('tree.nextStateTree.state'),
-        grep('getState'),
+        // grep('handleMessage'),
+        // // grep('handleAction'),
+        // grep('QueuedChatHandler'),
+        // grep('TRACE'),
+        // grep('routeAction'),
+        // grep('deleteMessage'),
+        // grep('inputHandler'),
+        // grep('tree.nextStateTree.state'),
+        // grep('getState'),
+        // grep('StoreF.apply'),
     ])
 
     const bot = new Telegraf(token)
