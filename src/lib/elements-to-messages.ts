@@ -8,14 +8,14 @@ import { mylog } from './logging'
 
 export type OutcomingMessageType = (OutcomingTextMessage | OutcomingFileMessage) | OutcomingPhotoGroupMessage
 
-type HandlerType = InputHandler | ActionsHandler
+type HandlerType = InputHandler<any> | ActionsHandler
 
 export type RenderDraft = {
     messages: OutcomingMessageType[],
     handlers: HandlerType[],
-    effects: Effect[],
+    effects: Effect<any>[],
     keyboards: KeyboardElement[],
-    inputHandlers: InputHandler[]
+    inputHandlers: InputHandler<any>[]
 }
 
 // export type RenderDraft = MessagesAndHandlers
@@ -53,9 +53,9 @@ export function elementsToMessagesAndHandlers(
 
     let messages: OutcomingMessageType[] = draft.messages
     let handlers: HandlerType[] = draft.handlers
-    let effects: Effect[] = draft.effects
+    let effects: Effect<any>[] = draft.effects
     let keyboards: KeyboardElement[] = draft.keyboards
-    let inputHandlers: InputHandler[] = draft.inputHandlers
+    let inputHandlers: InputHandler<any>[] = draft.inputHandlers
 
     const lastMessage = (): {
         idx: number,

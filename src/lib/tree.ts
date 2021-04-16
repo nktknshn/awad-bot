@@ -1,13 +1,13 @@
 import { Store } from "redux"
-import { Appliable, BasicElement, isComponentElement } from "./elements"
+import { Appliable, BasicElement, isComponentElement, LocalStateAction } from "./elements"
 import { ComponentElement, ComponentGenerator } from "./component"
 import { AppReqs, GetAllBasics } from "./types-util"
 import { nspaces, range } from "./util"
 import { equal, ObjectHelper } from "./util3dparty"
 import { mylog } from "./logging"
 
-type State<T = any> = {
-    value: T
+type State<T extends {} = {}> = {
+    value?: T
 }
 
 type BasicOrComponent<E = BasicElement> = ComponentsTreeNode<BasicOrComponent<E>> | E
@@ -257,7 +257,8 @@ export function printZippedTree(tree: TreeWithNewState, depth = 0) {
 export function componentToComponentTree<R>(
     componentElement: ComponentElement,
     stateTree?: ComponentStateTree,
-    rootState?: R
+    context?: R,
+    index: number[] = []
 ): ComponentTree {
 
     mylog('componentToTree!');
@@ -271,7 +272,6 @@ export function componentToComponentTree<R>(
         const copy = ObjectHelper.deepCopy(stateTree)
         state = copy.state
         childrenState = copy.children
-        // {state, childrenState} = ObjectHelper.deepCopy(stateTree)
     }
     else {
         state = {
@@ -298,6 +298,43 @@ export function componentToComponentTree<R>(
         setState: async (updates: State['value']) => {
             mylog(`${componentElement.cons.name}.setState(${str(updates)}). Current: ${str(state.value)}`)
             state.value = { ...state.value, ...updates }
+        },
+        setStateF: (updates: State['value']): LocalStateAction => {
+            mylog(`${componentElement.cons.name}.setStateF(${str(updates)}). Current: ${str(state.value)}`)
+            // return (v: State['value']) => ({ ...v, ...updates })
+            return {
+                index,
+                kind: 'localstate-action' as 'localstate-action',
+                f: (tree) => {
+                    if (!tree.nextStateTree)
+                        return tree
+                    
+                    index = [...index]
+                    index.shift()
+                    if (index.length == 0) {
+                        return ({
+                            ...tree,
+                            nextStateTree: {
+                                ...tree.nextStateTree,
+                                state: {
+                                    ...tree.nextStateTree.state,
+                                    value: ({ ...tree.nextStateTree?.state.value, ...updates })
+                                }
+                            }
+                        })
+                    }
+                    else {
+                        let s = tree.nextStateTree;
+                        for(const idx of index) {
+                            s = s.children[idx]
+                        }
+                        s.state.value =  ({ ...s.state.value, ...updates })
+                        return tree
+                    }
+
+                }
+                // f: (v: State['value']) => ({ ...v, ...updates })
+            }
         }
     }
 
@@ -311,7 +348,7 @@ export function componentToComponentTree<R>(
     else if (componentElement.kind === 'component-with-state-connected') {
         props = {
             ...componentElement.props,
-            ...componentElement.mapper(rootState)
+            ...componentElement.mapper(context)
         }
         elements = componentElement.cons(props, getset)
     }
@@ -320,16 +357,17 @@ export function componentToComponentTree<R>(
         elements = componentElement.cons(props, getset)
     }
 
-    
+    let idx = 0
     for (const element of elements) {
         if (isComponentElement(element)) {
             children.push(
-                componentToComponentTree(element, iter.next().value, rootState)
+                componentToComponentTree(element, iter.next().value, context, [...index, idx])
             )
         }
         else {
             children.push(element)
         }
+        idx += 1
     }
 
     return {
@@ -342,7 +380,8 @@ export function componentToComponentTree<R>(
 export function rerenderTree<RootState>(
     tree: TreeWithNewState,
     component: ComponentElement,
-    rootState?: RootState
+    rootState?: RootState,
+    index: number[] = []
 ): ComponentsTreeNode<BasicOrComponent> {
     const { newState, componentElement, props, state, result: children } = tree
 
@@ -363,7 +402,7 @@ export function rerenderTree<RootState>(
             rerender = true
             mylog(`${componentElement.cons.name} is to updated by props`);
 
-            return componentToComponentTree(component, { state: newState, children: [] }, rootState)
+            return componentToComponentTree(component, { state: newState, children: [] }, rootState, index)
         }
     }
     else if (!equal(component.props, props)) {
@@ -373,7 +412,7 @@ export function rerenderTree<RootState>(
         // mylog(props)
 
         rerender = true
-        return componentToComponentTree(component, { state: newState, children: [] }, rootState)
+        return componentToComponentTree(component, { state: newState, children: [] }, rootState, index)
     }
 
     if (!equal(newState, state)) {
@@ -383,21 +422,24 @@ export function rerenderTree<RootState>(
 
     if (rerender == true) {
         mylog(`${componentElement.cons.name} is to rerender`);
-        return componentToComponentTree(component, { state: newState, children: [] }, rootState)
+        return componentToComponentTree(component, { state: newState, children: [] }, rootState, index)
     }
 
     mylog(`${componentElement.cons.name} is same`);
 
     let kids: BasicOrComponent[] = []
+
+    let idx = 0
     for (const item of children) {
         if (isComponentTree(item)) {
             kids.push(
-                rerenderTree(item, item.componentElement, rootState)
+                rerenderTree(item, item.componentElement, rootState, [...index, idx])
             )
         }
         else {
             kids.push(item)
         }
+        idx += 1
     }
 
     return componentToComponentTree(component,
@@ -408,7 +450,7 @@ export function rerenderTree<RootState>(
             result: children
                 .filter((_): _ is TreeWithNewState => isComponentTree(_))
                 .map(item => rerenderTree(item, item.componentElement, rootState)),
-        }), rootState)
+        }), rootState, index)
 }
 
 
@@ -449,7 +491,8 @@ export class ElementsTree {
                     componentToComponentTree(
                         rootComponent(props),
                         s.nextStateTree,
-                        context
+                        context,
+                        [0]
                     )
                 ),
                 s.lastPropsTree
@@ -468,7 +511,8 @@ export class ElementsTree {
             s.tree = rerenderTree(
                 zippedWithNewState,
                 rootComponent(props),
-                context
+                context,
+                [0]
             )
         }
         else {
@@ -476,7 +520,8 @@ export class ElementsTree {
             s.tree = componentToComponentTree(
                 rootComponent(props),
                 undefined,
-                context
+                context,
+                [0]
             )
         }
 

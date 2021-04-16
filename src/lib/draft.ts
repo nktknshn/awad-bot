@@ -1,8 +1,8 @@
 import { EffectElement, FileElement, InputHandlerElement } from "./elements"
 
-export class InputHandler {
+export class InputHandler<R> {
     kind: 'InputHandler' = 'InputHandler'
-    constructor(public readonly  element: InputHandlerElement) {}
+    constructor(public readonly  element: InputHandlerElement<R>) {}
 }
 
 export class ActionsHandler {
@@ -14,8 +14,8 @@ export class OutcomingFileMessage {
     constructor(public readonly  element: FileElement) {}
 }
 
-export class Effect {
+export class Effect<R> {
     kind: 'Effect' = 'Effect'
-    constructor(public readonly  element: EffectElement) {}
+    constructor(public readonly  element: EffectElement<R>) {}
 
 }

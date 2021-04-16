@@ -3,6 +3,7 @@ import { InputFile } from "telegraf/typings/telegram-types"
 import { ComponentGenerator, ComponentElement } from "./component"
 import { RenderDraft } from "./elements-to-messages"
 import { InputHandlerData } from "./messages"
+import { TreeState } from "./tree"
 
 type Diff<T, U> = T extends U ? never : T
 
@@ -32,10 +33,10 @@ export type BasicElement =
     | NextMessageElement 
     | ButtonElement<any>
     | ButtonsRowElement 
-    | InputHandlerElement
+    | InputHandlerElement<any>
     | RequestLocationButtonElement 
     | ActionsHandlerElement 
-    | EffectElement
+    | EffectElement<any>
     | FileElement 
     | KeyboardElement
 
@@ -50,6 +51,13 @@ export function isComponentElement(el: Element): el is ComponentElement {
 export type GetSetState<S> = {
     getState: (initialState: S) => S
     setState: (state: Partial<S>) => Promise<void>
+    setStateF: (state: Partial<S>) => LocalStateAction
+}
+
+export interface LocalStateAction {
+    kind: 'localstate-action',
+    index: number[],
+    f: (s: TreeState) => TreeState
 }
 
 // export function connected<P extends M, S, M, State, PP, R extends ComponentGenerator>(
@@ -150,10 +158,10 @@ export class FileElement {
     ) { }
 }
 
-export class EffectElement {
+export class EffectElement<R> {
     kind: 'EffectElement' = 'EffectElement'
     constructor(
-        readonly callback: () => Promise<void>
+        readonly callback: () => R
     ) { }
 }
 
@@ -165,13 +173,13 @@ export class ActionsHandlerElement {
     ) { }
 }
 
-export class InputHandlerElement {
+export class InputHandlerElement<R> {
     kind: 'InputHandlerElement' = 'InputHandlerElement'
     constructor(
         readonly callback: (
             input: InputHandlerData,
-            next: () => Promise<boolean | void>,
-        ) => Promise<boolean | void>
+            next: () => R | undefined,
+        ) => R | undefined
     ) { }
 }
 

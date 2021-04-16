@@ -212,11 +212,11 @@ export const isTrue = (v: any): v is true => typeof v === 'boolean' && v == true
 
 export const nspaces = (n: number, s = ' ') => [...range(0, n)].map(_ => s).join('')
 
-export async function callHandlersChain(
-    inputHandlers: InputHandler[],
+export function callHandlersChain<R>(
+    inputHandlers: InputHandler<R>[],
     data: InputHandlerData,
     idx: number = 0,
-): Promise<void | boolean> {
+): R | undefined {
 
     mylog(`callHandler(${idx})`);
 

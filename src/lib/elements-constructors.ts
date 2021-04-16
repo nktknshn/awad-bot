@@ -1,7 +1,7 @@
 import { Markup } from "telegraf"
 import { InputFile } from "telegraf/typings/telegram-types"
-import {  InputHandlerData } from "./messages"
-import { ButtonElement, ButtonsRowElement, TextElement, RequestLocationButtonElement, FileElement, TextPartElement, NextMessageElement, EffectElement, ActionsHandlerElement, InputHandlerElement} from "./elements"
+import { InputHandlerData } from "./messages"
+import { ButtonElement, ButtonsRowElement, TextElement, RequestLocationButtonElement, FileElement, TextPartElement, NextMessageElement, EffectElement, ActionsHandlerElement, InputHandlerElement } from "./elements"
 
 
 export function file(f: InputFile) {
@@ -21,8 +21,8 @@ export function actionHandler(callback: (data: string) => Promise<void>) {
     return new ActionsHandlerElement(callback)
 }
 
-export function input(callback: (data: InputHandlerData, next: () => Promise<boolean | void>) => Promise<boolean | void>) {
-    return new InputHandlerElement(callback)
+export function input<R>(callback: (data: InputHandlerData, next: () => R | undefined) => R | undefined) {
+    return new InputHandlerElement<R>(callback)
 }
 
 export function message(text: string | string[]) {
@@ -72,9 +72,9 @@ export function radioRow(
 }
 
 export function buttonsRow(
-    texts: (string | [string, string])[], 
+    texts: (string | [string, string])[],
     callback: (idx: number, data: string) => Promise<void>
-    ) {
+) {
 
     const rowsData =
         texts.map(v => Array.isArray(v) ? v : [v, v] as [string, string])

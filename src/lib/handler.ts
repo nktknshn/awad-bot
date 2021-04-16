@@ -25,6 +25,17 @@ export const contextOpt = flow(
 
 export type ContextOpt = ReturnType<typeof contextOpt>
 
+
+export const byMessageId = <R, H>(dh: ((messageId: number) => ChatAction<R, H>)) => (c: ContextOpt) => {
+    return pipe(
+        Do(O.option)
+            .bind('messageId', c.messageId)
+            .return(({ messageId }) => {
+                return dh(messageId)
+            }),
+    )
+}
+
 export async function deleteTem<R, H>(
     ctx: TelegrafContext,
     renderer: ChatRenderer,

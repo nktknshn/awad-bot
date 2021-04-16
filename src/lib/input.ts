@@ -4,7 +4,7 @@ import { InputHandlerData } from "./messages";
 import { flow, identity } from "fp-ts/lib/function";
 import { pipe } from 'fp-ts/lib/pipeable';
 
-export type Matcher2<R=Promise<any>> = (d: O.Option<InputHandlerData>) => O.Option<R | 'done' | 'next'>;
+export type Matcher2<R> = (d: O.Option<InputHandlerData>) => O.Option<R | 'done' | 'next'>;
                 
 export class InputOpt<T> {
     constructor(
@@ -50,11 +50,11 @@ export const nextHandler = (): 'done' => 'done';
 export const nextMatcher = (): 'next' => 'next';
 export const stop = (): undefined => undefined;
 
-export function inputHandler(
-    ...matchers: Matcher2[]
+export function inputHandler<R>(
+    ...matchers: Matcher2<R>[]
 ) {
-    return new InputHandlerElement(
-        async (data, next) => {
+    return new InputHandlerElement<R | undefined>(
+        (data, next) => {
 
             for (const m of matchers) {
                 const res = m(O.of(data));
@@ -72,13 +72,13 @@ export function inputHandler(
     );
 }
 
-export function inputOpt<T>(
+export function inputOpt<T, R>(
     matcher: (d: O.Option<InputHandlerData>) => O.Option<T>,
     callback: (
         res: T,
-        next: () => Promise<boolean | void>) => Promise<any>
+        next: () => (R| undefined)) => R | undefined
 ) {
-    return new InputHandlerElement(
+    return new InputHandlerElement<R | undefined>(
         (data, next) => {
             const res = matcher(O.of(data));
 

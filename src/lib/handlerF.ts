@@ -5,13 +5,13 @@ import { ChatRenderer } from './chatrenderer';
 import { InputHandlerElement } from "./elements";
 import { InputHandlerData } from "./messages";
 
-interface ActionF<S> {
-    (s: S): S
-}
+// interface ActionF<S> {
+//     (s: S): S
+// }
 
 // export type ActionG<S> = Generator<Action<S> | ActionG<S>>
 
-export type Action<S> = ActionF<S>
+// export type Action<S> = ActionF<S>
 //  | ActionG<S>
 
 export class InputHandlerElementF<S> {
@@ -19,12 +19,12 @@ export class InputHandlerElementF<S> {
     constructor(
         readonly callback: (
             input: InputHandlerData,
-            next?: () => Action<S>,
-        ) => (Action<S> | undefined)
+            next?: () => S,
+        ) => (S | undefined)
     ) { }
 }
 
-export type Matcher2<S> = (d: O.Option<InputHandlerData>) => O.Option<undefined | Action<S> | 'done' | 'next'>;
+export type Matcher2<S> = (d: O.Option<InputHandlerData>) => O.Option<undefined | S | 'done' | 'next'>;
 
 export function inputHandlerF<S>(
     ...matchers: Matcher2<S>[]
@@ -54,14 +54,14 @@ export class ButtonElementF<S> {
     constructor(
         readonly text: string,
         readonly data?: string,
-        readonly callback?: () => ActionF<S> | undefined,
+        readonly callback?: () => S | undefined,
     ) { }
 
 }
 
 export function buttonF<S>(
     text: (string | [string, string]),
-    callback: () => (ActionF<S> | undefined)
+    callback: () => (S | undefined)
 ) {
 
     let [buttonText, data] = Array.isArray(text) ? text : [text, text]

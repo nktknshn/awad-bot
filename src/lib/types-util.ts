@@ -1,4 +1,4 @@
-import { WithContext } from "../lib/elements";
+import { ButtonElement, WithContext } from "../lib/elements";
 import { Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp } from "./component";
 
 
@@ -58,3 +58,5 @@ T extends (...args: infer P) => infer R1
 export type AddLastArgument<F extends (...args: any) => any, C> =
 F extends (...args: infer ARGS) => infer R1
 ? (...args: [...ARGS, C]) => R1 : never
+
+export type GetAllButtons<T> = GetAllBasics<T> extends infer B ? B extends ButtonElement<infer R> ? R : never : never
