@@ -5,7 +5,7 @@ import { flow, identity } from "fp-ts/lib/function";
 import { pipe } from 'fp-ts/lib/pipeable';
 
 export type Matcher2<R> = (d: O.Option<InputHandlerData>) => O.Option<R | 'done' | 'next'>;
-                
+
 export class InputOpt<T> {
     constructor(
         public readonly matcher: (d: O.Option<InputHandlerData>) => O.Option<T>,
@@ -50,8 +50,24 @@ export const nextHandler = (): 'done' => 'done';
 export const nextMatcher = (): 'next' => 'next';
 export const stop = (): undefined => undefined;
 
-export function inputHandler<R>(
-    ...matchers: Matcher2<R>[]
+// export function inputHandlerG<A>(...matchers: Matcher2<A>[]): InputHandlerElement<A | undefined>
+
+// export function inputHandlerG<A, B, R extends (Matcher2<A> | Matcher2<B>)[]>(matchers: R)
+//     : InputHandlerElement<A | B | undefined>
+
+// export function inputHandlerG<A, B, C, R extends (Matcher2<A> | Matcher2<B> | Matcher2<C>)[]>(matchers: R)
+//     : InputHandlerElement<A | B | C | undefined>
+
+// export function inputHandlerG<A, B, C, D, R extends (Matcher2<A> | Matcher2<B> | Matcher2<C>| Matcher2<D>)[]>(matchers: R): InputHandlerElement<A | B | C | D | undefined>
+
+// // export function inputHandlerG<A, B, C>(...matchers: (Matcher2<A> | Matcher2<B> | Matcher2<C>)[]): InputHandlerElement<A | B | C | undefined>
+// // export function inputHandlerG<A, B, C, D>(...matchers: (Matcher2<A> | Matcher2<B> | Matcher2<C>| Matcher2<D>)[]): InputHandlerElement<A | B | C | D | undefined>
+// export function inputHandlerG(matchers: any[]) {
+//     return inputHandler(matchers)
+// }
+
+export function inputHandler<R extends Matcher2<any>>(
+    matchers: R[]
 ) {
     return new InputHandlerElement<R | undefined>(
         (data, next) => {
@@ -76,7 +92,7 @@ export function inputOpt<T, R>(
     matcher: (d: O.Option<InputHandlerData>) => O.Option<T>,
     callback: (
         res: T,
-        next: () => (R| undefined)) => R | undefined
+        next: () => (R | undefined)) => R | undefined
 ) {
     return new InputHandlerElement<R | undefined>(
         (data, next) => {

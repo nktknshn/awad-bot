@@ -32,3 +32,36 @@ export function createStore<S>(state: S) {
         store, notify, getState, update, updateC, updateNotify
     };
 }
+
+
+export class StoreF<S> {
+    state: S
+    constructor(initial: S) {
+        this.state = { ...initial }
+    }
+
+    public notify = (a: StoreAction<S, S>) => { mylog("set notify function"); }
+
+    apply(f: (u: S) => S) {
+        const n = new StoreF(f(this.state))
+        return n
+    }
+}
+
+export function createStoreF<S>(initial: S) {
+    return {
+        store: new StoreF(initial)
+    }
+}
+
+
+export interface StoreAction<S, R> {
+    kind: 'store-action',
+    f: (s: S) => R
+}
+
+export const wrap = <T extends any[], R, S>(f: (...args: T) => (s: S) => R):
+(...args: T) => StoreAction<S, R> => (...args) => ({
+    kind: 'store-action' as 'store-action',
+    f: f(...args)
+})

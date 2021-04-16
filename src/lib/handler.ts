@@ -8,7 +8,9 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { ChatHandler2, ChatState } from "../lib/chathandler";
 import { ChatRenderer } from "../lib/chatrenderer";
 import { deleteAll } from "../lib/ui";
+import { LocalStateAction } from './elements';
 import { RenderedElement } from './rendered-messages';
+import { StoreAction, StoreF } from './store2';
 
 export const findRepliedTo = (r: RenderedElement[]) => (repliedTo: number) => r.find(_ => Array.isArray(_.output)
     ? _.output.map(_ => _.message_id).find((_ => _ == repliedTo))
@@ -26,7 +28,7 @@ export const contextOpt = flow(
 export type ContextOpt = ReturnType<typeof contextOpt>
 
 
-export const byMessageId = <R, H>(dh: ((messageId: number) => ChatAction<R, H>)) => (c: ContextOpt) => {
+export const byMessageId = <R, H, T>(dh: ((messageId: number) => ChatAction<R, H, T>)) => (c: ContextOpt) => {
     return pipe(
         Do(O.option)
             .bind('messageId', c.messageId)
@@ -48,16 +50,16 @@ export async function deleteTem<R, H>(
     )
 }
 
-export type ChatAction<R, H> = (ctx: TelegrafContext,
+export type ChatAction<R, H, T> = (ctx: TelegrafContext,
     renderer: ChatRenderer,
     chat: ChatHandler2<ChatState<R, H>>,
-    chatdata: ChatState<R, H>) => Promise<void>
+    chatdata: ChatState<R, H>) => Promise<T>
 
 export function startHandler<R, H>(c: ContextOpt) {
     return pipe(
         c.messageText,
         O.filter(m => m == '/start'),
-        O.map((): ChatAction<R, H> => deleteTem)
+        O.map((): ChatAction<R, H, void> => deleteTem)
     )
 }
 
@@ -72,7 +74,7 @@ export function defaultHandler(c: ContextOpt) {
 }
 
 
-export const defaultH = <R>(messageId: number): ChatAction<R, Promise<boolean>> => {
+export const defaultH = <R>(messageId: number): ChatAction<R, Promise<boolean>, void> => {
     return async function def(
         ctx, renderer, chat, chatdata
     ) {
@@ -97,19 +99,19 @@ export type FuncF<R, H> = (
 
 export const handlerChain = <C, R, H>(chain: ((a: C) => O.Option<FuncF<R, H>>)[]) => {
     return (a: C) =>
-        (ctx: TelegrafContext,
+       async (ctx: TelegrafContext,
             renderer: ChatRenderer,
             chat: ChatHandler2<ChatState<R, H>>,
             chatdata: ChatState<R, H>
         ) =>
-            Promise.all(pipe(
+            await Promise.all(pipe(
                 chain,
                 A.map(z => z(a)),
                 A.map(
                     O.map(z => z(ctx, renderer, chat, chatdata))
                 ),
                 A.filter(O.isSome),
-                A.map(a => T.of(a.value))
+                A.map(a => a.value)
             ))
 }
 
@@ -121,7 +123,7 @@ export const withContextOpt = <R, H>(f: (ctxOpt: ContextOpt) => FuncF<R, H>): Fu
         renderer: ChatRenderer,
         chat: ChatHandler2<ChatState<R, H>>,
         chatdata: ChatState<R, H>) {
-        return f(contextOpt(ctx))(ctx, renderer, chat, chatdata)
+        return await f(contextOpt(ctx))(ctx, renderer, chat, chatdata)
 
     }
 }
@@ -135,4 +137,23 @@ export async function defaultHandleAction<R, H>(ctx: TelegrafContext,
         return
     await chatdata.actionHandler(ctx)
     await chat.handleEvent(ctx, "updated")
+}
+
+
+export function applyTreeAction<R, H, C extends ChatState<R, H>>(a: LocalStateAction) {
+    return function (cs: C): C {
+        return {
+            ...cs,
+            treeState: a.f(cs.treeState)
+        }
+    }
+}
+
+export function applyStoreAction<S, C extends ChatState<A, B>, A extends { store: StoreF<S> }, B>(a: StoreAction<S, S>) {
+    return function (cs: C) {
+        return {
+            ...cs,
+            store: cs.store.apply(a.f)
+        }
+    }
 }

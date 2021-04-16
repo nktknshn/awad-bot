@@ -17,33 +17,34 @@ export function initLogging(filters: Filter[]) {
     state.filters = filters
 }
 
-export function mylog(s: string | any) {
+export function mylog(...ss: string | any) {
     const frames = st.getSync()
-    
-    let output = ""
-    const str = s === undefined ? 'undefined ' : typeof s === 'string' ? s : JSON.stringify(s)
-    const fpath = [frames[2].functionName, frames[1].functionName].join(" -> ")
 
-    if(fpath != state.lastF){
-        output += "\n"
-        output += fpath + "\n"
-    }
+    for (const s of ss) {
+        let output = ""
+        const str = s === undefined ? 'undefined ' : typeof s === 'string' ? s : JSON.stringify(s)
+        const fpath = [frames[2].functionName, frames[1].functionName].join(" -> ")
 
-    output += str.split('\n').map(_ => `${_}`).join("\n") + "\n"
-
-    // console.log()
-
-    let logit = false;
-    for (const f of state.filters) {
-        if (f(output, frames.slice(1, frames.length)) == true) {
-            logit = true
-            break
+        if (fpath != state.lastF) {
+            output += "\n"
+            output += fpath + "\n"
         }
-    }
 
-    if (logit) {
-        console.log(output)
-        state.lastF = fpath
-        
+        output += str.split('\n').map(_ => `${_}`).join("\n")
+
+        // console.log()
+
+        let logit = false;
+        for (const f of state.filters) {
+            if (f(output, frames.slice(1, frames.length)) == true) {
+                logit = true
+                break
+            }
+        }
+
+        if (logit) {
+            console.log(output)
+            state.lastF = fpath
+        }
     }
 }

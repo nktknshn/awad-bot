@@ -1,5 +1,4 @@
 import * as A from 'fp-ts/lib/Array';
-import { flow } from "fp-ts/lib/function";
 import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
 import { StackFrame } from 'stacktrace-js';
@@ -15,13 +14,13 @@ import { InputHandler } from './lib/draft';
 import { BasicElement, GetSetState, LocalStateAction } from "./lib/elements";
 import { button, message } from "./lib/elements-constructors";
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./lib/elements-to-messages";
-import { byMessageId, ChatAction, contextOpt, findRepliedTo, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
-import { InputHandlerElementF, InputHandlerF, inputHandlerF } from './lib/handlerF';
-import { action, casePhoto, caseText, ifTrue, inputHandler, nextHandler, on } from "./lib/input";
+import { applyStoreAction, applyTreeAction, byMessageId, ChatAction, contextOpt, findRepliedTo, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
+import { connect, deleteMessage, InputHandlerElementF, InputHandlerF, StateAction, routeAction } from './lib/handlerF';
+import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { initLogging, mylog } from './lib/logging';
-import { Actions } from './lib/render-actions';
 import { BotMessage, RenderedElement } from './lib/rendered-messages';
-import { GetAllButtons } from './lib/types-util';
+import { createStoreF, StoreAction, wrap } from './lib/store2';
+import { AppActions, GetAllButtons, GetAllInputHandlers } from './lib/types-util';
 import { token } from "./telegram-token.json";
 
 
@@ -72,22 +71,6 @@ const VisibleSecrets = connected4(
     }
 )
 
-function mixActions<S1, S2, R1, R2>(a1: StoreAction<S1, R1>, a2: StoreAction<S2, R2>): StoreAction<S1 & S2, R1 & R2> {
-    return {
-        kind: 'store-action',
-        f: (s) => ({
-            ...a1.f(s),
-            ...a2.f(s)
-        })
-    }
-}
-
-interface StoreAction<S, R> {
-    kind: 'store-action',
-    f: (s: S) => R
-}
-
-
 const App = connected4(
     (ctx: Context) => ctx,
     function* (
@@ -98,18 +81,19 @@ const App = connected4(
         }>
     ) {
 
-        yield inputHandler<StoreAction<State, State> | LocalStateAction>(
+        yield inputHandler([
             on(casePassword(password), action(() => onSetVisible(true))),
             on(caseText, action(text => setStringCandidate(text))),
             on(casePhoto, action(photo => {
 
                 const { photoCandidates } = getState({})
 
+                mylog('inputHandler');
                 mylog({ photo });
                 mylog({ photoCandidates });
 
                 return setStateF({ photoCandidates: [...photoCandidates ?? [], photo[0]] })
-            }))
+            }))]
         )
 
         const { photoCandidates } = getState({})
@@ -163,7 +147,7 @@ const App = connected4(
 )
 
 
-function createDraftWithImages(
+function createDraftWithImages<AppAction extends any>(
     elements: (BasicElement | PhotoGroupElement | InputHandlerElementF<AppAction>)[]
 ): RenderDraft & { inputHandlersF: InputHandlerF<AppAction>[] } {
     const draft = emptyDraft()
@@ -196,15 +180,17 @@ function createDraftWithImages(
 }
 
 
-const inputHandlerFHandler = (h: InputHandler<AppAction>) => (ctx: TelegrafContext) => {
-    const c = contextOpt(ctx)
+const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext) => {
     const d = parseFromContext(ctx)
     mylog(`TRACE ${ctx.message?.message_id}`)
-
     return h.element.callback(d, () => { return undefined })
 }
 
-const getActionHandler = <A>() => (rs: RenderedElement[]) => {
+function getInputHandler(d: RenderDraft) {
+    return inputHandlerFHandler(d.inputHandlers[0])
+}
+
+const getActionHandler = <A>(rs: RenderedElement[]) => {
     return function (ctx: TelegrafContext): A | undefined {
         const { action, repliedTo } = contextOpt(ctx)
         const p = pipe(
@@ -225,30 +211,13 @@ const getActionHandler = <A>() => (rs: RenderedElement[]) => {
         }
     }
 }
-type AppAction = GetAllButtons<ReturnType<typeof App>>
 
 function createApp() {
     type MyState = ReturnType<typeof createBotStoreF>
     type AppChatState = ChatState<MyState, AppAction>
-
-    function applyStoreAction(a: StoreAction<State, State>) {
-        return function (cs: AppChatState) {
-            return {
-                ...cs,
-                store: cs.store.apply(a.f)
-            }
-        }
-    }
-
-    function applyTGreeAction(a: LocalStateAction) {
-        return function (cs: AppChatState) {
-            return {
-                ...cs,
-                treeState: a.f(cs.treeState)
-            }
-        }
-    }
-
+    type AppStoreAction = StoreAction<State, State>
+    type AppAction = AppActions<ReturnType<typeof App>>
+    type AppStateAction = StateAction<AppChatState>
 
     const chatState = (): AppChatState => {
         return {
@@ -257,35 +226,22 @@ function createApp() {
         }
     }
 
-    function getInputHandler(d: ReturnType<typeof createDraftWithImages>) {
-        return inputHandlerFHandler(d.inputHandlers[0])
-    }
-
-    const defaultH = (messageId: number): ChatAction<MyState, AppAction> => {
-        return async function (
-            ctx, renderer, chat, chatdata
-        ) {
-            if (!chatdata.inputHandler)
-                return
-
-            const cs = chatdata.inputHandler(ctx)
-
-            await renderer.delete(messageId)
-
-            if (!cs)
-                return
-
-            function proc(cs: LocalStateAction | StoreAction<State, State>) {
-                if (cs.kind === 'store-action')
-                    return chat.handleEvent(ctx, "updated", applyStoreAction(cs))
-                else
-                    return chat.handleEvent(ctx, "updated", applyTGreeAction(cs))
-            }
-            // @ts-ignore TS2345
-            return Promise.all(Array.isArray(cs) ? cs.map(proc) : [proc(cs)]).then(_ => { })
+    function actionToStateAction(a: AppAction): AppStateAction[] {
+        if (Array.isArray(a)) {
+            return A.flatten(a.map(actionToStateAction))
         }
+        // @ts-ignore
+        else if (a.kind === 'store-action')
+            // @ts-ignore
+            return [applyStoreAction(a)]
+        // @ts-ignore
+        else
+            // @ts-ignore
+            return [applyTreeAction(a)]
     }
-    // GetAllButtons<ReturnType<typeof App>>
+
+    // routeAction(actionToStateAction)
+
     return getApp({
         chatData: chatState,
         renderFunc: genericRenderFunction(
@@ -293,31 +249,30 @@ function createApp() {
             chatstate => ({ dispatcher: chatstate.dispatcher, ...chatstate.store.state }),
             createDraftWithImages,
             getInputHandler,
-            getActionHandler<AppAction>()
+            getActionHandler
         ),
         init: async (ctx, renderer, chat, chatdata) => {
             chatdata.store.notify = (a) => chat.handleEvent(ctx, "updated", applyStoreAction(a))
         },
         handleMessage: withContextOpt(
             handlerChain([
-                or(startHandler, byMessageId(defaultH))
+                or(startHandler, byMessageId(connect(deleteMessage, routeAction(actionToStateAction))))
             ])),
         handleAction: async (ctx, renderer, chat, chatdata) => {
             return pipe(
                 O.fromNullable(chatdata.actionHandler)
                 , O.chainNullableK(f => f(ctx))
-                , O.map((_) => Array.isArray(_) ? _ : [_])
-                , O.map(A.map(
-                    (_) => _.kind === 'localstate-action' ? applyTGreeAction(_) : applyStoreAction(_)
-                ))
+                , O.map(actionToStateAction)
                 , O.map(A.map(a => chat.handleEvent(ctx, "updated", a)))
-                , O.map(a => {console.log(a); return a
+                , O.map(a => {
+                    console.log(a); return a
                 })
                 , O.getOrElseW(() => undefined)
             )
         }
     })
 }
+
 
 type State = {
     isVisible: boolean,
@@ -335,12 +290,6 @@ function createBotStoreF() {
         timer: undefined,
         stringCandidate: undefined
     })
-
-    const wrap = <T extends any[], R, S>(f: (...args: T) => (s: S) => R):
-        (...args: T) => StoreAction<S, R> => (...args) => ({
-            kind: 'store-action' as 'store-action',
-            f: f(...args)
-        })
 
     type Action<S> = (s: S) => S
 
@@ -388,7 +337,6 @@ function createBotStoreF() {
 
     const setStringCandidate = (c?: string) => (s: State) => upd({ stringCandidate: c })(s)
 
-
     return {
         store,
         dispatcher: {
@@ -402,41 +350,24 @@ function createBotStoreF() {
 
 }
 
-class StoreF<S> {
-    state: S
-    constructor(initial: S) {
-        this.state = { ...initial }
-    }
-
-    public notify = (a: StoreAction<S, S>) => { mylog("set notify function"); }
-
-    apply(f: (u: S) => S) {
-        const n = new StoreF(f(this.state))
-        return n
-    }
-}
-
-function createStoreF<S>(initial: S) {
-    return {
-        store: new StoreF(initial)
-    }
-}
-
 const byfunc = (fname: string) => (fs: StackFrame[]) => fs[0].functionName ? fs[0].functionName?.indexOf(fname) > -1 : false
 
 const grep = (ss: string) => (s: string, fs: StackFrame[]) => s.indexOf(ss) > -1
 
 async function main() {
     initLogging([
-        () => true
+        // () => true
         // byfunc('.renderActions'),
         // byfunc('createChatHandlerFactory'),
-        // grep('handleMessage'),
+        grep('handleMessage'),
         // grep('handleAction'),
-        // grep('QueuedChatHandler'),
-        // grep('onSetSecondsLeft'),
-        // grep('TRACE'),
-        // grep('queue'),
+        grep('QueuedChatHandler'),
+        grep('TRACE'),
+        grep('routeAction'),
+        grep('deleteMessage'),
+        grep('inputHandler'),
+        grep('tree.nextStateTree.state'),
+        grep('getState'),
     ])
 
     const bot = new Telegraf(token)

@@ -10,7 +10,7 @@ import { mylog } from "./logging"
 import { Actions, createRenderActions } from "./render-actions"
 import { RenderedElement } from "./rendered-messages"
 import { ElementsTree, TreeState } from "./tree"
-import { AppReqs, GetAllBasics } from "./types-util"
+import { AppActions, AppReqs, GetAllBasics } from "./types-util"
 import { draftToInputHandler, renderActions, renderedElementsToActionHandler } from "./ui"
 
 export interface ChatHandler<R> {
@@ -57,6 +57,8 @@ class IncomingEvent<R> {
 
 export class QueuedChatHandler<R> implements ChatHandler2<R> {
     incomingQueue: IncomingItem[] = []
+    eventQueue: IncomingEvent<any>[] = []
+
     busy = false
 
     _chat: ChatHandler<R>
@@ -73,9 +75,9 @@ export class QueuedChatHandler<R> implements ChatHandler2<R> {
 
             this.incomingQueue.push(item)
         } else {
-            mylog(`processing ${item.kind}`);
+            mylog(`processing ${item.kind}  ${item.ctx.message?.message_id}`);
             await this.processItem(item)
-            mylog(`done ${item.kind}`);
+            mylog(`done ${item.kind} ${item.ctx.message?.message_id}`);
 
             mylog(`queue has ${this.incomingQueue.length} elements ${this.incomingQueue.map(_ => _.kind).join()}`)
 
@@ -108,14 +110,17 @@ export class QueuedChatHandler<R> implements ChatHandler2<R> {
     }
 
     async handleAction(ctx: TelegrafContext) {
+        mylog(`handleAction: ${ctx.message?.message_id}`)
         await this.push(new IncomingAction(ctx))
     }
 
     async handleMessage(ctx: TelegrafContext) {
+        mylog(`handleMessage: ${ctx.message?.message_id}`)
         await this.push(new IncomingMessage(ctx))
     }
 
     async handleEvent<R>(ctx: TelegrafContext, data: string, d?: R) {
+        mylog(`handleEvent: ${ctx.message?.message_id}`)
         await this.push(new IncomingEvent<R>(ctx, data, d))
     }
 }
@@ -197,7 +202,9 @@ export const createChatHandlerFactory = <R, H>(app: Application<ChatState<R, H>,
             },
             handleMessage: async (self, ctx) => {
                 mylog(`QueuedChatHandler.chat: ${ctx.message?.text} ${ctx.message?.message_id}`);
-                return app.handleMessage(ctx, renderer, t, self.chatdata)
+                const res = await app.handleMessage(ctx, renderer, t, self.chatdata)
+                mylog(`QueuedChatHandler.chat done ${ctx.message?.message_id} ${JSON.stringify(res)}`)
+                return res
             },
             handleEvent: async (self, ctx: TelegrafContext, typ: string, f) => {
                 mylog(`handleEvent: ${typ} ${f}`);
@@ -206,10 +213,10 @@ export const createChatHandlerFactory = <R, H>(app: Application<ChatState<R, H>,
                     const [{ draft, treeState, inputHandler }, render] =
                         app.renderFunc(f ? f(self.chatdata) : self.chatdata)
 
-                    self.setChatData(self, {
-                        ...self.chatdata,
-                        treeState, inputHandler
-                    })
+                    // self.setChatData(self, {
+                    //     ...self.chatdata,
+                    //     treeState, inputHandler
+                    // })
 
                     await render(renderer).then(
                         d => self.setChatData(self, d)
@@ -217,7 +224,9 @@ export const createChatHandlerFactory = <R, H>(app: Application<ChatState<R, H>,
                 }
             },
             setChatData: (self, d) => {
+                mylog(self.chatdata.treeState.nextStateTree?.state)
                 self.chatdata = d
+                mylog(self.chatdata.treeState.nextStateTree?.state)
             }
         }))
 
@@ -251,7 +260,7 @@ export const genericRenderFunction = <
     Els extends GetAllBasics<RootComponent>,
     Ctx,
     Rdr extends RenderDraft,
-    HandlerReturn
+    HandlerReturn extends AppActions<RootComponent>
 >
     (
         app: (props: Props) => RootComponent,

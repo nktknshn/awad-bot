@@ -1,5 +1,7 @@
-import { ButtonElement, WithContext } from "../lib/elements";
+import { ButtonElement, InputHandlerElement, WithContext } from "../lib/elements";
 import { Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp } from "./component";
+import { InputHandler } from "./draft";
+import { Matcher2 } from "./input";
 
 
 export type GetCompGenerator<T> =
@@ -60,3 +62,5 @@ F extends (...args: infer ARGS) => infer R1
 ? (...args: [...ARGS, C]) => R1 : never
 
 export type GetAllButtons<T> = GetAllBasics<T> extends infer B ? B extends ButtonElement<infer R> ? R : never : never
+export type GetAllInputHandlers<T> = GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R extends Matcher2<infer G> ? G : never : never : never
+export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlers<T>

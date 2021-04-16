@@ -3,6 +3,8 @@ import { TelegrafContext } from 'telegraf/typings/context';
 import { ChatHandler2, ChatState } from './chathandler';
 import { ChatRenderer } from './chatrenderer';
 import { InputHandlerElement } from "./elements";
+import { ChatAction } from './handler';
+import { mylog } from './logging';
 import { InputHandlerData } from "./messages";
 
 // interface ActionF<S> {
@@ -43,7 +45,7 @@ export function inputHandlerF<S>(
                         default: return res.value;
                     }
             }
-            return  next ? next() : undefined;
+            return next ? next() : undefined;
         }
     );
 }
@@ -71,11 +73,11 @@ export function buttonF<S>(
 
 export class InputHandlerF<S> {
     kind: 'InputHandlerF' = 'InputHandlerF'
-    constructor(public readonly  element: InputHandlerElementF<S>) {}
+    constructor(public readonly element: InputHandlerElementF<S>) { }
 }
 
-export const defaultHF =  <R extends 
-{inputHandlerF?: (ctx: TelegrafContext) => O.Option<(s: T) => T>}, T, H>(messageId: number) => {
+export const defaultHF = <R extends
+    { inputHandlerF?: (ctx: TelegrafContext) => O.Option<(s: T) => T> }, T, H>(messageId: number) => {
     return async function def(
         ctx: TelegrafContext,
         renderer: ChatRenderer,
@@ -85,10 +87,77 @@ export const defaultHF =  <R extends
         // if (chatdata.inputHandler(ctx))
         //     await renderer.delete(messageId)
 
-        if(chatdata.inputHandlerF)
+        if (chatdata.inputHandlerF)
             return chatdata.inputHandlerF(ctx)
         // mylog("defaultH");
-        
+
         // await chat.handleEvent(ctx, "updated")
     }
+}
+
+
+export type HandlerAction<A, R, H, T> = (a: A) => ChatAction<R, H, T>
+
+export const deleteMessage = <R, H>(messageId: number): ChatAction<R, H, (H | undefined)> => {
+    return async function (
+        ctx, renderer, chat, chatdata
+    ) {
+        if (!chatdata.inputHandler)
+            return
+
+        mylog(`TRACE chatdata.inputHandler ${ctx.message?.message_id}`)
+
+        const cs = chatdata.inputHandler(ctx)
+        mylog(`deleteMessage ${ctx.message?.message_id}`)
+
+        await renderer.delete(messageId)
+        mylog(`TRACE removed ${ctx.message?.message_id}`)
+
+
+        if (!cs)
+            return
+
+        return cs
+        // // @ts-ignore TS2345
+        // return Promise.all(
+        //     actionToStateAction(cs).map(a => chat.handleEvent(ctx, "updated", a))
+        // ).then(_ => { })
+    }
+}
+export type StateAction<S> = (s: S) => S
+
+export const routeAction = <R, H>(mf: (a: H) => StateAction<ChatState<R, H>>[])
+    : HandlerAction<H | undefined, R, H, void> =>
+    (a): ChatAction<R, H, void> => {
+        return async function (
+            ctx, renderer, chat, chatdata
+        ) {
+            mylog(`routeAction ${ctx.message?.message_id}`)
+
+            if (!a)
+                return
+
+            return await Promise.all(
+                mf(a).map(a => chat.handleEvent(ctx, "updated", a))
+            ).then(_ => { })
+
+            // // @ts-ignore TS2345
+            // return Promise.all(
+            //     actionToStateAction(cs).map(a => chat.handleEvent(ctx, "updated", a))
+            // ).then(_ => { })
+        }
+    }
+
+export const connect = <A1, R, H, T1, T2>(
+    h1: HandlerAction<A1, R, H, T1>,
+    h2: HandlerAction<T1, R, H, T2>,
+): HandlerAction<A1, R, H, T2> => {
+
+    return (a: A1) =>
+        async (ctx, render, chat, aa) => {
+            const r = await h1(a)(ctx, render, chat, aa)
+            mylog(`TRACE connect ${r}`)
+            return await h2(r)(ctx, render, chat, aa)
+        }
+
 }

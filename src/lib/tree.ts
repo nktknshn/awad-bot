@@ -312,18 +312,28 @@ export function componentToComponentTree<R>(
                     index = [...index]
                     index.shift()
                     if (index.length == 0) {
-                        return ({
-                            ...tree,
-                            nextStateTree: {
-                                ...tree.nextStateTree,
-                                state: {
-                                    ...tree.nextStateTree.state,
-                                    value: ({ ...tree.nextStateTree?.state.value, ...updates })
-                                }
-                            }
-                        })
+                        mylog("tree.nextStateTree.state.value ", tree.nextStateTree.state.value)
+                        mylog("updates ", updates)
+                        for(const k of Object.keys(updates!)) {
+                            (tree.nextStateTree.state.value as any)[k] = (updates! as any)[k]
+                        }
+                        mylog("tree.nextStateTree.state.value ", tree.nextStateTree.state.value)
+
+                        // tree.nextStateTree.state.value = { ...tree.nextStateTree.state.value, ...updates }
+                        return tree
+                        // return ({
+                        //     ...tree,
+                        //     nextStateTree: {
+                        //         ...tree.nextStateTree,
+                        //         state: {
+                        //             ...tree.nextStateTree.state,
+                        //             value: { ...tree.nextStateTree.state.value, ...updates }
+                        //         }
+                        //     }
+                        // })
                     }
                     else {
+                        mylog("nextStateTree ", updates)
                         let s = tree.nextStateTree;
                         for(const idx of index) {
                             s = s.children[idx]
