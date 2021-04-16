@@ -1,4 +1,7 @@
 import * as O from 'fp-ts/lib/Option';
+import { TelegrafContext } from 'telegraf/typings/context';
+import { ChatHandler2, ChatState } from './chathandler';
+import { ChatRenderer } from './chatrenderer';
 import { InputHandlerElement } from "./elements";
 import { InputHandlerData } from "./messages";
 
@@ -6,16 +9,17 @@ interface ActionF<S> {
     (s: S): S
 }
 
-type ActionG<S> = Generator<Action<S> | ActionG<S>>
+// export type ActionG<S> = Generator<Action<S> | ActionG<S>>
 
-type Action<S> = ActionF<S> | ActionG<S>
+export type Action<S> = ActionF<S>
+//  | ActionG<S>
 
 export class InputHandlerElementF<S> {
     kind: 'InputHandlerElementF' = 'InputHandlerElementF'
     constructor(
         readonly callback: (
             input: InputHandlerData,
-            next: () => Action<S>,
+            next?: () => Action<S>,
         ) => (Action<S> | undefined)
     ) { }
 }
@@ -34,12 +38,12 @@ export function inputHandlerF<S>(
                 if (O.isSome(res))
                     switch (res.value) {
                         case 'next': continue;
-                        case 'done': return next();
+                        case 'done': return next ? next() : undefined;
                         case undefined: return;
                         default: return res.value;
                     }
             }
-            return next();
+            return  next ? next() : undefined;
         }
     );
 }
@@ -68,4 +72,23 @@ export function buttonF<S>(
 export class InputHandlerF<S> {
     kind: 'InputHandlerF' = 'InputHandlerF'
     constructor(public readonly  element: InputHandlerElementF<S>) {}
+}
+
+export const defaultHF =  <R extends 
+{inputHandlerF?: (ctx: TelegrafContext) => O.Option<(s: T) => T>}, T, H>(messageId: number) => {
+    return async function def(
+        ctx: TelegrafContext,
+        renderer: ChatRenderer,
+        chat: ChatHandler2<ChatState<R, H>>,
+        chatdata: ChatState<R, H>,
+    ) {
+        // if (chatdata.inputHandler(ctx))
+        //     await renderer.delete(messageId)
+
+        if(chatdata.inputHandlerF)
+            return chatdata.inputHandlerF(ctx)
+        // mylog("defaultH");
+        
+        // await chat.handleEvent(ctx, "updated")
+    }
 }

@@ -30,7 +30,7 @@ export type BasicElement =
     TextElement 
     | TextPartElement 
     | NextMessageElement 
-    | ButtonElement 
+    | ButtonElement<any>
     | ButtonsRowElement 
     | InputHandlerElement
     | RequestLocationButtonElement 
@@ -105,12 +105,12 @@ const buttonElementApply = (b: ButtonElement) => (d: RenderDraft) => {
     }
 }
 
-export class ButtonElement {
+export class ButtonElement<R = Promise<void>> {
     kind: 'ButtonElement' = 'ButtonElement'
     constructor(
         readonly text: string,
         readonly data?: string,
-        readonly callback?: () => Promise<void>,
+        readonly callback?: () => R,
     ) { }
     
     // public addContext<C>(ctx: C) {

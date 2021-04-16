@@ -17,6 +17,7 @@ import { defaultHandler, handlerChain, or, startHandler, withContextOpt } from "
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input"
 import { initLogging, mylog } from './lib/logging'
 import { createStore } from "./lib/store2"
+import { draftToInputHandler } from './lib/ui'
 import { token } from "./telegram-token.json"
 
 type Item = string | PhotoSize
@@ -163,9 +164,8 @@ function createApp() {
 
     const chatState = () => {
         return {
-            ...emptyChatState(),
+            ...emptyChatState<{}, Promise<boolean>>(),
             ...createBotStore()
-            // ...createBotStoreF()
         }
     }
 
@@ -174,7 +174,8 @@ function createApp() {
         renderFunc: genericRenderFunction(
             App, { password: 'a' },
             d => ({ dispatcher: d.dispatcher, ...d.store.state }),
-            createDraftWithImages
+            createDraftWithImages,
+            draftToInputHandler
         ),
         init: async (ctx, renderer, chat, chatdata) => {
             chatdata.store.subscribe(() => chat.handleEvent(ctx, "updated"))

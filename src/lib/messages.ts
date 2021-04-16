@@ -10,7 +10,7 @@ export class OutcomingTextMessage {
     kind: 'TextMessage' = 'TextMessage'
     constructor(
         readonly text?: string,
-        readonly buttons: ButtonElement[][] = [],
+        readonly buttons: ButtonElement<any>[][] = [],
         readonly keyboardButtons: (RequestLocationButtonElement | KeyboardElement)[] = [],
         readonly isComplete = false
     ) { }
@@ -30,6 +30,16 @@ export class OutcomingTextMessage {
             this.buttons,
             this.keyboardButtons
         )
+    }
+
+    callback2<R>(data: string): R  | undefined {
+        const button = flattenList(this.buttons).find(
+            btn => (btn.data ?? btn.text) == data
+        )
+
+        if (button && button.callback) {
+            return button.callback()
+        }
     }
 
     async callback(data: string): Promise<boolean> {

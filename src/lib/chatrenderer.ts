@@ -164,7 +164,7 @@ import { send } from "node:process";
 import { mylog } from "./logging";
 
 
-export function saveMessageHandler(registrar: Tracker) {
+export function saveMessageHandler<R, H>(registrar: Tracker) {
     return function (
         c: ContextOpt
     ) {
@@ -174,8 +174,8 @@ export function saveMessageHandler(registrar: Tracker) {
             .return(({ chatId, messageId }) =>
                 (ctx: TelegrafContext,
                     renderer: ChatRenderer,
-                    chat: ChatHandler2<ChatState>,
-                    chatdata: ChatState
+                    chat: ChatHandler2<ChatState<R, H>>,
+                    chatdata: ChatState<R, H>
                 ) => registrar.addRenderedMessage(chatId, messageId)
             )
 

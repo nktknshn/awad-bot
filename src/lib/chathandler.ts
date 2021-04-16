@@ -1,3 +1,4 @@
+import { identity } from "fp-ts/lib/function"
 import { Store } from "redux"
 import { TelegrafContext } from "telegraf/typings/context"
 import { ChatRenderer, createChatRenderer } from "./chatrenderer"
@@ -6,7 +7,7 @@ import { ComponentElement } from "./component"
 import { defaultCreateDraft, RenderDraft } from "./elements-to-messages"
 import { defaultH, defaultHandleAction, defaultHandler } from "./handler"
 import { mylog } from "./logging"
-import { createRenderActions } from "./render-actions"
+import { Actions, createRenderActions } from "./render-actions"
 import { RenderedElement } from "./rendered-messages"
 import { ElementsTree, TreeState } from "./tree"
 import { AppReqs, GetAllBasics } from "./types-util"
@@ -119,30 +120,30 @@ export class QueuedChatHandler<R> implements ChatHandler2<R> {
 }
 
 
-export type ChatState<R = {}> = {
+export type ChatState<R, H> = {
     treeState: TreeState,
     renderedElements: RenderedElement[],
-    inputHandler: (ctx: TelegrafContext) => Promise<void | boolean>,
-    actionHandler: (ctx: TelegrafContext) => Promise<void>
+    inputHandler?: (ctx: TelegrafContext) => H,
+    actionHandler?: (ctx: TelegrafContext) => H
 } & R
 
-export const emptyChatState = (): ChatState => ({
+export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
     treeState: {},
     renderedElements: [],
-    inputHandler: async function () { },
-    actionHandler: async function () { },
+    // inputHandler: function (a) { return identity },
+    // actionHandler: function (a) { return identity },
 })
 
 
-export interface Application<C = ChatState> {
+export interface Application<C, H> {
     renderer?: (ctx: TelegrafContext) => ChatRenderer,
     renderFunc: (s: C) => readonly [{
         draft: RenderDraft,
         treeState: TreeState,
-        inputHandler: (ctx: TelegrafContext) => Promise<any>
+        inputHandler: (ctx: TelegrafContext) => H
     }, (renderer: ChatRenderer) => Promise<C>],
     init?: (ctx: TelegrafContext, renderer: ChatRenderer, chat: ChatHandler2<C>, chatdata: C) => Promise<any>,
-    handleMessage?: (
+    handleMessage: (
         ctx: TelegrafContext,
         renderer: ChatRenderer,
         chat: ChatHandler2<C>,
@@ -157,19 +158,20 @@ export interface Application<C = ChatState> {
     chatData: () => C
 }
 
-export function getApp<R>(app: Application<ChatState<R>>): Application<ChatState<R>> {
+export function getApp<R, H>(app: Application<ChatState<R, H>, H>): Application<ChatState<R, H>, H> {
     return app
 }
 
-export const createChatHandlerFactory = <R>(app: Application<ChatState<R>>)
-    : ChatHandlerFactory<ChatHandler2<ChatState<R>>, ChatState<R>> =>
+export const createChatHandlerFactory = <R, H>(app: Application<ChatState<R, H>, H>)
+    : ChatHandlerFactory<ChatHandler2<ChatState<R, H>>, ChatState<R, H>> =>
     async ctx => {
         mylog("createChatHandlerFactory");
 
         const renderer = (app.renderer ?? createChatRenderer)(ctx)
 
-        const onStateUpdated = (chatState: ChatState<R>) => (src: string) => async () => {
+        const onStateUpdated = (chatState: ChatState<R, H>) => (src: string) => async () => {
             mylog(`onStateUpdated by ${src}`);
+            // mylog(chatState);
             const [{ draft, treeState }, render] = app.renderFunc(chatState)
 
             for (const e of draft.effects) {
@@ -182,17 +184,17 @@ export const createChatHandlerFactory = <R>(app: Application<ChatState<R>>)
         // const chatdata = app.chatData ? app.chatData() : emptyChatState()
         const chatdata = app.chatData()
 
-        const chat = new QueuedChatHandler<ChatState<R>>(t => ({
+        const chat = new QueuedChatHandler<ChatState<R, H>>(t => ({
             chatdata,
             handleAction: async (self, ctx) => {
                 return (app.handleAction ?? defaultHandleAction)(ctx, renderer, t, self.chatdata)
             },
             handleMessage: async (self, ctx) => {
                 mylog(`QueuedChatHandler.chat: ${ctx.message?.text} ${ctx.message?.message_id}`);
-                return (app.handleMessage ?? defaultH(ctx.message?.message_id!))(ctx, renderer, t, self.chatdata)
+                return app.handleMessage(ctx, renderer, t, self.chatdata)
             },
             handleEvent: async (self, ctx: TelegrafContext, typ: string, f) => {
-                mylog(`handleEvent: ${typ}`);
+                mylog(`handleEvent: ${typ} ${f}`);
 
                 if (typ == 'updated') {
                     self.chatdata = await onStateUpdated(f ? f(self.chatdata) : self.chatdata)("handleEvent")()
@@ -200,52 +202,80 @@ export const createChatHandlerFactory = <R>(app: Application<ChatState<R>>)
             }
         }))
 
-        app.init && await app.init(ctx, renderer, chat, chatdata)
-
         const [{ inputHandler, treeState }, _] = app.renderFunc(chatdata)
         chatdata.inputHandler = inputHandler
         chatdata.treeState = treeState
+
+        app.init && await app.init(ctx, renderer, chat, chatdata)
 
         return chat
     }
 
 
+interface InputHandlerF<R> {
+    (ctx: TelegrafContext): R
+}
+
+interface RenderScheme<
+    RootComponent extends ComponentElement,
+    RootReqs extends AppReqs<RootComponent>,
+    Els extends GetAllBasics<RootComponent>,
+    Rdr extends RenderDraft,
+    HandlerReturn
+    > {
+    createDraft: (els: Els[]) => Rdr,
+    getInputHandler: (draft: Rdr) => InputHandlerF<HandlerReturn>,
+
+}
+
+
 export const genericRenderFunction = <
-    P, C extends ComponentElement, S extends AppReqs<C>, Els extends GetAllBasics<C>, Ctx
+    Props,
+    RootComponent extends ComponentElement,
+    ContextReqs extends AppReqs<RootComponent>,
+    Els extends GetAllBasics<RootComponent>,
+    Ctx,
+    Rdr extends RenderDraft,
+    HandlerReturn
 >
     (
-        app: (props: P) => C,
-        props: P,
-        gc: (c: Ctx) => S,
-        createDraft: ((els: Els[]) => RenderDraft)
+        app: (props: Props) => RootComponent,
+        props: Props,
+        gc: (c: Ctx) => ContextReqs,
+        createDraft: ((els: Els[]) => Rdr),
+        draftToInputHandler: (draft: Rdr) => InputHandlerF<HandlerReturn>
     ) =>
-    (chatState: ChatState<Ctx>): readonly [{
-        draft: RenderDraft,
+    (chatState: ChatState<Ctx, HandlerReturn>): readonly [{
+        draft: Rdr,
         treeState: TreeState,
-        inputHandler: (ctx: TelegrafContext) => Promise<any>
-    }, (renderer: ChatRenderer) => Promise<ChatState<Ctx>>] => {
+        inputHandler: InputHandlerF<HandlerReturn>,
+        actions: Actions[]
+    }, (renderer: ChatRenderer) => Promise<ChatState<Ctx, HandlerReturn>>] => {
 
-        const [els, treeState] = ElementsTree.createElements(app, (gc)(chatState), props, chatState.treeState)
+        const [els, treeState] = ElementsTree.createElements(app, gc(chatState), props, chatState.treeState)
 
         const draft = createDraft(els)
         const inputHandler = draftToInputHandler(draft)
+        const actions = createRenderActions(chatState.renderedElements, draft.messages)
 
-        return [{ draft, treeState, inputHandler }, async (renderer: ChatRenderer): Promise<ChatState<Ctx>> => {
-            const actions = createRenderActions(chatState.renderedElements, draft.messages)
-            const renderedElements = await renderActions(renderer, actions)
-            const actionHandler = renderedElementsToActionHandler(renderedElements)
+        return [
+            { draft, treeState, inputHandler, actions },
+            async (renderer: ChatRenderer): Promise<ChatState<Ctx, HandlerReturn>> => {
+                const renderedElements = await renderActions(renderer, actions)
+                const actionHandler = renderedElementsToActionHandler(renderedElements)
 
-            mylog("renderedElements");
-            mylog(JSON.stringify(renderedElements));
+                mylog("renderedElements");
+                mylog(JSON.stringify(renderedElements));
 
-            return {
-                ...chatState,
-                treeState,
-                inputHandler,
-                actionHandler,
-                renderedElements
+                return {
+                    ...chatState,
+                    treeState,
+                    inputHandler,
+                    actionHandler,
+                    renderedElements
+                }
             }
-        }] as const
+        ] as const
     }
 
 export const storeWithDispatcher = <S extends Store, D>(store: S, storeToDispatch: (s: S) => D) => {

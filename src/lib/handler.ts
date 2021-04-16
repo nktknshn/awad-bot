@@ -8,22 +8,28 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { ChatHandler2, ChatState } from "../lib/chathandler";
 import { ChatRenderer } from "../lib/chatrenderer";
 import { deleteAll } from "../lib/ui";
+import { RenderedElement } from './rendered-messages';
 
+export const findRepliedTo = (r: RenderedElement[]) => (repliedTo: number) => r.find(_ => Array.isArray(_.output)
+    ? _.output.map(_ => _.message_id).find((_ => _ == repliedTo))
+    : _.output.message_id == repliedTo)
 
 export const contextOpt = flow(
     (ctx: TelegrafContext) => ({
         chatId: O.fromNullable(ctx.chat?.id),
         messageId: O.fromNullable(ctx.message?.message_id),
-        messageText: O.fromNullable(ctx.message?.text)
+        messageText: O.fromNullable(ctx.message?.text),
+        action: O.fromNullable(ctx.match ? ctx.match[0] : undefined),
+        repliedTo: O.fromNullable(ctx.callbackQuery?.message?.message_id),
     }))
 
 export type ContextOpt = ReturnType<typeof contextOpt>
 
-export async function deleteTem(
+export async function deleteTem<R, H>(
     ctx: TelegrafContext,
     renderer: ChatRenderer,
-    chat: ChatHandler2<ChatState>,
-    chatdata: ChatState,
+    chat: ChatHandler2<ChatState<R, H>>,
+    chatdata: ChatState<R, H>,
 ) {
     await deleteAll(renderer, chatdata.renderedElements)
     await chat.handleEvent(ctx, "updated",
@@ -31,15 +37,18 @@ export async function deleteTem(
     )
 }
 
+export type ChatAction<R, H> = (ctx: TelegrafContext,
+    renderer: ChatRenderer,
+    chat: ChatHandler2<ChatState<R, H>>,
+    chatdata: ChatState<R, H>) => Promise<void>
 
-export function startHandler(c: ContextOpt) {
+export function startHandler<R, H>(c: ContextOpt) {
     return pipe(
         c.messageText,
         O.filter(m => m == '/start'),
-        O.map(() => deleteTem)
+        O.map((): ChatAction<R, H> => deleteTem)
     )
 }
-
 
 export function defaultHandler(c: ContextOpt) {
     return pipe(
@@ -52,37 +61,35 @@ export function defaultHandler(c: ContextOpt) {
 }
 
 
-export const defaultH =  <R>(messageId: number) => {
+export const defaultH = <R>(messageId: number): ChatAction<R, Promise<boolean>> => {
     return async function def(
-        ctx: TelegrafContext,
-        renderer: ChatRenderer,
-        chat: ChatHandler2<ChatState<R>>,
-        chatdata: ChatState<R>,
+        ctx, renderer, chat, chatdata
     ) {
-        // if (chatdata.inputHandler(ctx))
-        //     await renderer.delete(messageId)
+        if (!chatdata.inputHandler)
+            return
+        if (await chatdata.inputHandler(ctx))
+            await renderer.delete(messageId)
 
-        return chatdata.inputHandler(ctx)
-        // mylog("defaultH");
-        
-        // await chat.handleEvent(ctx, "updated")
+        console.log("defaultH");
+
+        await chat.handleEvent(ctx, "updated")
     }
 }
 
-export type FuncF = (
+export type FuncF<R, H> = (
     ctx: TelegrafContext,
     renderer: ChatRenderer,
-    chat: ChatHandler2<ChatState>,
-    chatdata: ChatState
+    chat: ChatHandler2<ChatState<R, H>>,
+    chatdata: ChatState<R, H>
 ) => Promise<any>
 
 
-export const handlerChain = <C>(chain: ((a: C) => O.Option<FuncF>)[]) => {
+export const handlerChain = <C, R, H>(chain: ((a: C) => O.Option<FuncF<R, H>>)[]) => {
     return (a: C) =>
         (ctx: TelegrafContext,
             renderer: ChatRenderer,
-            chat: ChatHandler2<ChatState>,
-            chatdata: ChatState
+            chat: ChatHandler2<ChatState<R, H>>,
+            chatdata: ChatState<R, H>
         ) =>
             Promise.all(pipe(
                 chain,
@@ -95,23 +102,26 @@ export const handlerChain = <C>(chain: ((a: C) => O.Option<FuncF>)[]) => {
             ))
 }
 
-export const or = <C>(a: (a: C) => O.Option<FuncF>, b:  (a: C) => O.Option<FuncF>) => (c: C) =>  pipe(a(c), O.alt(() => b(c)))
+export const or = <C, R, H>(a: (a: C) => O.Option<FuncF<R, H>>, b: (a: C) => O.Option<FuncF<R, H>>) => (c: C) => pipe(a(c), O.alt(() => b(c)))
 
-export const withContextOpt = <R>(f: (ctxOpt: ContextOpt) => FuncF): FuncF => {
+export const withContextOpt = <R, H>(f: (ctxOpt: ContextOpt) => FuncF<R, H>): FuncF<R, H> => {
 
     return async function (ctx: TelegrafContext,
         renderer: ChatRenderer,
-        chat: ChatHandler2<ChatState>,
-        chatdata: ChatState) {
+        chat: ChatHandler2<ChatState<R, H>>,
+        chatdata: ChatState<R, H>) {
         return f(contextOpt(ctx))(ctx, renderer, chat, chatdata)
 
     }
 }
 
-export async function defaultHandleAction<R>(ctx: TelegrafContext,
+export async function defaultHandleAction<R, H>(ctx: TelegrafContext,
     renderer: ChatRenderer,
-    chat: ChatHandler2<ChatState<R>>,
-    chatdata: ChatState<R>) {
+    chat: ChatHandler2<ChatState<R, H>>,
+    chatdata: ChatState<R, H>) {
+
+    if (!chatdata.actionHandler)
+        return
     await chatdata.actionHandler(ctx)
     await chat.handleEvent(ctx, "updated")
 }

@@ -47,9 +47,9 @@ export function locationButton(text: string) {
     return new RequestLocationButtonElement(text)
 }
 
-export function button(
+export function button<R>(
     text: (string | [string, string]),
-    callback: () => Promise<void>
+    callback: () => R
 ) {
 
     let [buttonText, data] = Array.isArray(text) ? text : [text, text]

@@ -5,7 +5,6 @@ import { KeyboardElement, BasicElement, isAppliable } from "./elements"
 import { OutcomingFileMessage, InputHandler, ActionsHandler, Effect } from './draft'
 import { OutcomingPhotoGroupMessage } from '../bot3/mediagroup'
 import { mylog } from './logging'
-import { InputHandlerF } from './handlerF'
 
 export type OutcomingMessageType = (OutcomingTextMessage | OutcomingFileMessage) | OutcomingPhotoGroupMessage
 
@@ -16,9 +15,7 @@ export type RenderDraft = {
     handlers: HandlerType[],
     effects: Effect[],
     keyboards: KeyboardElement[],
-    inputHandlers: InputHandler[],
-    inputHandlersF: InputHandlerF<any>[]
-
+    inputHandlers: InputHandler[]
 }
 
 // export type RenderDraft = MessagesAndHandlers
@@ -28,8 +25,7 @@ export const emptyDraft = (): RenderDraft => ({
     handlers: [],
     effects: [],
     keyboards: [],
-    inputHandlers: [],
-    inputHandlersF: [],
+    inputHandlers: []
 })
 
 export const defaultCreateDraft = (elements: BasicElement[], d?: RenderDraft): RenderDraft => {
