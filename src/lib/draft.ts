@@ -1,4 +1,7 @@
-import { EffectElement, FileElement, InputHandlerElement } from "./elements"
+import { mediaGroup, PhotoGroupElement } from "../bot3/mediagroup"
+import { BasicElement, EffectElement, FileElement, InputHandlerElement } from "./elements"
+import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./elements-to-messages"
+import { InputHandlerElementF, InputHandlerF } from "./handlerF"
 
 export class InputHandler<R> {
     kind: 'InputHandler' = 'InputHandler'
@@ -18,4 +21,29 @@ export class Effect<R> {
     kind: 'Effect' = 'Effect'
     constructor(public readonly  element: EffectElement<R>) {}
 
+}
+
+export function createDraftWithImages<AppAction extends any>(
+    elements: (BasicElement | PhotoGroupElement | InputHandlerElementF<AppAction>)[]
+): RenderDraft & { inputHandlersF: InputHandlerF<AppAction>[] } {
+    const draft = emptyDraft()
+    const inputHandlersF: InputHandlerF<AppAction>[] = []
+
+    function handle(compel: BasicElement | PhotoGroupElement | InputHandlerElementF<AppAction>) {
+        if (compel.kind === 'PhotoGroupElement') {
+            mediaGroup.appendDraft(draft, compel)
+        }
+        else if (compel.kind === 'InputHandlerElementF') {
+            inputHandlersF.push(new InputHandlerF(compel))
+        }
+        else {
+            elementsToMessagesAndHandlers(compel, draft)
+        }
+    }
+
+    for (const compel of elements) {
+        handle(compel)
+    }
+
+    return { ...draft, inputHandlersF }
 }

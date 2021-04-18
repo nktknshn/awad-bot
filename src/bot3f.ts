@@ -5,22 +5,19 @@ import { StackFrame } from 'stacktrace-js';
 import Telegraf from "telegraf";
 import { TelegrafContext } from "telegraf/typings/context";
 import { PhotoSize } from "telegraf/typings/telegram-types";
-import { mediaGroup, PhotoGroupElement, photos } from './bot3/mediagroup';
-import { parseFromContext } from './lib/bot-util';
+import { photos } from './bot3/mediagroup';
 import { ChatState, createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler";
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
-import { InputHandler } from './lib/draft';
-import { BasicElement, GetSetState, LocalStateAction } from "./lib/elements";
+import { createDraftWithImages } from './lib/draft';
+import { GetSetState } from "./lib/elements";
 import { button, message } from "./lib/elements-constructors";
-import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./lib/elements-to-messages";
-import { applyStoreAction, applyTreeAction, byMessageId, ChatAction, contextOpt, findRepliedTo, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
-import { connect, deleteMessage, InputHandlerElementF, InputHandlerF, StateAction, routeAction } from './lib/handlerF';
+import { applyStoreAction, applyTreeAction, byMessageId, getActionHandler, getInputHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
+import { connect, deleteMessage, getActions, routeAction, StateAction } from './lib/handlerF';
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { initLogging, mylog } from './lib/logging';
-import { BotMessage, RenderedElement } from './lib/rendered-messages';
 import { createStoreF, StoreAction, wrap } from './lib/store2';
-import { AppActions, GetAllButtons, GetAllInputHandlers } from './lib/types-util';
+import { AppActions } from './lib/types-util';
 import { token } from "./telegram-token.json";
 
 
@@ -77,39 +74,29 @@ const App = connected4(
         { isVisible, stringCandidate, dispatcher: { onSetVisible, onAddItem, setStringCandidate } },
         { password }: { password: string },
         { getState, setStateF }: GetSetState<{
-            photoCandidates?: PhotoSize[]
+            photoCandidates: PhotoSize[]
         }>
     ) {
+        mylog('App');
+
+        const { photoCandidates } = getState({ photoCandidates: [] })
+
+        const resetPhotos = setStateF(({ photoCandidates }) => ({ photoCandidates: [] }))
+        const addPhoto = (photo: PhotoSize[]) =>
+            setStateF(({ photoCandidates }) => ({ photoCandidates: [...photoCandidates ?? [], photo[0]] }))
 
         yield inputHandler([
             on(casePassword(password), action(() => onSetVisible(true))),
             on(caseText, action(text => setStringCandidate(text))),
-            on(casePhoto, action(photo => {
-
-                const { photoCandidates } = getState({})
-
-                mylog('inputHandler');
-                // mylog({ photo });
-                mylog({ photoCandidates });
-
-                return setStateF({ photoCandidates: [...photoCandidates ?? [], photo[0]] })
-            }))]
+            on(casePhoto, action(addPhoto))]
         )
-
-        const { photoCandidates } = getState({})
-        mylog('App');
-        mylog({ photoCandidates });
 
         if (isVisible) {
             yield VisibleSecrets({})
         }
 
         if (stringCandidate) {
-            const addItem = () => [
-                onAddItem(stringCandidate),
-                setStringCandidate(undefined)
-            ]
-
+            const addItem = () => [onAddItem(stringCandidate), setStringCandidate(undefined)]
             const rejectItem = () => setStringCandidate(undefined)
 
             if (!isVisible) {
@@ -121,20 +108,10 @@ const App = connected4(
                 // yield effect(addItem)
             }
         }
-        else if (photoCandidates) {
+        else if (photoCandidates.length) {
 
-            const addItem = () => {
-                const { photoCandidates } = getState({})
-                mylog('addItem addItem');
-                mylog({ photoCandidates });
-
-                return [
-                    onAddItem(photoCandidates!),
-                    setStateF({ photoCandidates: undefined }),
-                ]
-            }
-
-            const rejectItem = () => setStateF({ photoCandidates: undefined })
+            const addItem = () => [onAddItem(photoCandidates), resetPhotos]
+            const rejectItem = () => resetPhotos
 
             if (!isVisible) {
                 yield message(`Add?`)
@@ -155,69 +132,12 @@ const App = connected4(
 )
 
 
-function createDraftWithImages<AppAction extends any>(
-    elements: (BasicElement | PhotoGroupElement | InputHandlerElementF<AppAction>)[]
-): RenderDraft & { inputHandlersF: InputHandlerF<AppAction>[] } {
-    const draft = emptyDraft()
-    const inputHandlersF: InputHandlerF<AppAction>[] = []
-
-    function handle(compel: BasicElement | PhotoGroupElement | InputHandlerElementF<AppAction>) {
-        if (compel.kind === 'PhotoGroupElement') {
-            mediaGroup.appendDraft(draft, compel)
-        }
-        else if (compel.kind === 'InputHandlerElementF') {
-            inputHandlersF.push(new InputHandlerF(compel))
-        }
-        else {
-            elementsToMessagesAndHandlers(compel, draft)
-        }
-    }
-
-    for (const compel of elements) {
-        handle(compel)
-    }
-
-    return { ...draft, inputHandlersF }
-}
-
-
-const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext) => {
-    const d = parseFromContext(ctx)
-    mylog(`TRACE ${ctx.message?.message_id}`)
-    return h.element.callback(d, () => { return undefined })
-}
-
-function getInputHandler(d: RenderDraft) {
-    return inputHandlerFHandler(d.inputHandlers[0])
-}
-
-const getActionHandler = <A>(rs: RenderedElement[]) => {
-    return function (ctx: TelegrafContext): A | undefined {
-        const { action, repliedTo } = contextOpt(ctx)
-        const p = pipe(
-            repliedTo
-            , O.map(findRepliedTo(rs))
-            , O.chain(O.fromNullable)
-            , O.filter((callbackTo): callbackTo is BotMessage => callbackTo.kind === 'BotMessage')
-            , O.chain(callbackTo => pipe(action, O.map(action => ({ action, callbackTo }))))
-            , O.chainNullableK(({ callbackTo, action }) => callbackTo.input.callback2<A>(action))
-            // , O.map(applyStoreAction)
-        )
-
-        mylog("getActionHandler")
-        mylog(p)
-
-        if (O.isSome(p)) {
-            return p.value
-        }
-    }
-}
 
 function createApp() {
     type MyState = ReturnType<typeof createBotStoreF>
+    type AppAction = AppActions<ReturnType<typeof App>>
     type AppChatState = ChatState<MyState, AppAction>
     type AppStoreAction = StoreAction<State, State>
-    type AppAction = AppActions<ReturnType<typeof App>>
     type AppStateAction = StateAction<AppChatState>
 
     const chatState = (): AppChatState => {
@@ -228,20 +148,15 @@ function createApp() {
     }
 
     function actionToStateAction(a: AppAction): AppStateAction[] {
-        if (Array.isArray(a)) {
+        if (Array.isArray(a))
             return A.flatten(a.map(actionToStateAction))
-        }
-        // @ts-ignore
         else if (a.kind === 'store-action')
-            // @ts-ignore
             return [applyStoreAction(a)]
-        // @ts-ignore
-        else
-            // @ts-ignore
+        else if (a.kind === 'localstate-action')
             return [applyTreeAction(a)]
-    }
 
-    // routeAction(actionToStateAction)
+        return a
+    }
 
     return getApp({
         chatData: chatState,
@@ -257,7 +172,10 @@ function createApp() {
         },
         handleMessage: withContextOpt(
             handlerChain([
-                or(startHandler, byMessageId(connect(deleteMessage, routeAction(actionToStateAction))))
+                or(startHandler, byMessageId(
+                    connect(deleteMessage,
+                        connect(getActions, routeAction(actionToStateAction)))
+                ))
             ])),
         handleAction: async (ctx, renderer, chat, chatdata) => {
             return await pipe(
@@ -266,9 +184,9 @@ function createApp() {
                 , O.map(actionToStateAction)
                 , O.map(A.map(a => chat.handleEvent(ctx, "updated", a)))
                 , O.map(a => {
-                    console.log(a); return Promise.all(a)
+                    return Promise.all(a)
                 })
-                , O.getOrElseW(() => async () => {})
+                , O.getOrElseW(() => async () => { })
             )
         }
     })
@@ -354,11 +272,13 @@ function createBotStoreF() {
 
 }
 
-const byfunc = (fname: string) => (fs: StackFrame[]) => fs[0].functionName ? fs[0].functionName?.indexOf(fname) > -1 : false
-
-const grep = (ss: string) => (s: string, fs: StackFrame[]) => s.indexOf(ss) > -1
 
 async function main() {
+
+    const byfunc = (fname: string) => (fs: StackFrame[]) => fs[0].functionName ? fs[0].functionName?.indexOf(fname) > -1 : false
+
+    const grep = (ss: string) => (s: string, fs: StackFrame[]) => s.indexOf(ss) > -1
+
     initLogging([
         () => true
         // byfunc('.renderActions'),

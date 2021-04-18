@@ -98,32 +98,25 @@ export const defaultHF = <R extends
 
 export type HandlerAction<A, R, H, T> = (a: A) => ChatAction<R, H, T>
 
-export const deleteMessage = <R, H>(messageId: number): ChatAction<R, H, (H | undefined)> => {
+export const deleteMessage = <R, H>(messageId: number): ChatAction<R, H, void> => {
+    return async function (
+        ctx, renderer, chat, chatdata
+    ) {
+        await renderer.delete(messageId)
+    }
+}
+
+export const getActions = <R, H>(): ChatAction<R, H, (H | undefined)> => {
     return async function (
         ctx, renderer, chat, chatdata
     ) {
         if (!chatdata.inputHandler)
             return
 
-        mylog(`TRACE chatdata.inputHandler ${ctx.message?.message_id}`)
-
-        const cs = chatdata.inputHandler(ctx)
-        mylog(`deleteMessage ${ctx.message?.message_id}`)
-
-        await renderer.delete(messageId)
-        mylog(`TRACE removed ${ctx.message?.message_id}`)
-
-
-        if (!cs)
-            return
-
-        return cs
-        // // @ts-ignore TS2345
-        // return Promise.all(
-        //     actionToStateAction(cs).map(a => chat.handleEvent(ctx, "updated", a))
-        // ).then(_ => { })
+        return chatdata.inputHandler(ctx)
     }
 }
+
 export type StateAction<S> = (s: S) => S
 
 export const routeAction = <R, H>(mf: (a: H) => StateAction<ChatState<R, H>>[])
@@ -140,11 +133,6 @@ export const routeAction = <R, H>(mf: (a: H) => StateAction<ChatState<R, H>>[])
             return await Promise.all(
                 mf(a).map(a => chat.handleEvent(ctx, "updated", a))
             ).then(_ => { })
-
-            // // @ts-ignore TS2345
-            // return Promise.all(
-            //     actionToStateAction(cs).map(a => chat.handleEvent(ctx, "updated", a))
-            // ).then(_ => { })
         }
     }
 

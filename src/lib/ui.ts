@@ -113,7 +113,26 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
                 )
         }
         else if (action.kind === 'Keep') {
-            rendered.push(action.element)
+            if (action.newElement.kind === 'TextMessage' && (
+                action.element.kind === 'BotMessage'
+            )) {
+                // UPDATE HANDLERS!
+                rendered.push(new BotMessage(
+                    action.newElement,
+                    action.element.output
+                ))
+            }
+            else if (action.newElement.kind === 'OutcomingPhotoGroupMessage' && (
+                action.element.kind === 'RenderedPhotoGroup'
+            )) {
+                rendered.push(new RenderedMediaGroup(
+                    action.newElement,
+                    action.element.output
+                ))
+            }
+            else {
+                rendered.push(action.element)
+            }
         }
         else if (action.kind === 'Remove') {
             if (action.element.kind === 'RenderedPhotoGroup')

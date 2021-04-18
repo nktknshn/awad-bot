@@ -51,7 +51,8 @@ export function isComponentElement(el: Element): el is ComponentElement {
 export type GetSetState<S> = {
     getState: (initialState: S) => S
     setState: (state: Partial<S>) => Promise<void>
-    setStateF: (state: Partial<S>) => LocalStateAction
+    setStateF: (f: (s: S) => S) => LocalStateAction
+    setStateFU: (state: Partial<S>) => LocalStateAction
 }
 
 export interface LocalStateAction {

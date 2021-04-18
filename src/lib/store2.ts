@@ -65,3 +65,7 @@ export const wrap = <T extends any[], R, S>(f: (...args: T) => (s: S) => R):
     kind: 'store-action' as 'store-action',
     f: f(...args)
 })
+
+export const wrapO = () => {
+    
+}

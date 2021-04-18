@@ -299,8 +299,15 @@ export function componentToComponentTree<R>(
             mylog(`${componentElement.cons.name}.setState(${str(updates)}). Current: ${str(state.value)}`)
             state.value = { ...state.value, ...updates }
         },
-        setStateF: (updates: State['value']): LocalStateAction => {
-            mylog(`${componentElement.cons.name}.setStateF(${str(updates)}). Current: ${str(state.value)}`)
+        setStateFU: (updates: State['value']): LocalStateAction => {
+            return {
+                index,
+                kind: 'localstate-action' as 'localstate-action',
+                f: (tree) => tree
+            }
+        },
+        setStateF: (ff: (s: State['value']) => State['value']): LocalStateAction => {
+            mylog(`${componentElement.cons.name}.setStateF(${ff}). Current: ${str(state.value)}`)
             // return (v: State['value']) => ({ ...v, ...updates })
             return {
                 index,
@@ -313,10 +320,16 @@ export function componentToComponentTree<R>(
                     index.shift()
                     if (index.length == 0) {
                         mylog("tree.nextStateTree.state.value ", tree.nextStateTree.state.value)
-                        mylog("updates ", updates)
-                        for(const k of Object.keys(updates!)) {
-                            (tree.nextStateTree.state.value as any)[k] = (updates! as any)[k]
+                        // mylog("updates ", ff)
+
+                        const updated = ff(tree.nextStateTree.state.value!) ?? {}
+
+                        mylog("updated ", updated)
+
+                        for(const k of Object.keys(updated)) {
+                            (tree.nextStateTree.state.value as any)[k] = (updated as any)[k]
                         }
+
                         mylog("tree.nextStateTree.state.value ", tree.nextStateTree.state.value)
 
                         // tree.nextStateTree.state.value = { ...tree.nextStateTree.state.value, ...updates }
@@ -333,12 +346,17 @@ export function componentToComponentTree<R>(
                         // })
                     }
                     else {
-                        mylog("nextStateTree ", updates)
                         let s = tree.nextStateTree;
                         for(const idx of index) {
                             s = s.children[idx]
                         }
-                        s.state.value =  ({ ...s.state.value, ...updates })
+                        const updated = ff(s.state.value!) ?? {}
+                        mylog("nextStateTree ", updated)
+                        s.state.value =  ({ ...s.state.value, ...updated })
+
+                        for(const k of Object.keys(updated)) {
+                            (s.state.value as any)[k] = (updated as any)[k]
+                        }
                         return tree
                     }
 
@@ -547,5 +565,6 @@ export class ElementsTree {
 
 const str = <V>(value: V) => {
     const result = JSON.stringify(value)
-    return result.length < 100 ? result : result.slice(0, 200)
+    return result
+    // .length < 100 ? result : result.slice(0, 200)
 }

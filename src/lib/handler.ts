@@ -8,8 +8,12 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { ChatHandler2, ChatState } from "../lib/chathandler";
 import { ChatRenderer } from "../lib/chatrenderer";
 import { deleteAll } from "../lib/ui";
+import { parseFromContext } from './bot-util';
+import { InputHandler } from './draft';
 import { LocalStateAction } from './elements';
-import { RenderedElement } from './rendered-messages';
+import { RenderDraft } from './elements-to-messages';
+import { mylog } from './logging';
+import { BotMessage, RenderedElement } from './rendered-messages';
 import { StoreAction, StoreF } from './store2';
 
 export const findRepliedTo = (r: RenderedElement[]) => (repliedTo: number) => r.find(_ => Array.isArray(_.output)
@@ -154,6 +158,38 @@ export function applyStoreAction<S, C extends ChatState<A, B>, A extends { store
         return {
             ...cs,
             store: cs.store.apply(a.f)
+        }
+    }
+}
+
+export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext) => {
+    const d = parseFromContext(ctx)
+    mylog(`TRACE ${ctx.message?.message_id}`)
+    return h.element.callback(d, () => { return undefined })
+}
+
+export function getInputHandler(d: RenderDraft) {
+    return inputHandlerFHandler(d.inputHandlers[0])
+}
+
+export const getActionHandler = <A>(rs: RenderedElement[]) => {
+    return function (ctx: TelegrafContext): A | undefined {
+        const { action, repliedTo } = contextOpt(ctx)
+        const p = pipe(
+            repliedTo
+            , O.map(findRepliedTo(rs))
+            , O.chain(O.fromNullable)
+            , O.filter((callbackTo): callbackTo is BotMessage => callbackTo.kind === 'BotMessage')
+            , O.chain(callbackTo => pipe(action, O.map(action => ({ action, callbackTo }))))
+            , O.chainNullableK(({ callbackTo, action }) => callbackTo.input.callback2<A>(action))
+            // , O.map(applyStoreAction)
+        )
+
+        mylog("getActionHandler")
+        mylog(p)
+
+        if (O.isSome(p)) {
+            return p.value
         }
     }
 }
