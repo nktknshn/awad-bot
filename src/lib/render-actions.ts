@@ -3,6 +3,7 @@ import { areSameTextMessages } from "./bot-util";
 import { OutcomingMessageType } from "./elements-to-messages";
 import { mylog } from "./logging";
 import { RenderedElement } from "./rendered-messages";
+import { usermessage } from "./usermessage";
 
 
 type R<B> = { canReplace: (other: B) => boolean }
@@ -92,8 +93,8 @@ function areSame(a: RenderedElement, b?: OutcomingMessageType) {
     if (!b)
         return false
 
-    if (a.kind === 'UserMessage') {
-        return false
+    if (a.kind === 'RenderedUserMessage' && b.kind === 'OutcomingUserMessage') {
+        return usermessage.equals(a, b)
     }
     else if (a.kind === 'BotMessage' && b.kind === 'TextMessage') {
         return areSameTextMessages(a.input, b)

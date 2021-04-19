@@ -10,29 +10,31 @@ import { mylog } from "./logging"
 import { Actions, createRenderActions } from "./render-actions"
 import { RenderedElement } from "./rendered-messages"
 import { ElementsTree, TreeState } from "./tree"
-import { AppActions, AppReqs, GetAllBasics } from "./types-util"
-import { draftToInputHandler, renderActions, renderedElementsToActionHandler } from "./ui"
+import { AppActions, AppActionsFlatten, AppReqs, GetAllBasics } from "./types-util"
+import { draftToInputHandler, renderActions as getRenderActions, renderedElementsToActionHandler } from "./ui"
 import * as A from 'fp-ts/lib/Array';
 import { pipe } from "fp-ts/lib/pipeable"
 import * as O from 'fp-ts/lib/Option';
+import { StateAction } from "./handlerF"
 
-export interface ChatHandler<R> {
+export interface ChatHandler<R, E=any> {
     chatdata: R,
     handleMessage(self: ChatHandler<R>, ctx: TelegrafContext): Promise<unknown>
     handleAction(self: ChatHandler<R>, ctx: TelegrafContext): Promise<unknown>
-    handleEvent(self: ChatHandler<R>, ctx: TelegrafContext, data: string, d?: (a: R) => R): Promise<unknown>
+    handleEvent(self: ChatHandler<R>, event: E): Promise<unknown>
     setChatData(self: ChatHandler<R>, d: R): void
 }
 
-export interface ChatHandler2<R> {
+export interface ChatHandler2<E = any> {
     handleMessage(ctx: TelegrafContext): Promise<unknown>
     handleAction(ctx: TelegrafContext): Promise<unknown>
-    handleEvent(ctx: TelegrafContext, data: string, d?: (a: R) => R): Promise<void>
+    handleEvent(event: E): Promise<void>
+
 }
 
-export interface ChatS<R> {
-    handleEvent(ctx: TelegrafContext, data: string, d?: (a: R) => R): Promise<unknown>
-}
+// export interface ChatS<R> {
+//     handleEvent(data: string, d?: StateAction<R>[]): Promise<unknown>
+// }
 
 
 type IncomingItem = IncomingMessage | IncomingAction | IncomingEvent<any>
@@ -51,20 +53,22 @@ class IncomingAction {
     }
 }
 
-class IncomingEvent<R> {
+class IncomingEvent<E> {
     kind: 'IncomingEvent' = 'IncomingEvent'
-    constructor(readonly ctx: TelegrafContext, public readonly typ: string, public readonly d?: R) {
+    constructor(public readonly event: E) {
 
     }
 }
 
-export class QueuedChatHandler<R> implements ChatHandler2<R> {
+export class QueuedChatHandler<R, E=any> implements ChatHandler2<E> {
     incomingQueue: IncomingItem[] = []
     // eventQueue: IncomingEvent<any>[] = []
 
     busy = false
+    currentItem?: IncomingItem
 
-    _chat: ChatHandler<R>
+    rerender = false
+    _chat: ChatHandler<R, E>
 
     constructor(readonly chat: ((t: QueuedChatHandler<R>) => ChatHandler<R>)) {
 
@@ -77,39 +81,67 @@ export class QueuedChatHandler<R> implements ChatHandler2<R> {
             mylog(`busy so item was queued ${item.kind}`);
 
             if (item.kind === 'IncomingEvent') {
-                this.incomingQueue = pipe(
-                    this.incomingQueue,
-                    A.findLastIndex(_ => _.kind === 'IncomingEvent'),
-                    O.fold(
-                        () => A.insertAt(0, item as IncomingItem)(this.incomingQueue),
-                        idx => A.insertAt(idx + 1, item as IncomingItem)(this.incomingQueue),
-                    ),
-                    O.fold(() => this.incomingQueue, v => v)
-                )
-            }
-            else
-                this.incomingQueue.push(item)
-        } else {
-            mylog(`processing ${item.kind}  ${item.ctx.message?.message_id}`);
-            await this.processItem(item)
-            mylog(`done ${item.kind} ${item.ctx.message?.message_id}`);
 
+                // if (item.typ == 'updated') {
+                //     this.incomingQueue = pipe(
+                //         this.incomingQueue,
+                //         A.findLastIndex(_ => _.kind === 'IncomingEvent'),
+                //         O.fold(
+                //             () => A.insertAt(0, item as IncomingItem)(this.incomingQueue),
+                //             idx => A.insertAt(idx + 1, item as IncomingItem)(this.incomingQueue),
+                //         ),
+                //         O.fold(() => this.incomingQueue, v => v)
+                //     )
+                // }
+                // else if (item.typ == 'render') {
+                //     this.rerender = true
+                //     // this.incomingQueue = pipe(
+                //     //     this.incomingQueue,
+                //     //     A.findIndex(
+                //     //         _ => _.kind === 'IncomingEvent' && item.typ == 'render'
+                //     //     ),
+                //     //     O.fold(
+                //     //         () => A.insertAt(this.incomingQueue.length, item as IncomingItem)(this.incomingQueue),
+                //     //         idx => O.some(this.incomingQueue)
+                //     //     ),
+                //     //     O.fold(() => this.incomingQueue, as => as)
+                //     // )
+                // }
+            }
+            // else
+            this.incomingQueue.push(item)
+        } else {
+            mylog(`processing ${item.kind}  ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
+
+            await this.processItem(item)
+
+            mylog(`done ${item.kind} ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
             mylog(`queue has ${this.incomingQueue.length} elements ${this.incomingQueue.map(_ => _.kind).join()}`)
 
             while (this.incomingQueue.length) {
                 const nextItem = this.incomingQueue.shift()
+
                 await this.processItem(nextItem!)
-                this.busy = true
+                // this.busy = true
             }
 
             mylog(`queue finished`)
             this.busy = false
+
+
+            if (this.rerender) {
+                await this.processItem(new IncomingEvent("render"))
+                this.rerender = false
+            }
+
         }
     }
 
     async processItem(item: IncomingItem) {
         this.busy = true
-        mylog(`processItem: ${item.kind}`)
+        this.currentItem = item
+
+        mylog(`processItem: ${item.kind} ${item}`)
 
         if (item.kind === 'IncomingMessage') {
             await this._chat.handleMessage(this._chat, item.ctx)
@@ -118,9 +150,12 @@ export class QueuedChatHandler<R> implements ChatHandler2<R> {
             await this._chat.handleAction(this._chat, item.ctx)
         }
         else if (item.kind === 'IncomingEvent') {
-            await this._chat.handleEvent(this._chat, item.ctx, item.typ, item.d)
+            await this._chat.handleEvent(this._chat, item.event)
         }
+
         mylog(`done processItem: ${item.kind}`)
+
+        this.currentItem = undefined
         this.busy = false
     }
 
@@ -134,9 +169,9 @@ export class QueuedChatHandler<R> implements ChatHandler2<R> {
         await this.push(new IncomingMessage(ctx))
     }
 
-    async handleEvent<R>(ctx: TelegrafContext, data: string, d?: R) {
-        mylog(`handleEvent: ${ctx.message?.message_id}`)
-        await this.push(new IncomingEvent<R>(ctx, data, d))
+    async handleEvent<E>(event: E) {
+        // mylog(`handleEvent: ${ctx.message?.message_id}`)
+        await this.push(new IncomingEvent<E>(event))
     }
 }
 
@@ -145,7 +180,8 @@ export type ChatState<R, H> = {
     treeState: TreeState,
     renderedElements: RenderedElement[],
     inputHandler?: (ctx: TelegrafContext) => (H | undefined),
-    actionHandler?: (ctx: TelegrafContext) => H
+    actionHandler?: (ctx: TelegrafContext) => H,
+
 } & R
 
 export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
@@ -155,54 +191,58 @@ export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
     // actionHandler: function (a) { return identity },
 })
 
-
-export interface Application<C, H> {
+export interface Application<C, H, E=any> {
     renderer?: (ctx: TelegrafContext) => ChatRenderer,
     renderFunc: (s: C) => readonly [{
         draft: RenderDraft,
         treeState: TreeState,
-        inputHandler: (ctx: TelegrafContext) => H | undefined
+        inputHandler: (ctx: TelegrafContext) => H | undefined,
+        effectsActions: H[]
     }, (renderer: ChatRenderer) => Promise<C>],
-    init?: (ctx: TelegrafContext, renderer: ChatRenderer, chat: ChatHandler2<C>, chatdata: C) => Promise<any>,
+    init?: (app: Application<C, H, E>, ctx: TelegrafContext, renderer: ChatRenderer, chat: ChatHandler2<E>, chatdata: C) => Promise<any>,
     handleMessage: (
+        app: Application<C, H, E>,
         ctx: TelegrafContext,
         renderer: ChatRenderer,
-        chat: ChatHandler2<C>,
+        chat: ChatHandler2<E>,
         chatdata: C,
-    ) => Promise<any>,
+    ) => Promise<C>,
     handleAction?: (
+        app: Application<C, H, E>,
         ctx: TelegrafContext,
         renderer: ChatRenderer,
-        chat: ChatHandler2<C>,
+        chat: ChatHandler2<E>,
         chatdata: C,
-    ) => Promise<any>,
-    chatData: (ctx: TelegrafContext) => C
+    ) => Promise<C>,
+    chatData: (ctx: TelegrafContext) => C,
+    // handleStateAction: (
+    //     app: Application<C, H, E>,
+    //     ctx: TelegrafContext,
+    //     renderer: ChatRenderer,
+    //     chat: ChatHandler2<E>,
+    //     chatdata: C,
+    //     a: H[]
+    // ) => Promise<any>,
+    handleEvent: (
+        app: Application<C, H, E>, 
+        renderer: ChatRenderer, 
+        chat: ChatHandler2<E>, 
+        chatdata: C,
+        event: E) => Promise<C>,
+    queueStrategy: () => void
 }
 
-export function getApp<R, H>(app: Application<ChatState<R, H>, H>): Application<ChatState<R, H>, H> {
+export function getApp<R, H, E=any>(
+    app: Application<ChatState<R, H>, H, E>): Application<ChatState<R, H>, H, E> {
     return app
 }
 
-export const createChatHandlerFactory = <R, H>(app: Application<ChatState<R, H>, H>)
-    : ChatHandlerFactory<ChatHandler2<ChatState<R, H>>, ChatState<R, H>> =>
+export const createChatHandlerFactory = <UserState, Actions, E=any>(app: Application<ChatState<UserState, Actions>, Actions, E>)
+    : ChatHandlerFactory<ChatHandler2<E>, E> =>
     async ctx => {
         mylog("createChatHandlerFactory");
 
         const renderer = (app.renderer ?? createChatRenderer)(ctx)
-
-        const onStateUpdated = (chatState: ChatState<R, H>) => (src: string) => async () => {
-            mylog(`onStateUpdated by ${src}`);
-
-            const [{ draft, treeState, inputHandler }, render] = app.renderFunc(chatState)
-
-            // for (const e of draft.effects) {
-            //     await e.element.callback()
-            // }
-
-            return await render(renderer)
-        }
-
-        // const chatdata = app.chatData ? app.chatData() : emptyChatState()
         const chatdata = app.chatData(ctx)
 
         const [{ inputHandler, treeState }, _] = app.renderFunc(chatdata)
@@ -210,44 +250,41 @@ export const createChatHandlerFactory = <R, H>(app: Application<ChatState<R, H>,
         chatdata.inputHandler = inputHandler
         chatdata.treeState = treeState
 
-        const chat = new QueuedChatHandler<ChatState<R, H>>(t => ({
+        const queue = new QueuedChatHandler<ChatState<UserState, Actions>, E>(t => ({
             chatdata,
             handleAction: async (self, ctx) => {
-                return (app.handleAction ?? defaultHandleAction)(ctx, renderer, t, self.chatdata)
+                self.setChatData(
+                    self,
+                    await app.handleAction!(app, ctx, renderer, t, self.chatdata))
             },
             handleMessage: async (self, ctx) => {
                 mylog(`QueuedChatHandler.chat: ${ctx.message?.text} ${ctx.message?.message_id}`);
-                const res = await app.handleMessage(ctx, renderer, t, self.chatdata)
-                mylog(`QueuedChatHandler.chat done ${ctx.message?.message_id} ${JSON.stringify(res)}`)
-                return res
+
+                self.setChatData(
+                    self,
+                    await app.handleMessage(app, ctx, renderer, t, self.chatdata)
+                )
+                mylog(`QueuedChatHandler.chat done ${ctx.message?.message_id}}`)
+
             },
-            handleEvent: async (self, ctx: TelegrafContext, typ: string, f) => {
-                mylog(`handleEvent: ${typ} ${f}`);
+            handleEvent: async (self, event: E) => {
+                mylog(`handleEvent: ${event}`);
 
-                if (typ == 'updated') {
-                    const [{ draft, treeState, inputHandler }, render] =
-                        app.renderFunc(f ? f(self.chatdata) : self.chatdata)
-
-                    // self.setChatData(self, {
-                    //     ...self.chatdata,
-                    //     treeState, inputHandler
-                    // })
-
-                    await render(renderer).then(
-                        d => self.setChatData(self, d)
-                    )
-                }
+                self.setChatData(
+                    self,
+                    await app.handleEvent(app, renderer, t, self.chatdata, event)
+                )
             },
             setChatData: (self, d) => {
-                mylog(self.chatdata.treeState.nextStateTree?.state)
+                // mylog(self.chatdata.treeState.nextStateTree?.state)
                 self.chatdata = d
-                mylog(self.chatdata.treeState.nextStateTree?.state)
+                // mylog(self.chatdata.treeState.nextStateTree?.state)
             }
         }))
 
-        app.init && await app.init(ctx, renderer, chat, chatdata)
+        app.init && await app.init(app, ctx, renderer, queue, chatdata)
 
-        return chat
+        return queue
     }
 
 
@@ -275,7 +312,7 @@ export const genericRenderFunction = <
     Els extends GetAllBasics<RootComponent>,
     Ctx,
     Rdr extends RenderDraft,
-    HandlerReturn extends AppActions<RootComponent>
+    HandlerReturn extends AppActionsFlatten<RootComponent>
 >
     (
         app: (props: Props) => RootComponent,
@@ -289,19 +326,23 @@ export const genericRenderFunction = <
         draft: Rdr,
         treeState: TreeState,
         inputHandler: InputHandlerF<HandlerReturn | undefined>,
-        actions: Actions[]
+        renderActions: Actions[],
+        effectsActions: HandlerReturn[]
     }, (renderer: ChatRenderer) => Promise<ChatState<Ctx, HandlerReturn>>] => {
 
         const [els, treeState] = ElementsTree.createElements(app, gc(chatState), props, chatState.treeState)
 
         const draft = createDraft(els)
+        const effects = draft.effects
+        const effectsActions = effects.map(_ => _.element.callback())
+
         const inputHandler = draftToInputHandler(draft)
-        const actions = createRenderActions(chatState.renderedElements, draft.messages)
+        const renderActions = createRenderActions(chatState.renderedElements, draft.messages)
 
         return [
-            { draft, treeState, inputHandler, actions },
+            { draft, treeState, inputHandler, renderActions, effectsActions },
             async (renderer: ChatRenderer): Promise<ChatState<Ctx, HandlerReturn>> => {
-                const renderedElements = await renderActions(renderer, actions)
+                const renderedElements = await getRenderActions(renderer, renderActions)
                 const actionHandler = renderedElementsToActionHandler(renderedElements)
 
                 mylog("renderedElements");

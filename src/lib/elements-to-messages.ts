@@ -5,8 +5,9 @@ import { KeyboardElement, BasicElement, isAppliable } from "./elements"
 import { OutcomingFileMessage, InputHandler, ActionsHandler, Effect } from './draft'
 import { OutcomingPhotoGroupMessage } from '../bot3/mediagroup'
 import { mylog } from './logging'
+import { OutcomingUserMessage } from './usermessage'
 
-export type OutcomingMessageType = (OutcomingTextMessage | OutcomingFileMessage) | OutcomingPhotoGroupMessage
+export type OutcomingMessageType = (OutcomingTextMessage | OutcomingFileMessage) | OutcomingPhotoGroupMessage | OutcomingUserMessage
 
 type HandlerType = InputHandler<any> | ActionsHandler
 

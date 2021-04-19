@@ -2,6 +2,7 @@ import { mediaGroup, PhotoGroupElement } from "../bot3/mediagroup"
 import { BasicElement, EffectElement, FileElement, InputHandlerElement } from "./elements"
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./elements-to-messages"
 import { InputHandlerElementF, InputHandlerF } from "./handlerF"
+import { UserMessageElement, usermessage } from "./usermessage"
 
 export class InputHandler<R> {
     kind: 'InputHandler' = 'InputHandler'
@@ -24,17 +25,17 @@ export class Effect<R> {
 }
 
 export function createDraftWithImages<AppAction extends any>(
-    elements: (BasicElement | PhotoGroupElement | InputHandlerElementF<AppAction>)[]
-): RenderDraft & { inputHandlersF: InputHandlerF<AppAction>[] } {
+    elements: (BasicElement | PhotoGroupElement| UserMessageElement )[]
+): RenderDraft {
     const draft = emptyDraft()
     const inputHandlersF: InputHandlerF<AppAction>[] = []
 
-    function handle(compel: BasicElement | PhotoGroupElement | InputHandlerElementF<AppAction>) {
+    function handle(compel: BasicElement | PhotoGroupElement| UserMessageElement) {
         if (compel.kind === 'PhotoGroupElement') {
             mediaGroup.appendDraft(draft, compel)
         }
-        else if (compel.kind === 'InputHandlerElementF') {
-            inputHandlersF.push(new InputHandlerF(compel))
+        else if (compel.kind === 'UserMessageElement') {
+            usermessage.appendDraft(draft, compel)
         }
         else {
             elementsToMessagesAndHandlers(compel, draft)
@@ -45,5 +46,5 @@ export function createDraftWithImages<AppAction extends any>(
         handle(compel)
     }
 
-    return { ...draft, inputHandlersF }
+    return { ...draft }
 }

@@ -1,4 +1,4 @@
-import { ButtonElement, InputHandlerElement, WithContext } from "../lib/elements";
+import { ButtonElement, EffectElement, InputHandlerElement, WithContext } from "../lib/elements";
 import { Component, ComponentConnected, ComponentElement, ComponentStateless, ComponentWithState, ConnectedComp } from "./component";
 import { InputHandler } from "./draft";
 import { Matcher2 } from "./input";
@@ -26,7 +26,7 @@ type _GetAllBasics<Gen> =
     : T
     : never
 
-export type GetAllBasics<T> = T extends ComponentElement ? _GetAllBasics<GetCompGenerator<T>> : _GetAllBasics<T>
+export type GetAllBasics<T> = T extends ComponentElement ? _GetAllBasics<GetCompGenerator<T>> : T extends (P: infer P) => infer A ? GetAllBasics<A> :_GetAllBasics<T>
 
 type _GetAllComps<Gen> =
     GenReturns<Gen> extends infer T
@@ -63,4 +63,8 @@ F extends (...args: infer ARGS) => infer R1
 
 export type GetAllButtons<T> = GetAllBasics<T> extends infer B ? B extends ButtonElement<infer R> ? R : never : never
 export type GetAllInputHandlers<T> = GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R extends Matcher2<infer G> ? G : never : never : never
-export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlers<T>
+export type GetAllEffects<T> = GetAllBasics<T> extends infer B ? B extends EffectElement<infer R> ? R : never : never
+
+export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlers<T> | GetAllEffects<T>
+
+export type AppActionsFlatten<T> = AppActions<T> extends infer B ? B extends Array<infer Z> ? Z : B : never

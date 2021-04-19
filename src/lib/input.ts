@@ -3,6 +3,7 @@ import { InputHandlerElement } from "./elements";
 import { InputHandlerData } from "./messages";
 import { flow, identity } from "fp-ts/lib/function";
 import { pipe } from 'fp-ts/lib/pipeable';
+import { Do } from 'fp-ts-contrib/lib/Do';
 
 export type Matcher2<R> = (d: O.Option<InputHandlerData>) => O.Option<R | 'done' | 'next'>;
 
@@ -108,10 +109,26 @@ export function inputOpt<T, R>(
 }
 export const action = O.map;
 
-export const messageText = (d: InputHandlerData) => pipe(O.fromNullable(d.messageText), O.filter(t => !!t.length));
+export const messageText = (d: InputHandlerData) =>
+    pipe(O.fromNullable(d.messageText), O.filter(t => !!t.length));
 
-export const casePhoto = O.chain((d: InputHandlerData) => O.fromNullable(d.photo))
-export const caseText = O.chain(messageText);
+export const messageId = (d: InputHandlerData) =>
+    O.fromNullable(d.ctx.message?.message_id)
+
+export const casePhoto = O.chain((d: InputHandlerData) =>
+    Do(O.option)
+        .bind('photo', O.fromNullable(d.photo))
+        .bind('messageId', messageId(d))
+        .return(identity))
+//  O.chain((d: InputHandlerData) => O.fromNullable(d.photo))
+
+export const caseText = O.chain((d: InputHandlerData) =>
+    Do(O.option)
+        .bind('messageText', messageText(d))
+        .bind('messageId', messageId(d))
+        .return(identity))
+
+// O.chain(messageText);
 export const nextHandlerAction = action(nextHandler)
 // export const ifTrue = (pred: () => boolean) => <T>(m: O.Option<T>) => pred() ? m : O.none
 export const ifTrue = O.filter

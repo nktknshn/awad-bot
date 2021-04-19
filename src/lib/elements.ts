@@ -128,22 +128,22 @@ export class ButtonElement<R = Promise<void>> {
     // public apply = buttonElementApply(this)
 }
 
-export class InputHandler2<D>
-//  implements Appliable 
- {
-    kind: 'InputHandler2' = 'InputHandler2'
-    constructor(
-        readonly callback: (
-            input: InputHandlerData,
-            next: () => Promise<boolean | void>,
-            dispatcher: D
-        ) => Promise<boolean | void>
-    ) { }
+// export class InputHandler2<D>
+// //  implements Appliable 
+//  {
+//     kind: 'InputHandler2' = 'InputHandler2'
+//     constructor(
+//         readonly callback: (
+//             input: InputHandlerData,
+//             next: () => Promise<boolean | void>,
+//             dispatcher: D
+//         ) => Promise<boolean | void>
+//     ) { }
 
-    public apply = (draft: RenderDraft) => {
-        return draft
-    }
-}
+//     public apply = (draft: RenderDraft) => {
+//         return draft
+//     }
+// }
 
 export class ButtonsRowElement {
     kind: 'ButtonsRowElement' = 'ButtonsRowElement'

@@ -96,19 +96,21 @@ export const defaultHF = <R extends
 }
 
 
-export type HandlerAction<A, R, H, T> = (a: A) => ChatAction<R, H, T>
+export type HandlerAction<R, H, A, T> = (a: A) => ChatAction<R, H, T>
 
 export const deleteMessage = <R, H>(messageId: number): ChatAction<R, H, void> => {
     return async function (
-        ctx, renderer, chat, chatdata
+        app, ctx, renderer, chat, chatdata
     ) {
         await renderer.delete(messageId)
     }
 }
 
-export const getActions = <R, H>(): ChatAction<R, H, (H | undefined)> => {
+type ThisOrArray<T> = T | T[]
+
+export const getActions = <R extends any, H extends any>(): ChatAction<R, H, H | undefined | H[]> => {
     return async function (
-        ctx, renderer, chat, chatdata
+        app, ctx, renderer, chat, chatdata
     ) {
         if (!chatdata.inputHandler)
             return
@@ -120,32 +122,42 @@ export const getActions = <R, H>(): ChatAction<R, H, (H | undefined)> => {
 export type StateAction<S> = (s: S) => S
 
 export const routeAction = <R, H>(mf: (a: H) => StateAction<ChatState<R, H>>[])
-    : HandlerAction<H | undefined, R, H, void> =>
+    : HandlerAction<R, H, ThisOrArray<H | undefined>, void> =>
     (a): ChatAction<R, H, void> => {
         return async function (
-            ctx, renderer, chat, chatdata
+            app, ctx, renderer, chat, chatdata
         ) {
-            mylog(`routeAction ${ctx.message?.message_id}`)
+            mylog(`routeAction message_id: ${ctx.message?.message_id}`)
 
             if (!a)
                 return
 
-            return await Promise.all(
-                mf(a).map(a => chat.handleEvent(ctx, "updated", a))
-            ).then(_ => { })
+            if (!Array.isArray(a))
+                a = [a]
+
+            // return await Promise.all(
+            //     mf(a).map(a => chat.handleEvent(ctx, "updated", a))
+            // ).then(_ => { })
+            const func = a.filter(_ => _ !== undefined).map(a => mf(a!)).reduce((acc, cur) => [...acc, ...cur], [])
+
+            mylog(`func`, func)
+            mylog(`a`, a)
+
+            if (func.length)
+                return await chat.handleEvent(func)
         }
     }
 
-export const connect = <A1, R, H, T1, T2>(
-    h1: HandlerAction<A1, R, H, T1>,
-    h2: HandlerAction<T1, R, H, T2>,
-): HandlerAction<A1, R, H, T2> => {
+export const connect = <R, H, A1, R1 extends A2, A2, R3>(
+    h1: HandlerAction<R, H, A1, R1>,
+    h2: HandlerAction<R, H, A2, R3>,
+): HandlerAction<R, H, A1, R3> => {
 
     return (a: A1) =>
-        async (ctx, render, chat, aa) => {
-            const r = await h1(a)(ctx, render, chat, aa)
+        async (app, ctx, render, chat, aa) => {
+            const r = await h1(a)(app, ctx, render, chat, aa)
             mylog(`TRACE connect ${r}`)
-            return await h2(r)(ctx, render, chat, aa)
+            return await h2(r)(app, ctx, render, chat, aa)
         }
 
 }

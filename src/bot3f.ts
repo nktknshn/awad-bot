@@ -1,34 +1,39 @@
 import * as A from 'fp-ts/lib/Array';
 import * as O from 'fp-ts/lib/Option';
+import * as F from 'fp-ts/lib/function';
+import * as T from 'fp-ts/lib/Task';
+
 import { pipe } from "fp-ts/lib/pipeable";
 import { StackFrame } from 'stacktrace-js';
 import Telegraf from "telegraf";
 import { TelegrafContext } from "telegraf/typings/context";
 import { PhotoSize } from "telegraf/typings/telegram-types";
 import { photos } from './bot3/mediagroup';
-import { ChatState, createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler";
+import { Application, ChatState, createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler";
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
 import { createDraftWithImages } from './lib/draft';
 import { GetSetState } from "./lib/elements";
-import { button, message } from "./lib/elements-constructors";
-import { applyStoreAction, applyTreeAction, byMessageId, getActionHandler, getInputHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
+import { button, effect, message } from "./lib/elements-constructors";
+import { applyChatStateAction, applyStoreAction, applyTreeAction, byMessageId, ChatAction, contextOpt, ContextOpt, getActionHandler, getInputHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
 import { connect, deleteMessage, getActions, routeAction, StateAction } from './lib/handlerF';
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { initLogging, mylog } from './lib/logging';
 import { createStoreF, StoreAction, wrap } from './lib/store2';
-import { AppActions } from './lib/types-util';
+import { AppActions, AppActionsFlatten } from './lib/types-util';
 import { token } from "./telegram-token.json";
+import { task } from 'fp-ts/lib/Task';
+import { UserMessageElement } from './lib/usermessage';
 
 
 type Item = string | PhotoSize
 
-type Context = State & {
+type Context = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
 }
 
 export const casePassword =
-    (password: string) => on(caseText, ifTrue(text => text == password))
+    (password: string) => on(caseText, ifTrue(({ messageText }) => messageText == password))
 
 
 const VisibleSecrets = connected4(
@@ -74,91 +79,151 @@ const App = connected4(
         { isVisible, stringCandidate, dispatcher: { onSetVisible, onAddItem, setStringCandidate } },
         { password }: { password: string },
         { getState, setStateF }: GetSetState<{
-            photoCandidates: PhotoSize[]
+            photoCandidates: PhotoSize[],
+            userMessages: number[]
         }>
     ) {
         mylog('App');
 
-        const { photoCandidates } = getState({ photoCandidates: [] })
+        const { photoCandidates, userMessages } = getState({ photoCandidates: [], userMessages: [] })
 
-        const resetPhotos = setStateF(({ photoCandidates }) => ({ photoCandidates: [] }))
-        const addPhoto = (photo: PhotoSize[]) =>
-            setStateF(({ photoCandidates }) => ({ photoCandidates: [...photoCandidates ?? [], photo[0]] }))
+        const resetPhotos = setStateF(() => ({ photoCandidates: [], userMessages: [] }))
+        const addUserMessage = (messageId: number) =>
+            setStateF(s => ({ ...s, userMessages: [...s.userMessages, messageId] }))
+
+        const resetUserMessages = setStateF(s => ({ ...s, userMessages: [] }))
+
+        const addPhotoCandidate = (photo: PhotoSize[]) =>
+            setStateF(({ photoCandidates, userMessages }) =>
+                ({ photoCandidates: [...photoCandidates, photo[0]], userMessages }))
 
         yield inputHandler([
             on(casePassword(password), action(() => onSetVisible(true))),
-            on(caseText, action(text => setStringCandidate(text))),
-            on(casePhoto, action(addPhoto))]
-        )
+            on(caseText, action(({ messageText, messageId }) =>
+                [addUserMessage(messageId), setStringCandidate(messageText)])),
+            on(casePhoto, action(({ photo, messageId }) =>
+                [addUserMessage(messageId), addPhotoCandidate(photo)]))
+        ])
 
         if (isVisible) {
             yield VisibleSecrets({})
         }
 
         if (stringCandidate) {
-            const addItem = () => [onAddItem(stringCandidate), setStringCandidate(undefined)]
-            const rejectItem = () => setStringCandidate(undefined)
+            const addItem = () => [onAddItem(stringCandidate), resetUserMessages, setStringCandidate(undefined)]
+            const rejectItem = () => [setStringCandidate(undefined), resetUserMessages]
 
             if (!isVisible) {
+
+                for(const m of userMessages) {
+                    yield new UserMessageElement(m)
+                }
+
                 yield message(`Add '${stringCandidate}?'`)
                 yield button(`Yes`, addItem)
                 yield button(`No`, rejectItem)
             }
             else {
-                // yield effect(addItem)
+                yield effect(addItem)
             }
         }
         else if (photoCandidates.length) {
 
-            const addItem = () => [onAddItem(photoCandidates), resetPhotos]
-            const rejectItem = () => resetPhotos
+            const addItem = () => [onAddItem(photoCandidates), resetUserMessages, resetPhotos]
+            const rejectItem = () => [resetPhotos, resetUserMessages]
 
             if (!isVisible) {
+
+                for(const m of userMessages) {
+                    yield new UserMessageElement(m)
+                    yield message("yep")
+                }
+
                 yield message(`Add?`)
                 yield button(`Yes`, addItem)
                 yield button(`No`, rejectItem)
 
-                if (photoCandidates.length)
-                    yield photos(photoCandidates.map(_ => _.file_id))
+                // if (photoCandidates.length)
+                //     yield photos(photoCandidates.map(_ => _.file_id))
             }
             else {
-                // yield effect(addItem)
+                yield effect(addItem)
             }
         }
         else if (!isVisible) {
             yield message("hi")
+            yield button('flush', () => 'flush' as 'flush')
         }
     }
 )
 
-
-
 function createApp() {
-    type MyState = ReturnType<typeof createBotStoreF>
-    type AppAction = AppActions<ReturnType<typeof App>>
-    type AppChatState = ChatState<MyState, AppAction>
-    type AppStoreAction = StoreAction<State, State>
+    type MyState = ReturnType<typeof createBotStoreF> & {
+        deleteUserMessages: boolean,
+        deferredRenderTimer?: NodeJS.Timeout,
+        userMessages: number[]
+    }
+
+    type HandlerActions = AppActionsFlatten<typeof App>
+
+    type AppAction = HandlerActions | {
+        kind: 'chatstate-action',
+        f: (s: AppChatState) => AppChatState
+    }
+
+
+    type AppChatState = ChatState<MyState, HandlerActions>
+    type AppStoreAction = StoreAction<StoreState, StoreState>
     type AppStateAction = StateAction<AppChatState>
 
     const chatState = (): AppChatState => {
         return {
             ...emptyChatState(),
             ...createBotStoreF(),
+            deleteUserMessages: true,
+            deferredRenderTimer: undefined,
+            userMessages: []
         }
     }
 
-    function actionToStateAction(a: AppAction): AppStateAction[] {
+    function actionToStateAction(a: AppAction | AppAction[]): AppStateAction[] {
         if (Array.isArray(a))
             return A.flatten(a.map(actionToStateAction))
+        else if (a === 'flush') {
+            return [applyChatStateAction(s => ({ ...s, renderedElements: [] }))]
+        }
         else if (a.kind === 'store-action')
             return [applyStoreAction(a)]
         else if (a.kind === 'localstate-action')
             return [applyTreeAction(a)]
+        else if (a.kind === 'chatstate-action') {
+            return [applyChatStateAction(a.f)]
+        }
+        // else if (a.kind === 'chat-action') {
+        //     return [applyChatStateAction(a.f)]
+        // }
 
         return a
     }
 
-    return getApp({
+    type Event = StateActionEvent | RenderEvent | {
+        kind: 'ChatActionEvent',
+        a: ChatAction<MyState, HandlerActions, void, Event>,
+        f: (s: AppChatState) => AppChatState
+        ctx: TelegrafContext
+    }
+
+    interface RenderEvent {
+        kind: 'RenderEvent'
+        actions?: AppAction[]
+    }
+
+    interface StateActionEvent {
+        kind: 'StateActionEvent',
+        actions: AppAction[]
+    }
+
+    return getApp<MyState, HandlerActions, Event>({
         chatData: chatState,
         renderFunc: genericRenderFunction(
             App, { password: 'a' },
@@ -167,33 +232,161 @@ function createApp() {
             getInputHandler,
             getActionHandler
         ),
-        init: async (ctx, renderer, chat, chatdata) => {
-            chatdata.store.notify = (a) => chat.handleEvent(ctx, "updated", applyStoreAction(a))
+        // actionToStateAction,
+        init: async (app, ctx, renderer, queue, chatdata) => {
+            chatdata.store.notify = (a) => queue.handleEvent({
+                kind: 'StateActionEvent',
+                actions: [a]
+            })
         },
-        handleMessage: withContextOpt(
-            handlerChain([
-                or(startHandler, byMessageId(
-                    connect(deleteMessage,
-                        connect(getActions, routeAction(actionToStateAction)))
-                ))
-            ])),
-        handleAction: async (ctx, renderer, chat, chatdata) => {
+        // handleMessage: 
+        // withContextOpt(
+        //     handlerChain([
+        //         or(startHandler
+        //             , byMessageId(
+        //                 connect(
+        //                     (m): ChatAction<MyState, AppAction, void> => deleteMessage(m),
+        //                     connect(
+        //                         (): ChatAction<MyState, AppAction, 
+        //                         (AppAction | undefined)[] | (AppAction | undefined)> =>
+        //                             getActions(),
+        //                         routeAction((as: AppAction) => actionToStateAction(as)))
+        //                 )))
+        //     ])),
+        queueStrategy: function () {
+
+        },
+        handleMessage: async (app, ctx, renderer, queue, chatdata): Promise<AppChatState> => {
+            let start = pipe(
+                contextOpt(ctx),
+                startHandler,
+                O.map((a: ChatAction<MyState, HandlerActions, AppChatState>) =>
+                    a(app, ctx, renderer, queue, chatdata))
+            )
+
+            if (O.isSome(start)) {
+                await start.value
+                return {
+                    ...chatdata,
+                    renderedElements: []
+                }
+            }
+
+
+            if (!chatdata.inputHandler) {
+                return chatdata
+            }
+
+            const as = chatdata.inputHandler(ctx)
+
+            if (!as)
+                return chatdata
+
+            let data = actionToStateAction(as).reduce((cd, f) => f(cd), chatdata)
+
+            const [{ treeState, inputHandler, effectsActions }, render] = app.renderFunc(
+                data
+            )
+
+            // if (effectsActions.length)
+            //     return await app.handleEvent(
+            //         app, renderer, queue, data,
+            //         {
+            //             kind: 'StateActionEvent',
+            //             actions: effectsActions
+            //         })
+
+            // if (ctx.message?.photo) {
+
+            //     chatdata.deferredRenderTimer && clearTimeout(chatdata.deferredRenderTimer)
+
+            //     const timeout = setTimeout(() => {
+            //         queue.handleEvent({
+            //             kind: 'RenderEvent',
+            //             actions: [{
+            //                 kind: 'chatstate-action',
+            //                 f: s => ({ ...s, deferredRenderTimer: undefined })
+            //             }]
+            //         })
+
+            //         queue.handleEvent({
+            //             kind: 'ChatActionEvent',
+            //             ctx: ctx,
+            //             a: async (app, ctx, renderer, queue, chatdata) => {
+            //                 for (const m of chatdata.userMessages) {
+            //                     await renderer.delete(m)
+            //                 }
+            //             },
+            //             f: s => ({ ...s, userMessages: [] })
+            //         })
+            //     }, 300)
+
+            //     return {
+            //         ...chatdata,
+            //         ...data,
+            //         treeState,
+            //         inputHandler,
+            //         userMessages: [...chatdata.userMessages, ctx.message.message_id],
+            //         deferredRenderTimer: timeout
+            //     }
+            // }
+
+            // if (chatdata.deleteUserMessages)
+            //     await pipe(
+            //         contextOpt(ctx),
+            //         byMessageId<MyState, HandlerActions, void>(deleteMessage),
+            //         O.fold(
+            //             async () => { },
+            //             a => a(app, ctx, renderer, queue, chatdata)
+            //         )
+            //     )
+
+            return await render(renderer)
+        },
+        handleAction: async (app, ctx, renderer, queue, chatdata) => {
             return await pipe(
                 O.fromNullable(chatdata.actionHandler)
                 , O.chainNullableK(f => f(ctx))
                 , O.map(actionToStateAction)
-                , O.map(A.map(a => chat.handleEvent(ctx, "updated", a)))
-                , O.map(a => {
-                    return Promise.all(a)
-                })
-                , O.getOrElseW(() => async () => { })
-            )
-        }
+                , O.map(as => as.reduce((cd, f) => f(cd), chatdata))
+                , O.map(s => [s, app.renderFunc(s)] as const)
+                , O.map(([s, [{ effectsActions }, render]]) =>
+                    effectsActions.length
+                        ? app.handleEvent(
+                            app, renderer, queue, s,
+                            {
+                                kind: 'StateActionEvent',
+                                actions: effectsActions
+                            })
+                        : render(renderer)
+                )
+                , O.fold(async () => chatdata, (f): Promise<AppChatState> => f)
+
+            ).then(async data => ctx.answerCbQuery().then(_ => data))
+        },
+        handleEvent: async (app, renderer, queue, chatdata, event) => {
+            if (event.kind === 'StateActionEvent') {
+                return await app.renderFunc(
+                    actionToStateAction(event.actions).reduce((s, f) => f(s), chatdata)
+                )[1](renderer)
+            }
+            else if (event.kind === 'RenderEvent') {
+                return await app.renderFunc(event.actions
+                    ? actionToStateAction(event.actions).reduce((s, f) => f(s), chatdata)
+                    : chatdata
+                )[1](renderer)
+            }
+            else if (event.kind === 'ChatActionEvent') {
+                await event.a(app, event.ctx, renderer, queue, chatdata)
+                return event.f(chatdata)
+            }
+            return chatdata
+        },
     })
 }
 
 
-type State = {
+type StoreState = {
     isVisible: boolean,
     items: (string | PhotoSize)[],
     secondsLeft: number,
@@ -202,7 +395,7 @@ type State = {
 }
 
 function createBotStoreF() {
-    const { store } = createStoreF<State>({
+    const { store } = createStoreF<StoreState>({
         isVisible: false,
         items: [],
         secondsLeft: 0,
@@ -212,23 +405,23 @@ function createBotStoreF() {
 
     type Action<S> = (s: S) => S
 
-    const upd = (u: Partial<State>) => (s: State) => ({ ...s, ...u })
+    const upd = (u: Partial<StoreState>) => (s: StoreState) => ({ ...s, ...u })
     const updF = (
-        f: (s: State) => Action<State>
-    ) => (s: State) => f
+        f: (s: StoreState) => Action<StoreState>
+    ) => (s: StoreState) => f
 
-    const onSetSecondsLeft = (secondsLeft: number): Action<State> => (s: State) => {
+    const onSetSecondsLeft = (secondsLeft: number): Action<StoreState> => (s: StoreState) => {
         return upd({ secondsLeft })(s)
     }
 
-    const updateSeconds = (): Action<State> => (s: State) => {
+    const updateSeconds = (): Action<StoreState> => (s: StoreState) => {
         if (s.secondsLeft > 0)
             return onSetSecondsLeft(s.secondsLeft - 1)(s)
         else
             return onSetVisible(false)(s)
     }
 
-    const onSetVisible = (isVisible: boolean): Action<State> => (s) => {
+    const onSetVisible = (isVisible: boolean): Action<StoreState> => (s) => {
 
         s = upd({ isVisible })(s)
 
@@ -246,18 +439,18 @@ function createBotStoreF() {
         }
     }
 
-    const onAddItem = (item: string | PhotoSize[]) => (s: State) => {
+    const onAddItem = (item: string | PhotoSize[]) => (s: StoreState) => {
         mylog('TRACE onAddItem')
         mylog(item)
 
         return upd({ items: [...s.items, ...Array.isArray(item) ? item : [item]] })(s)
     }
 
-    const onDeleteItem = (item: string | PhotoSize) => (s: State) => {
+    const onDeleteItem = (item: string | PhotoSize) => (s: StoreState) => {
         return upd({ items: s.items.filter(_ => _ != item) })(s)
     }
 
-    const setStringCandidate = (c?: string) => (s: State) => upd({ stringCandidate: c })(s)
+    const setStringCandidate = (c?: string) => (s: StoreState) => upd({ stringCandidate: c })(s)
 
     return {
         store,

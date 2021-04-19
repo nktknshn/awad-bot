@@ -8,8 +8,14 @@
             "name": "Current TS File",
             "type": "node",
             "request": "launch",
-            "args": ["${relativeFile}"],
-            "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+            "args": [
+                "${relativeFile}"
+            ],
+            "runtimeArgs": [
+                "--nolazy",
+                "-r",
+                "ts-node/register"
+            ],
             "sourceMaps": true,
             "cwd": "${workspaceRoot}",
             "protocol": "inspector",
@@ -18,8 +24,14 @@
             "name": "bot2.ts",
             "type": "node",
             "request": "launch",
-            "args": ["${workspaceRoot}/src/bot2.ts"],
-            "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+            "args": [
+                "${workspaceRoot}/src/bot2.ts"
+            ],
+            "runtimeArgs": [
+                "--nolazy",
+                "-r",
+                "ts-node/register"
+            ],
             "sourceMaps": true,
             "cwd": "${workspaceRoot}",
             "protocol": "inspector",
@@ -28,12 +40,47 @@
             "name": "Web server",
             "type": "node",
             "request": "launch",
-            "args": ["${workspaceRoot}/src/web-server.ts", "run"],
-            "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+            "args": [
+                "${workspaceRoot}/src/web-server.ts",
+                "run"
+            ],
+            "runtimeArgs": [
+                "--nolazy",
+                "-r",
+                "ts-node/register"
+            ],
             "sourceMaps": true,
             "cwd": "${workspaceRoot}",
             "protocol": "inspector",
         },
-
+        {
+            "name": "bot3f.ts",
+            "type": "node",
+            "request": "launch",
+            "args": [
+                "${workspaceRoot}/src/bot3f.ts"
+            ],
+            "runtimeArgs": [
+                "--nolazy",
+                "-r",
+                "ts-node/register",
+                "--preserve-symlinks"
+            ],
+            "sourceMaps": true,
+            "cwd": "${workspaceRoot}",
+            "protocol": "inspector",
+            "localRoot": "${workspaceRoot}",
+        },
+        {
+            "name": "bot3f2.ts",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/dist/bot3f.js",
+            "sourceMaps": true,
+            // "preLaunchTask": "tsc: build - tsconfig.json",
+            // "outFiles": [
+            //     "${workspaceFolder}/dist/**/*.js"
+            // ]
+        },
     ]
 }

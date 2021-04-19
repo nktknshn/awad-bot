@@ -4,16 +4,9 @@ import { OutcomingTextMessage } from "./messages";
 import { OutcomingFileMessage } from "./draft";
 import { OutcomingPhotoGroupMessage, RenderedMediaGroup } from "../bot3/mediagroup";
 import { OutcomingMessageType } from "./elements-to-messages";
+import {UserMessageElement, RenderedUserMessage} from './usermessage'
+export type RenderedElement = RenderedUserMessage | BotMessage | BotDocumentMessage | RenderedMediaGroup
 
-export type RenderedElement = UserMessage | BotMessage | BotDocumentMessage | RenderedMediaGroup
-
-export class UserMessage {
-    kind: 'UserMessage' = 'UserMessage';
-    canReplace = (other: OutcomingMessageType) => false
-    constructor(
-        readonly output: IncomingMessage
-    ) { }
-}
 
 export class BotMessage {
     kind: 'BotMessage' = 'BotMessage';

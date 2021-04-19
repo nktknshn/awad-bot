@@ -36,7 +36,8 @@ export const parseFromContext = (ctx: TelegrafContext) => {
         action,
         integer,
         float,
-        photo
+        photo,
+        ctx
     }
 }
 

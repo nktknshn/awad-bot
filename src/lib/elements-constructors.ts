@@ -13,7 +13,7 @@ export function photo(f: InputFile) {
     return new FileElement(f, true)
 }
 
-export function effect(callback: () => Promise<void>) {
+export function effect<R>(callback: () => R) {
     return new EffectElement(callback)
 }
 
