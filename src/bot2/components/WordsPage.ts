@@ -17,6 +17,7 @@ import { Card } from "./Card"
 import { CardPageInput } from "./CardPage"
 import { WordsList } from "./WordsList"
 import { WithDispatcher } from "../storeToDispatch"
+import { addRenderedUserMessage } from "../../lib/usermessage"
 
 type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
 
@@ -30,11 +31,12 @@ interface WordsPageState {
 
 function WordsPageInput({ onWordId }: { onWordId: (wordId: number) => Promise<void> }) {
   return inputHandler(
-    on(caseWordId, action(onWordId)),
-    otherwise(nextHandlerAction)
+    [
+      on(caseWordId, action(a => [addRenderedUserMessage(a.messageId), onWordId(a.example)])),
+      on(otherwise, nextHandlerAction)
+    ]
   )
 }
-
 
 const WordsPage = connected2(
   select(getUser, getSettings, getDispatcher),

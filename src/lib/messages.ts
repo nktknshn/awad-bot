@@ -10,7 +10,7 @@ export class OutcomingTextMessage {
     kind: 'TextMessage' = 'TextMessage'
     constructor(
         readonly text?: string,
-        readonly buttons: ButtonElement<any>[][] = [],
+        readonly buttons: ButtonElement[][] = [],
         readonly keyboardButtons: (RequestLocationButtonElement | KeyboardElement)[] = [],
         readonly isComplete = false
     ) { }

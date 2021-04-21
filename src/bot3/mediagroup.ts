@@ -70,7 +70,7 @@ export const mediaGroup = {
         create,
         remove
     },
-    appendDraft: (draft: RenderDraft, el: PhotoGroupElement) => {
+    appendDraft: <H>(draft: RenderDraft<H>, el: PhotoGroupElement) => {
         draft.messages.push(
             new OutcomingPhotoGroupMessage(el)
         )

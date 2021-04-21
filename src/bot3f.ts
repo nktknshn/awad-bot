@@ -13,9 +13,9 @@ import { Application, ChatState, createChatHandlerFactory, emptyChatState, gener
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
 import { createDraftWithImages } from './lib/draft';
-import { GetSetState } from "./lib/elements";
+import { GetSetState, wrapR } from "./lib/elements";
 import { button, effect, message } from "./lib/elements-constructors";
-import { applyChatStateAction, applyStoreAction, applyTreeAction, byMessageId, ChatAction, contextOpt, ContextOpt, getActionHandler, getInputHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
+import { applyChatStateAction, applyRenderedElementsAction, applyStoreAction, applyTreeAction, byMessageId, ChatAction, contextOpt, ContextOpt, getActionHandler, getInputHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
 import { connect, deleteMessage, getActions, routeAction, StateAction } from './lib/handlerF';
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { initLogging, mylog } from './lib/logging';
@@ -23,8 +23,9 @@ import { createStoreF, StoreAction, wrap } from './lib/store2';
 import { AppActions, AppActionsFlatten } from './lib/types-util';
 import { token } from "./telegram-token.json";
 import { task } from 'fp-ts/lib/Task';
-import { UserMessageElement } from './lib/usermessage';
-
+import { addRenderedUserMessage, OutcomingUserMessage, RenderedUserMessage, UserMessageElement } from './lib/usermessage';
+import { Lens } from 'monocle-ts'
+import { RenderedElement } from './lib/rendered-messages';
 
 type Item = string | PhotoSize
 
@@ -73,104 +74,117 @@ const VisibleSecrets = connected4(
     }
 )
 
+type AppLocalState = {
+    photoCandidates: PhotoSize[],
+    userMessages: number[]
+}
+
+const lenses = {
+    userMessages: Lens.fromProp<AppLocalState>()('userMessages'),
+    photoCandidates: Lens.fromProp<AppLocalState>()('photoCandidates')
+}
+
+const append = <T>(a: T) => (as: T[]) => A.snoc(as, a)
+
 const App = connected4(
     (ctx: Context) => ctx,
     function* (
         { isVisible, stringCandidate, dispatcher: { onSetVisible, onAddItem, setStringCandidate } },
         { password }: { password: string },
-        { getState, setStateF }: GetSetState<{
-            photoCandidates: PhotoSize[],
-            userMessages: number[]
-        }>
+        { getState, setStateF }: GetSetState<AppLocalState>
     ) {
         mylog('App');
 
         const { photoCandidates, userMessages } = getState({ photoCandidates: [], userMessages: [] })
 
-        const resetPhotos = setStateF(() => ({ photoCandidates: [], userMessages: [] }))
-        const addUserMessage = (messageId: number) =>
-            setStateF(s => ({ ...s, userMessages: [...s.userMessages, messageId] }))
-
-        const resetUserMessages = setStateF(s => ({ ...s, userMessages: [] }))
-
-        const addPhotoCandidate = (photo: PhotoSize[]) =>
-            setStateF(({ photoCandidates, userMessages }) =>
-                ({ photoCandidates: [...photoCandidates, photo[0]], userMessages }))
-
-        yield inputHandler([
-            on(casePassword(password), action(() => onSetVisible(true))),
-            on(caseText, action(({ messageText, messageId }) =>
-                [addUserMessage(messageId), setStringCandidate(messageText)])),
-            on(casePhoto, action(({ photo, messageId }) =>
-                [addUserMessage(messageId), addPhotoCandidate(photo)]))
-        ])
-
         if (isVisible) {
             yield VisibleSecrets({})
+            return
         }
 
+        const resetPhotos = setStateF(() => ({ photoCandidates: [], userMessages: [] }))
+
+        const addUserMessage = (messageId: number) =>
+            setStateF(lenses.userMessages.modify(append(messageId)))
+
+        const resetUserMessages = setStateF(lenses.userMessages.set([]))
+
+        const addPhotoCandidate = (photo: PhotoSize[]) =>
+            setStateF(lenses.photoCandidates.modify(append(photo[0])))
+
+        yield inputHandler([
+            on(casePassword(password), action((a) => [
+                addRenderedUserMessage(a.messageId),
+                onSetVisible(true)
+            ])),
+            on(caseText, action(a => [
+                addRenderedUserMessage(a.messageId),
+                addUserMessage(a.messageId),
+                setStringCandidate(a.messageText)
+            ])),
+            on(casePhoto, action(({ photo, messageId }) => [
+                addRenderedUserMessage(messageId),
+                addUserMessage(messageId),
+                addPhotoCandidate(photo)
+            ]))
+        ])
+
         if (stringCandidate) {
-            const addItem = () => [onAddItem(stringCandidate), resetUserMessages, setStringCandidate(undefined)]
-            const rejectItem = () => [setStringCandidate(undefined), resetUserMessages]
+            const reset = [resetUserMessages, setStringCandidate(undefined)]
+            const addItem = [onAddItem(stringCandidate), reset]
+            const rejectItem = reset
 
             if (!isVisible) {
 
-                for(const m of userMessages) {
+                for (const m of userMessages) {
                     yield new UserMessageElement(m)
                 }
 
                 yield message(`Add '${stringCandidate}?'`)
-                yield button(`Yes`, addItem)
-                yield button(`No`, rejectItem)
+                yield button(`Yes`, () => addItem)
+                yield button(`No`, () => rejectItem)
             }
-            else {
-                yield effect(addItem)
-            }
+            return
         }
         else if (photoCandidates.length) {
-
-            const addItem = () => [onAddItem(photoCandidates), resetUserMessages, resetPhotos]
-            const rejectItem = () => [resetPhotos, resetUserMessages]
+            const reset = [resetUserMessages, resetPhotos]
+            const addItem = [onAddItem(photoCandidates), reset]
 
             if (!isVisible) {
 
-                for(const m of userMessages) {
+                for (const m of userMessages) {
                     yield new UserMessageElement(m)
-                    yield message("yep")
                 }
 
                 yield message(`Add?`)
-                yield button(`Yes`, addItem)
-                yield button(`No`, rejectItem)
+                yield button(`Yes`, () => addItem)
+                yield button(`No`, () => reset)
 
-                // if (photoCandidates.length)
-                //     yield photos(photoCandidates.map(_ => _.file_id))
             }
-            else {
-                yield effect(addItem)
-            }
+            return
         }
-        else if (!isVisible) {
-            yield message("hi")
-            yield button('flush', () => 'flush' as 'flush')
-        }
+
+        yield message("hi")
+        yield button('flush', flush)
     }
 )
 
+const flush = (): 'flush' => 'flush'
+
 function createApp() {
     type MyState = ReturnType<typeof createBotStoreF> & {
-        deleteUserMessages: boolean,
-        deferredRenderTimer?: NodeJS.Timeout,
-        userMessages: number[]
+        // deleteUserMessages: boolean,
+        // deferredRenderTimer?: NodeJS.Timeout,
+        // userMessages: number[]
     }
 
     type HandlerActions = AppActionsFlatten<typeof App>
-
-    type AppAction = HandlerActions | {
+    type ChatStateAction = {
         kind: 'chatstate-action',
         f: (s: AppChatState) => AppChatState
     }
 
+    type AppAction = HandlerActions | ChatStateAction
 
     type AppChatState = ChatState<MyState, HandlerActions>
     type AppStoreAction = StoreAction<StoreState, StoreState>
@@ -180,9 +194,9 @@ function createApp() {
         return {
             ...emptyChatState(),
             ...createBotStoreF(),
-            deleteUserMessages: true,
-            deferredRenderTimer: undefined,
-            userMessages: []
+            // deleteUserMessages: true,
+            // deferredRenderTimer: undefined,
+            // userMessages: []
         }
     }
 
@@ -190,7 +204,10 @@ function createApp() {
         if (Array.isArray(a))
             return A.flatten(a.map(actionToStateAction))
         else if (a === 'flush') {
-            return [applyChatStateAction(s => ({ ...s, renderedElements: [] }))]
+            return [applyRenderedElementsAction({
+                kind: 'rendered-elements-action',
+                f: _ => []
+            })]
         }
         else if (a.kind === 'store-action')
             return [applyStoreAction(a)]
@@ -199,6 +216,10 @@ function createApp() {
         else if (a.kind === 'chatstate-action') {
             return [applyChatStateAction(a.f)]
         }
+        else if (a.kind === 'rendered-elements-action') {
+            return [applyRenderedElementsAction(a)]
+        }
+
         // else if (a.kind === 'chat-action') {
         //     return [applyChatStateAction(a.f)]
         // }
@@ -223,7 +244,7 @@ function createApp() {
         actions: AppAction[]
     }
 
-    return getApp<MyState, HandlerActions, Event>({
+    return getApp({
         chatData: chatState,
         renderFunc: genericRenderFunction(
             App, { password: 'a' },
@@ -364,7 +385,7 @@ function createApp() {
 
             ).then(async data => ctx.answerCbQuery().then(_ => data))
         },
-        handleEvent: async (app, renderer, queue, chatdata, event) => {
+        handleEvent: async (app, renderer, queue, chatdata, event: Event) => {
             if (event.kind === 'StateActionEvent') {
                 return await app.renderFunc(
                     actionToStateAction(event.actions).reduce((s, f) => f(s), chatdata)

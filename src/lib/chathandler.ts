@@ -29,7 +29,6 @@ export interface ChatHandler2<E = any> {
     handleMessage(ctx: TelegrafContext): Promise<unknown>
     handleAction(ctx: TelegrafContext): Promise<unknown>
     handleEvent(event: E): Promise<void>
-
 }
 
 // export interface ChatS<R> {
@@ -181,7 +180,6 @@ export type ChatState<R, H> = {
     renderedElements: RenderedElement[],
     inputHandler?: (ctx: TelegrafContext) => (H | undefined),
     actionHandler?: (ctx: TelegrafContext) => H,
-
 } & R
 
 export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
@@ -194,7 +192,7 @@ export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
 export interface Application<C, H, E=any> {
     renderer?: (ctx: TelegrafContext) => ChatRenderer,
     renderFunc: (s: C) => readonly [{
-        draft: RenderDraft,
+        draft: RenderDraft<H>,
         treeState: TreeState,
         inputHandler: (ctx: TelegrafContext) => H | undefined,
         effectsActions: H[]
@@ -288,7 +286,7 @@ export const createChatHandlerFactory = <UserState, Actions, E=any>(app: Applica
     }
 
 
-interface InputHandlerF<R> {
+export interface InputHandlerF<R> {
     (ctx: TelegrafContext): R
 }
 
@@ -296,7 +294,7 @@ interface RenderScheme<
     RootComponent extends ComponentElement,
     RootReqs extends AppReqs<RootComponent>,
     Els extends GetAllBasics<RootComponent>,
-    Rdr extends RenderDraft,
+    Rdr extends RenderDraft<HandlerReturn>,
     HandlerReturn
     > {
     createDraft: (els: Els[]) => Rdr,
@@ -311,7 +309,7 @@ export const genericRenderFunction = <
     ContextReqs extends AppReqs<RootComponent>,
     Els extends GetAllBasics<RootComponent>,
     Ctx,
-    Rdr extends RenderDraft,
+    Rdr extends RenderDraft<HandlerReturn>,
     HandlerReturn extends AppActionsFlatten<RootComponent>
 >
     (

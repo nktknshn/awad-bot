@@ -50,7 +50,7 @@ export function renderedElementsToActionHandler(renderedElements: RenderedElemen
     }
 }
 
-export function draftToInputHandler(draft: RenderDraft, parseContext = parseFromContext) {
+export function draftToInputHandler<H>(draft: RenderDraft<H>, parseContext = parseFromContext) {
 
     return async (ctx: TelegrafContext) => {
         let deleteMessage = true

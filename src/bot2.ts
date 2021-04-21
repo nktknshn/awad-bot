@@ -5,6 +5,7 @@ import { createAwadApplication } from "./bot2/chathandler"
 import { getAwadServices } from "./bot2/services"
 import { createChatHandlerFactory } from "./lib/chathandler"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
+import { mylog } from "./lib/logging"
 
 import { token } from "./telegram-token.json"
 

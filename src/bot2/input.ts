@@ -19,24 +19,61 @@ export const parseWordIdOpt = O.fromNullableK(parseWordId)
 export const parseExampleOpt = (text: string) => O.fromNullable(parseExample(text))
 export const parseCardUpdateOpt = (text: string) => O.fromNullable(parseCardUpdate(text))
 
-export const caseExample = flow(caseText, O.chain(parseExampleOpt))
-export const caseCardUpdate = flow(caseText, O.chain(parseCardUpdateOpt))
+export const caseExample = flow(caseText,
+    O.chain(a => pipe(a,
+        a => parseExampleOpt(a.messageText),
+        O.map(example => ({
+            ...a, example
+        }))))
+)
+
+export const caseCardUpdate = flow(caseText,
+    O.chain(a => pipe(a,
+        a => parseCardUpdateOpt(a.messageText),
+        O.map(example => ({
+            ...a, ...example
+        }))))
+)
 
 export const caseEnglishWord =
-    on(caseText, O.chain(createCardFromWordOpt))
+    flow(caseText,
+        O.chain(a => pipe(a,
+            a => createCardFromWordOpt(a.messageText),
+            O.map(example => ({
+                ...a, example
+            }))))
+    )
 
 export const caseCard =
-    on(caseText, O.chain(parseCardOpt))
+    flow(caseText,
+        O.chain(a => pipe(a,
+            a => parseCardOpt(a.messageText),
+            O.map(card => ({
+                ...a, card
+            }))))
+    )
 
 export const caseWordId =
-    on(caseText, O.chain(parseWordIdOpt))
+flow(caseText,
+    O.chain(a => pipe(a,
+        a => parseWordIdOpt(a.messageText),
+        O.map(example => ({
+            ...a, example
+        }))))
+)
 
 export const caseIfWordId =
-    on(caseText, O.chainFirst(parseWordIdOpt))
+flow(caseText,
+    O.chain(a => pipe(a,
+        a => parseWordIdOpt(a.messageText),
+        O.map(example => ({
+            ...a, example
+        })))))
 
 export const caseWordIdWithSource =
     on(
         caseText,
+        O.map(({ messageText }) => messageText),
         O.chain(text =>
             pipe(
                 parseWordIdOpt(text),

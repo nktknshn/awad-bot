@@ -10,8 +10,9 @@ import { ChatRenderer } from "../lib/chatrenderer";
 import { deleteAll } from "../lib/ui";
 import { parseFromContext } from './bot-util';
 import { InputHandler } from './draft';
-import { LocalStateAction } from './elements';
+import { LocalStateAction, RenderedElementsAction } from './elements';
 import { RenderDraft } from './elements-to-messages';
+import { InputHandlerF } from './handlerF';
 import { mylog } from './logging';
 import { BotMessage, RenderedElement } from './rendered-messages';
 import { StoreAction, StoreF } from './store2';
@@ -156,6 +157,15 @@ export async function defaultHandleAction<R, H, E = any>(
     // await chat.handleEvent("updated")
 }
 
+export function applyRenderedElementsAction<R, H, C extends ChatState<R, H>>(a: RenderedElementsAction) {
+    return function (cs: C): C {
+        return {
+            ...cs,
+            renderedElements: a.f(cs.renderedElements)
+        }
+    }
+}
+
 
 export function applyTreeAction<R, H, C extends ChatState<R, H>>(a: LocalStateAction) {
     return function (cs: C): C {
@@ -181,13 +191,13 @@ export function applyStoreAction<S, C extends ChatState<A, B>, A extends { store
     }
 }
 
-export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext) => {
+export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext): A | undefined => {
     const d = parseFromContext(ctx)
     mylog(`TRACE ${ctx.message?.message_id}`)
     return h.element.callback(d, () => { return undefined })
 }
 
-export function getInputHandler<R>(d: RenderDraft) {
+export function getInputHandler<Rdr extends RenderDraft<R>, R>(d: Rdr): (ctx: TelegrafContext) => R | undefined {
     return inputHandlerFHandler<R>(d.inputHandlers[0])
 }
 
@@ -209,3 +219,6 @@ export const getActionHandler = <A>(rs: RenderedElement[]) => {
         }
     }
 }
+
+export const chainHandlers = <D, R>
+    (hs: ((d: D, n: () => R) => R)[], d: D): R => hs[0](d, () => chainHandlers(hs.slice(1), d))

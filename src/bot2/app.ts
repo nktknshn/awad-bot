@@ -1,9 +1,10 @@
-import { pipe } from "fp-ts/lib/function";
+import { flow, identity, pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
 import { connected1 as connected1, connected2 } from "../lib/component";
 import { button, buttonsRow, effect, message } from "../lib/elements-constructors";
-import { action, inputHandler, on, otherwise } from "../lib/input";
+import { action, inputHandler, messageId, on, otherwise } from "../lib/input";
 import { select } from "../lib/state";
+import { addRenderedUserMessage } from "../lib/usermessage";
 import { parsePath, tryKey } from "../lib/util";
 import Settings from "./components/Settings";
 import { Trainer } from "./components/trainer";
@@ -12,6 +13,9 @@ import PinnedCards from "./connected/PinnedCards";
 import { caseCard, caseEnglishWord, caseIfWordId } from "./input";
 import { getDispatcher, getIfUserLoaded, getPath, getUser } from "./store/selectors";
 import { WithDispatcher } from "./storeToDispatch";
+import * as O from 'fp-ts/lib/Option';
+import { Do } from 'fp-ts-contrib/lib/Do';
+import { InputHandlerData } from "../lib/messages";
 
 const messages: Record<string, string> = {
     'word_added': '👌 Word added',
@@ -23,12 +27,12 @@ const messages: Record<string, string> = {
 
 
 const AppInput = ({ dispatcher: { onCard, onRedirect } }: WithDispatcher) =>
-    inputHandler(
-        on(caseEnglishWord, action(onCard)),
-        on(caseCard, action(onCard)),
-        on(caseIfWordId, action(onRedirect)),
-        otherwise(action(() => onRedirect('main?message=bad_card')))
-    )
+    inputHandler([
+        on(caseEnglishWord, action((a) => [addRenderedUserMessage(a.messageId), onCard(a.example)])),
+        on(caseCard, action((a) => [addRenderedUserMessage(a.messageId), onCard(a.card)])),
+        on(caseIfWordId, action(a => [addRenderedUserMessage(a.messageId), onRedirect(a.messageText)])),
+        on(otherwise, (action((a) => [addRenderedUserMessage(a.messageId), onRedirect('main?message=bad_card')]))),
+    ])
 
 const App = connected1(
     select(getDispatcher, getIfUserLoaded, getPath),

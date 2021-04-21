@@ -4,6 +4,7 @@ import { InputHandlerData } from "./messages";
 import { flow, identity } from "fp-ts/lib/function";
 import { pipe } from 'fp-ts/lib/pipeable';
 import { Do } from 'fp-ts-contrib/lib/Do';
+import { TelegrafContext } from 'telegraf/typings/context';
 
 export type Matcher2<R> = (d: O.Option<InputHandlerData>) => O.Option<R | 'done' | 'next'>;
 
@@ -15,7 +16,10 @@ export class InputOpt<T> {
 }
 
 export const on = flow;
-export const otherwise = flow(identity);
+export const otherwise = O.chain((d: InputHandlerData) =>
+    Do(O.option)
+        .bind('messageId', messageId(d))
+        .return(identity))
 
 
 export type Matcher = (

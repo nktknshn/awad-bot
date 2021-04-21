@@ -9,19 +9,19 @@ import { OutcomingUserMessage } from './usermessage'
 
 export type OutcomingMessageType = (OutcomingTextMessage | OutcomingFileMessage) | OutcomingPhotoGroupMessage | OutcomingUserMessage
 
-type HandlerType = InputHandler<any> | ActionsHandler
+type HandlerType<H> = InputHandler<H> | ActionsHandler
 
-export type RenderDraft = {
+export type RenderDraft<H> = {
     messages: OutcomingMessageType[],
-    handlers: HandlerType[],
+    handlers: HandlerType<H>[],
     effects: Effect<any>[],
     keyboards: KeyboardElement[],
-    inputHandlers: InputHandler<any>[]
+    inputHandlers: InputHandler<H>[]
 }
 
 // export type RenderDraft = MessagesAndHandlers
 
-export const emptyDraft = (): RenderDraft => ({
+export const emptyDraft = <H>(): RenderDraft<H> => ({
     messages: [],
     handlers: [],
     effects: [],
@@ -29,7 +29,7 @@ export const emptyDraft = (): RenderDraft => ({
     inputHandlers: []
 })
 
-export const defaultCreateDraft = (elements: BasicElement[], d?: RenderDraft): RenderDraft => {
+export const defaultCreateDraft = <H>(elements: BasicElement[], d?: RenderDraft<H>): RenderDraft<H> => {
 
     const draft = d ?? emptyDraft()
 
@@ -45,15 +45,15 @@ export const defaultCreateDraft = (elements: BasicElement[], d?: RenderDraft): R
 }
 
 
-export function elementsToMessagesAndHandlers(
+export function elementsToMessagesAndHandlers<H>(
     compel: BasicElement,
-    draft: RenderDraft
-): RenderDraft {
+    draft: RenderDraft<H>
+): RenderDraft<H> {
 
     mylog(`elementsToMessagesAndHandlers: ${compel.kind}`);
 
     let messages: OutcomingMessageType[] = draft.messages
-    let handlers: HandlerType[] = draft.handlers
+    let handlers: HandlerType<H>[] = draft.handlers
     let effects: Effect<any>[] = draft.effects
     let keyboards: KeyboardElement[] = draft.keyboards
     let inputHandlers: InputHandler<any>[] = draft.inputHandlers
@@ -86,7 +86,7 @@ export function elementsToMessagesAndHandlers(
     }
 
     if (isAppliable(compel)) {
-        compel.apply(draft)
+        compel.apply(draft as any)
     } 
     else if (compel.kind === 'InputHandlerElement') {
         // handlers.push(compel)

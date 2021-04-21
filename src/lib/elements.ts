@@ -3,6 +3,7 @@ import { InputFile } from "telegraf/typings/telegram-types"
 import { ComponentGenerator, ComponentElement } from "./component"
 import { RenderDraft } from "./elements-to-messages"
 import { InputHandlerData } from "./messages"
+import { RenderedElement } from "./rendered-messages"
 import { TreeState } from "./tree"
 
 type Diff<T, U> = T extends U ? never : T
@@ -61,6 +62,16 @@ export interface LocalStateAction {
     f: (s: TreeState) => TreeState
 }
 
+export interface RenderedElementsAction {
+    kind: 'rendered-elements-action',
+    f: (rs: RenderedElement[]) => RenderedElement[]
+}
+
+export const wrapR = (f: (rs: RenderedElement[]) => RenderedElement[]): RenderedElementsAction => ({
+    kind: 'rendered-elements-action',
+    f
+})
+
 // export function connected<P extends M, S, M, State, PP, R extends ComponentGenerator>(
 //     mapper: (state: State) => M,
 //     cons: CompConstructorWithState<P, S, R> | ((reqs: P) => (props: PP, getset: GetSetState<S>) => R)
@@ -99,22 +110,22 @@ export class NextMessageElement {
     constructor() { }
 }
 
-export interface Appliable<S = unknown> {
+export interface Appliable<S = unknown, H= unknown> {
     kind: S
-    apply(draft: RenderDraft): RenderDraft
+    apply(draft: RenderDraft<H>): RenderDraft<H>
 }
 
 export function isAppliable(b: BasicElement | Appliable) : b is Appliable {
     return 'apply' in b
 }
 
-const buttonElementApply = (b: ButtonElement) => (d: RenderDraft) => {
-    return {
-        ...d
-    }
-}
+// const buttonElementApply = (b: ButtonElement) => (d: RenderDraft) => {
+//     return {
+//         ...d
+//     }
+// }
 
-export class ButtonElement<R = Promise<void>> {
+export class ButtonElement<R = any> {
     kind: 'ButtonElement' = 'ButtonElement'
     constructor(
         readonly text: string,

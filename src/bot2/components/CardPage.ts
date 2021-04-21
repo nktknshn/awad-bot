@@ -14,23 +14,23 @@ export function CardPageInput({
     word,
     dispatcher: { onReplaceWord, onUpdateWord, onAddExample }
 }: WithDispatcher<{ word: WordEntityState }>) {
-    
+
     return inputHandler(
-        on(caseText,
-            action(m => m.startsWith('/')
+        [on(caseText,
+            action(({ messageText }) => messageText.startsWith('/')
                 ? nextHandler()
                 : nextMatcher()
             )
         ),
         on(caseCard,
-            action(card =>
+            action(({ card }) =>
                 card.word == word.theword
                     ? onReplaceWord(word, card)
                     : nextHandler()
             ),
         ),
         on(caseExample,
-            action((example) => onAddExample(word, example))
+            action(({ example }) => onAddExample(word, example))
         ),
         on(caseCardUpdate,
             action(
@@ -39,9 +39,9 @@ export function CardPageInput({
                         .then(_ => true)
             )
         ),
-        on(caseText, 
+        on(caseText,
             ifTrue(() => Boolean(!word.meanings.length)),
-            action(description =>
+            action(({ messageText: description }) =>
                 onUpdateWord(word, {
                     meanings: [{
                         description,
@@ -52,10 +52,10 @@ export function CardPageInput({
         ),
         on(caseText,
             ifTrue(() => Boolean(word.meanings.length)),
-            action(messageText => onAddExample(word, messageText))
+            action(({ messageText }) => onAddExample(word, messageText))
         ),
-        otherwise(action(nextHandler))
-    )
+        on(otherwise, action(nextHandler))
+        ])
 }
 
 export function* CardPage({
