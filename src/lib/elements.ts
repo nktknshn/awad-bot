@@ -49,8 +49,14 @@ export function isComponentElement(el: Element): el is ComponentElement {
         || el.kind === 'component-with-state'
 }
 
+import { Lens } from 'monocle-ts'
+
+type LensObject<S> = {
+    [k in keyof S]: Lens<S, S[k]>
+}
+
 export type GetSetState<S> = {
-    getState: (initialState: S) => S
+    getState: (initialState: S) => S & {lenses: LensObject<S>}
     setState: (state: Partial<S>) => Promise<void>
     setStateF: (f: (s: S) => S) => LocalStateAction
     setStateFU: (state: Partial<S>) => LocalStateAction

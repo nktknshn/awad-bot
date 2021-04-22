@@ -2,6 +2,7 @@ import { IncomingMessage } from "telegraf/typings/telegram-types";
 import { ChatRenderer } from "./chatrenderer";
 import { wrapR } from "./elements";
 import { OutcomingMessageType, RenderDraft } from "./elements-to-messages";
+import { RenderedElement } from "./rendered-messages";
 
 export class UserMessageElement {
     kind: 'UserMessageElement' = 'UserMessageElement'
@@ -52,11 +53,11 @@ function areSameUserMessages(a: RenderedUserMessage, b: OutcomingUserMessage) {
 
 
 export const addRenderedUserMessage = (messageId: number) => wrapR(rs =>
-    [...rs,
-    new RenderedUserMessage(
-        new OutcomingUserMessage(
-            new UserMessageElement(messageId)), messageId)
-    ])
+    [...rs, createRendered(messageId)])
+
+export const createRendered = (messageId: number): RenderedElement => new RenderedUserMessage(
+    new OutcomingUserMessage(
+        new UserMessageElement(messageId)), messageId)
 
 
 export const usermessage = {

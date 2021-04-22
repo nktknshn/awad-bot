@@ -253,6 +253,9 @@ export function printZippedTree(tree: TreeWithNewState, depth = 0) {
     }
 }
 
+import { Lens } from 'monocle-ts'
+import { access } from "node:fs"
+
 
 export function componentToComponentTree<R>(
     componentElement: ComponentElement,
@@ -288,7 +291,13 @@ export function componentToComponentTree<R>(
                 if (state.value === undefined)
                     state.value = ObjectHelper.deepCopy(initial)
 
-                return ObjectHelper.deepCopy(state.value)
+                const cpy = ObjectHelper.deepCopy(state.value)
+                return {
+                    ...cpy,
+                    lenses: Object.keys(cpy!)
+                    .map(k => [k, Lens.fromProp<any>()(k)] as const)
+                    .reduce((acc, [k,v]) => ({...acc, [k]: v}), {})
+                }
             })()
 
             mylog(`${componentElement.cons.name}.getState(${str(initial)})=${str(result)}`)

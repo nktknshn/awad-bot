@@ -86,7 +86,7 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
 export type Tracker = {
     addRenderedMessage(chatId: number, messageId: number): Promise<void>
     removeRenderedMessage(chatId: number, messageId: number): Promise<void>
-    // getRenderedMessage(chatId: number): Promise<number[]>
+    getRenderedMessage(chatId: number): Promise<number[]>
 }
 
 

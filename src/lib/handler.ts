@@ -34,7 +34,7 @@ export const contextOpt = flow(
 export type ContextOpt = ReturnType<typeof contextOpt>
 
 
-export const byMessageId = <R, H, T>(dh: ((messageId: number) => ChatAction<R, H, T>)) => (c: ContextOpt) => {
+export const byMessageId = <R, H, T, E, C extends ChatState<R, H>>(dh: ((messageId: number) => ChatAction<R, H, T, E, C>)) => (c: ContextOpt) => {
     return pipe(
         Do(O.option)
             .bind('messageId', c.messageId)
@@ -44,61 +44,59 @@ export const byMessageId = <R, H, T>(dh: ((messageId: number) => ChatAction<R, H
     )
 }
 
-export async function deleteTem<R, H>(
-    app: Application<ChatState<R, H>, H>,
-    ctx: TelegrafContext,
-    renderer: ChatRenderer,
-    chat: ChatHandler2<ChatState<R, H>>,
-    chatdata: ChatState<R, H>,
-) {
-    await deleteAll(renderer, chatdata.renderedElements)
-    // await chat.handleEvent("updated",
-    //     [chatdata => ({ ...chatdata, renderedElements: [] })]
-    // )
-    return chatdata
-}
-
-export type ChatAction<R, H, T, E = any> = (
-    app: Application<ChatState<R, H>, H>,
+export async function clearChat<R, H, E, C extends ChatState<R, H>>(
+    app: Application<C, H>,
     ctx: TelegrafContext,
     renderer: ChatRenderer,
     chat: ChatHandler2<E>,
-    chatdata: ChatState<R, H>
+    chatdata: C
+): Promise<C> {
+    await deleteAll(renderer, chatdata.renderedElements)
+    return { ...chatdata, renderedElements: [] }
+}
+
+export type ChatAction<R, H, T, E, C extends ChatState<R, H>> = (
+    app: Application<C, H>,
+    ctx: TelegrafContext,
+    renderer: ChatRenderer,
+    chat: ChatHandler2<E>,
+    chatdata: C
 ) => Promise<T>
 
-export function startHandler<R, H, E = any>(c: ContextOpt) {
+export function startHandler<R, H, E, C extends ChatState<R, H>>(c: ContextOpt):
+    O.Option<ChatAction<R, H, C, E, C>> {
     return pipe(
         c.messageText,
         O.filter(m => m == '/start'),
-        O.map((): ChatAction<R, H, ChatState<R, H>> => deleteTem)
+        O.map((): ChatAction<R, H, C, E, C> => clearChat)
     )
 }
 
-export function defaultHandler(c: ContextOpt) {
-    return pipe(
-        Do(O.option)
-            .bind('messageId', c.messageId)
-            .return(({ messageId }) => {
-                return defaultH(messageId)
-            }),
-    )
-}
+// export function defaultHandler(c: ContextOpt) {
+//     return pipe(
+//         Do(O.option)
+//             .bind('messageId', c.messageId)
+//             .return(({ messageId }) => {
+//                 return defaultH(messageId)
+//             }),
+//     )
+// }
 
 
-export const defaultH = <R>(messageId: number): ChatAction<R, Promise<boolean>, void> => {
-    return async function def(
-        app, ctx, renderer, chat, chatdata
-    ) {
-        if (!chatdata.inputHandler)
-            return
-        if (await chatdata.inputHandler(ctx))
-            await renderer.delete(messageId)
+// export const defaultH = <R>(messageId: number): ChatAction<R, Promise<boolean>, void> => {
+//     return async function def(
+//         app, ctx, renderer, chat, chatdata
+//     ) {
+//         if (!chatdata.inputHandler)
+//             return
+//         if (await chatdata.inputHandler(ctx))
+//             await renderer.delete(messageId)
 
-        console.log("defaultH");
+//         console.log("defaultH");
 
-        await chat.handleEvent("updated")
-    }
-}
+//         await chat.handleEvent("updated")
+//     }
+// }
 
 export type FuncF<R, H, E> = (
     app: Application<ChatState<R, H>, H>,
@@ -197,8 +195,11 @@ export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafCon
     return h.element.callback(d, () => { return undefined })
 }
 
-export function getInputHandler<Rdr extends RenderDraft<R>, R>(d: Rdr): (ctx: TelegrafContext) => R | undefined {
-    return inputHandlerFHandler<R>(d.inputHandlers[0])
+export function getInputHandler<Rdr extends RenderDraft<R>, R>(d: Rdr): ((ctx: TelegrafContext) => R | undefined) {
+    return ctx => chainInputHandlers(
+        d.inputHandlers.reverse().map(_ => _.element.callback),
+        parseFromContext(ctx)
+    )
 }
 
 export const getActionHandler = <A>(rs: RenderedElement[]) => {
@@ -220,5 +221,9 @@ export const getActionHandler = <A>(rs: RenderedElement[]) => {
     }
 }
 
-export const chainHandlers = <D, R>
-    (hs: ((d: D, n: () => R) => R)[], d: D): R => hs[0](d, () => chainHandlers(hs.slice(1), d))
+export const chainInputHandlers = <D, R>
+    (hs: ((d: D, n: () => R | undefined) => R | undefined)[], d: D): R | undefined =>
+    hs && hs.length
+        ? hs[0](d, () => chainInputHandlers(hs.slice(1), d))
+        : undefined
+

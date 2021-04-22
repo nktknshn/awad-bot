@@ -23,7 +23,7 @@ export function mylog(...ss: string | any) {
     for (const s of ss) {
         let output = ""
         const str = s === undefined ? 'undefined ' : typeof s === 'string' ? s : JSON.stringify(s)
-        const fpath = [frames[2].functionName, frames[1].functionName].join(" -> ")
+        const fpath = [frames[2] && frames[2].functionName, frames[1].functionName].join(" -> ")
 
         if (fpath != state.lastF) {
             output += "\n"

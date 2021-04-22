@@ -6,7 +6,9 @@ import { pipe } from 'fp-ts/lib/pipeable';
 import { Do } from 'fp-ts-contrib/lib/Do';
 import { TelegrafContext } from 'telegraf/typings/context';
 
-export type Matcher2<R> = (d: O.Option<InputHandlerData>) => O.Option<R | 'done' | 'next'>;
+type Matcher2Ret<R> = O.Option<R | 'done' | 'next'>;
+
+export type Matcher2<R> = (d: O.Option<InputHandlerData>) => Matcher2Ret<R>
 
 export class InputOpt<T> {
     constructor(
@@ -22,32 +24,32 @@ export const otherwise = O.chain((d: InputHandlerData) =>
         .return(identity))
 
 
-export type Matcher = (
-    done: () => 'done',
-    next: () => 'next'
-) => (d: O.Option<InputHandlerData>) => O.Option<Promise<any> | 'done' | 'next'>;
+// export type Matcher = (
+//     done: () => 'done',
+//     next: () => 'next'
+// ) => (d: O.Option<InputHandlerData>) => O.Option<Promise<any> | 'done' | 'next'>;
 
-export function inputGroup(
-    matchers: Matcher[]
-) {
-    return new InputHandlerElement(
-        async (data, next) => {
+// export function inputGroup(
+//     matchers: Matcher[]
+// ) {
+//     return new InputHandlerElement(
+//         async (data, next) => {
 
-            for (const m of matchers) {
-                const res = m(() => 'done', () => 'next')(O.of(data));
+//             for (const m of matchers) {
+//                 const res = m(() => 'done', () => 'next')(O.of(data));
 
-                if (O.isSome(res))
-                    switch (res.value) {
-                        case 'next': continue;
-                        case 'done': return next();
-                        case undefined: return;
-                        default: return res.value;
-                    }
-            }
-            return next();
-        }
-    );
-}
+//                 if (O.isSome(res))
+//                     switch (res.value) {
+//                         case 'next': continue;
+//                         case 'done': return next();
+//                         case undefined: return;
+//                         default: return res.value;
+//                     }
+//             }
+//             return next();
+//         }
+//     );
+// }
 
 
 
@@ -112,6 +114,7 @@ export function inputOpt<T, R>(
     );
 }
 export const action = O.map;
+export const actionMapped = <A, B>(f: (a: A) => B) => O.map
 
 export const messageText = (d: InputHandlerData) =>
     pipe(O.fromNullable(d.messageText), O.filter(t => !!t.length));

@@ -5,7 +5,6 @@ import { ChatRenderer, createChatRenderer } from "./chatrenderer"
 import { ChatHandlerFactory } from "./chatsdispatcher"
 import { ComponentElement } from "./component"
 import { defaultCreateDraft, RenderDraft } from "./elements-to-messages"
-import { defaultH, defaultHandleAction, defaultHandler } from "./handler"
 import { mylog } from "./logging"
 import { Actions, createRenderActions } from "./render-actions"
 import { RenderedElement } from "./rendered-messages"
@@ -189,30 +188,30 @@ export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
     // actionHandler: function (a) { return identity },
 })
 
-export interface Application<C, H, E=any> {
+export interface Application<R, H, E=any> {
     renderer?: (ctx: TelegrafContext) => ChatRenderer,
-    renderFunc: (s: C) => readonly [{
+    renderFunc: (s: R) => readonly [{
         draft: RenderDraft<H>,
         treeState: TreeState,
         inputHandler: (ctx: TelegrafContext) => H | undefined,
         effectsActions: H[]
-    }, (renderer: ChatRenderer) => Promise<C>],
-    init?: (app: Application<C, H, E>, ctx: TelegrafContext, renderer: ChatRenderer, chat: ChatHandler2<E>, chatdata: C) => Promise<any>,
+    }, (renderer: ChatRenderer) => Promise<R>],
+    init?: (app: Application<R, H, E>, ctx: TelegrafContext, renderer: ChatRenderer, chat: ChatHandler2<E>, chatdata: R) => Promise<any>,
     handleMessage: (
-        app: Application<C, H, E>,
+        app: Application<R, H, E>,
         ctx: TelegrafContext,
         renderer: ChatRenderer,
         chat: ChatHandler2<E>,
-        chatdata: C,
-    ) => Promise<C>,
+        chatdata: R,
+    ) => Promise<R>,
     handleAction?: (
-        app: Application<C, H, E>,
+        app: Application<R, H, E>,
         ctx: TelegrafContext,
         renderer: ChatRenderer,
         chat: ChatHandler2<E>,
-        chatdata: C,
-    ) => Promise<C>,
-    chatData: (ctx: TelegrafContext) => C,
+        chatdata: R,
+    ) => Promise<R>,
+    chatData: (ctx: TelegrafContext) => R,
     // handleStateAction: (
     //     app: Application<C, H, E>,
     //     ctx: TelegrafContext,
@@ -222,11 +221,11 @@ export interface Application<C, H, E=any> {
     //     a: H[]
     // ) => Promise<any>,
     handleEvent: (
-        app: Application<C, H, E>, 
+        app: Application<R, H, E>, 
         renderer: ChatRenderer, 
         chat: ChatHandler2<E>, 
-        chatdata: C,
-        event: E) => Promise<C>,
+        chatdata: R,
+        event: E) => Promise<R>,
     queueStrategy: () => void
 }
 

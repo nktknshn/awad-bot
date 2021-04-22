@@ -1,22 +1,20 @@
-import { Application, ChatState, emptyChatState, genericRenderFunction, getApp, storeWithDispatcher } from "../lib/chathandler";
-import { removeMessages, getTrackingRenderer } from "../lib/chatrenderer";
-import { defaultCreateDraft, RenderDraft } from "../lib/elements-to-messages";
-import { applyRenderedElementsAction, chainHandlers, defaultHandler, getActionHandler, getInputHandler, handlerChain, or, startHandler, withContextOpt } from '../lib/handler';
+import * as A from 'fp-ts/lib/Array';
+import { identity } from "fp-ts/lib/function";
+import * as O from 'fp-ts/lib/Option';
+import { pipe } from "fp-ts/lib/pipeable";
+import { parseFromContext } from "../lib/bot-util";
+import { ChatState, emptyChatState, genericRenderFunction, getApp, storeWithDispatcher } from "../lib/chathandler";
+import { getTrackingRenderer, removeMessages } from "../lib/chatrenderer";
+import { defaultCreateDraft } from "../lib/elements-to-messages";
+import { applyRenderedElementsAction, chainInputHandlers, getActionHandler } from '../lib/handler';
+import { StateAction } from "../lib/handlerF";
 import { AppActionsFlatten } from "../lib/types-util";
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore } from "./store";
 import { updateUser } from "./store/user";
 import { storeToDispatch } from "./storeToDispatch";
-import * as A from 'fp-ts/lib/Array';
-import * as O from 'fp-ts/lib/Option';
-import * as F from 'fp-ts/lib/function';
-import * as T from 'fp-ts/lib/Task';
 
-import { pipe } from "fp-ts/lib/pipeable";
-import { StateAction } from "../lib/handlerF";
-import { identity } from "fp-ts/lib/function";
-import { parseFromContext } from "../lib/bot-util";
 // type AppStateRequirements = AppReqs<ReturnType<typeof App>>
 // type AppElements = GetAllBasics<ReturnType<typeof App>> | InputHandlerElement
 // export type AwadContextT = RootState & {
@@ -73,7 +71,7 @@ export function createAwadApplication(services: AwadServices) {
             s => storeWithDispatcher(s.store, storeToDispatch)(),
             defaultCreateDraft,
             (rdr) => ctx => {
-                return chainHandlers(
+                return chainInputHandlers(
                     rdr.inputHandlers.reverse().map(_ => _.element.callback),
                     parseFromContext(ctx)
                 )
