@@ -9,6 +9,7 @@ import { defaultCreateDraft } from "../lib/elements-to-messages";
 import { applyRenderedElementsAction, chainInputHandlers, getActionHandler } from '../lib/handler';
 import { StateAction } from "../lib/handlerF";
 import { AppActionsFlatten } from "../lib/types-util";
+import { addRenderedUserMessage } from '../lib/usermessage';
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore } from "./store";
@@ -43,7 +44,7 @@ export function createAwadApplication(services: AwadServices) {
         }
         else if ('kind' in a && a.kind === 'rendered-elements-action') {
             return [applyRenderedElementsAction(a)]
-        } 
+        }
         else {
             return [identity]
         }
@@ -63,7 +64,7 @@ export function createAwadApplication(services: AwadServices) {
         }
     }
 
-    return getApp({
+    return getApp<MyState, AppAction, "updated">({
         chatData: chatState,
         renderer,
         renderFunc: genericRenderFunction(
@@ -86,7 +87,7 @@ export function createAwadApplication(services: AwadServices) {
                 user.renderedMessagesIds = []
             }
 
-            chatdata.store.subscribe(() => chat.handleEvent("updated"))
+            chatdata.store.subscribe(() => chat.handleEvent(ctx, "updated"))
             chatdata.store.dispatch(updateUser(user))
         },
         handleMessage: async (app, ctx, renderer, queue, chatdata) => {
@@ -99,7 +100,9 @@ export function createAwadApplication(services: AwadServices) {
             if (!as)
                 return chatdata
 
-            let data = actionToStateAction(as).reduce((cd, f) => f(cd), chatdata)
+            let data = actionToStateAction(
+                [as, addRenderedUserMessage(ctx.message?.message_id!)])
+                .reduce((cd, f) => f(cd), chatdata)
 
             const [{ treeState, inputHandler, effectsActions }, render] = app.renderFunc(
                 data
@@ -114,21 +117,21 @@ export function createAwadApplication(services: AwadServices) {
                 , O.map(actionToStateAction)
                 , O.map(as => as.reduce((cd, f) => f(cd), chatdata))
                 , O.map(s => [s, app.renderFunc(s)] as const)
-                , O.map(([s, [{ effectsActions }, render]]) =>
-                    effectsActions.length
-                        ? app.handleEvent(
-                            app, renderer, queue, s,
-                            {
-                                kind: 'StateActionEvent',
-                                actions: effectsActions
-                            })
-                        : render(renderer)
+                , O.map(([s, [{ effectsActions }, render]]) => render(renderer)
+                    // effectsActions.length
+                    //     ? app.handleEvent(
+                    //         app, ctx, renderer, queue, s,
+                    //         {
+                    //             kind: 'StateActionEvent',
+                    //             actions: effectsActions
+                    //         })
+                    //     : render(renderer)
                 )
                 , O.fold(async () => chatdata, (f): Promise<AppChatState> => f)
 
             ).then(async data => ctx.answerCbQuery().then(_ => data))
         },
-        handleEvent: async (app, renderer, queue, chatdata, event: "updated") => {
+        handleEvent: async (app, ctx, renderer, queue, chatdata, event: "updated") => {
             return await app.renderFunc(chatdata)[1](renderer)
         },
         queueStrategy: function () {

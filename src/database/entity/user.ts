@@ -36,4 +36,11 @@ export class UserRepository extends Repository<UserEntity> {
             `UPDATE "user" SET "renderedMessagesIds" = array_remove("user"."renderedMessagesIds",$1) WHERE id = $2`, [messageId, userId]
         )
     }
+
+    getRenderedMessage(chatId: number): Promise<number[]> {
+        return this.query(
+            `SELECT "renderedMessagesIds" FROM "user WHERE id = $1`, [chatId]
+        )
+    }
+
 }
