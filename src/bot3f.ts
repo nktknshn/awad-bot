@@ -29,6 +29,7 @@ import { RenderedElement } from './lib/rendered-messages';
 import { parseFromContext } from './lib/bot-util';
 import * as CA from './lib/chatactions'
 import { getTrackingRenderer, removeMessages, Tracker } from './lib/chatrenderer';
+import { createDatabase, LevelTracker } from './bot3/leveltracker'
 
 type Item = string | PhotoSize
 
@@ -127,7 +128,7 @@ const App = connected4(
             on(casePhoto, action(({ photo, messageId }) => [
                 addUserMessage(messageId),
                 addPhotoCandidate(photo),
-                defer(100)
+                defer(300)
             ]))
         ])
 
@@ -173,16 +174,6 @@ const App = connected4(
 
 const flush = (): 'flush' => 'flush'
 
-import levelup, {LevelUp} from 'levelup'
-import leveldown, {LevelDown} from 'leveldown'
-
-const saveToTracker =
-<R, H, E, C extends ChatState<R, H>>(tracker: Tracker): ChatAction<R, H, C, E, C> =>
-    async (app, ctx, renderer, chat, chatdata) => {
-        await tracker.addRenderedMessage(ctx.chat?.id!, ctx.message?.message_id!)
-        return chatdata
-    }
-    
 function createApp() {
     type MyState = ReturnType<typeof createBotStoreF> & {
         deferredRenderTimer?: NodeJS.Timeout,
@@ -220,7 +211,6 @@ function createApp() {
         actions: AppAction[]
     }
 
-
     const chatState = (): AppChatState => {
 
         return {
@@ -257,41 +247,9 @@ function createApp() {
         return a
     }
 
-    const LevelTracker = (trackerDb: LevelUp<LevelDown> ): Tracker =>  ({
-        addRenderedMessage: async (chatId: number, messageId: number) => {
-            let messages: number[] = []
-            try {
-                const messagesStr = await trackerDb.get(`chat: ${chatId}`)
-                messages = JSON.parse(messagesStr.toString())
-            }
-            catch (e){
-            }
-            finally {
-                await trackerDb.put(`chat: ${chatId}`, JSON.stringify([...messages, messageId]))
-            }
-            
-        },
-        removeRenderedMessage: async (chatId: number, messageId: number) => {
-            const messagesStr = await trackerDb.get(`chat: ${chatId}`)
-            const messages: number[] = JSON.parse(messagesStr.toString())
-
-            await trackerDb.put(`chat: ${chatId}`, JSON.stringify(messages.filter(_ => _ != messageId)))
-        },
-        getRenderedMessage: async (chatId: number) => {
-            let messages: number[] = []
-            try {
-                const messagesStr = await trackerDb.get(`chat: ${chatId}`)
-                messages = JSON.parse(messagesStr.toString())
-            }
-            catch {}
-
-            return messages
-        },
-    })
-    
-    const trackerDb = levelup(leveldown('./mydb'))
-    const tracker = LevelTracker(trackerDb)
-    const { renderer } = getTrackingRenderer(tracker)
+    const { renderer, saveToTracker, removeAll } = getTrackingRenderer(
+        LevelTracker(createDatabase('./mydb'))
+    )
 
     return getApp<MyState, HandlerActions, Event>({
         renderer,
@@ -303,10 +261,8 @@ function createApp() {
             getInputHandler,
             getActionHandler
         ),
-        // actionToStateAction,
         init: async (app, ctx, renderer, queue, chatdata) => {
-            const messages = await tracker.getRenderedMessage(ctx.chat?.id!)
-            await removeMessages(messages, renderer)
+            await removeAll(ctx.chat?.id!)(renderer)
 
             chatdata.store.notify = (a) => queue.handleEvent({
                 kind: 'StateActionEvent',
@@ -322,7 +278,7 @@ function createApp() {
                 [CA.addToRendered(actionToStateAction), clearChat, CA.render],
                 [
                     CA.addToRendered(actionToStateAction),
-                    saveToTracker(tracker),
+                    saveToTracker(),
                     CA.applyInputHandler(actionToStateAction),
                     CA.chatState(c => c.deferRender == 0
                         ? CA.render
@@ -332,27 +288,9 @@ function createApp() {
                 ]
             ],
         ]),
-        handleAction: async (app, ctx, renderer, queue, chatdata) => {
-            return await pipe(
-                O.fromNullable(chatdata.actionHandler)
-                , O.chainNullableK(f => f(ctx))
-                , O.map(actionToStateAction)
-                , O.map(as => as.reduce((cd, f) => f(cd), chatdata))
-                , O.map(s => [s, app.renderFunc(s)] as const)
-                , O.map(([s, [{ effectsActions }, render]]) =>
-                    effectsActions.length
-                        ? app.handleEvent(
-                            app, renderer, queue, s,
-                            {
-                                kind: 'StateActionEvent',
-                                actions: effectsActions
-                            })
-                        : render(renderer)
-                )
-                , O.fold(async () => chatdata, (f): Promise<AppChatState> => f)
-
-            ).then(async data => ctx.answerCbQuery().then(_ => data))
-        },
+        handleAction: CA.listHandler(
+            [CA.applyActionHandler(actionToStateAction), CA.replyCallback, CA.render]
+        ),
         handleEvent: async (app, renderer, queue, chatdata, event) => {
             if (event.kind === 'StateActionEvent') {
                 return await app.renderFunc(

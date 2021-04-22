@@ -21,7 +21,7 @@ export async function render<R, H, E, C extends ChatState<R, H>>(
     return app.renderFunc(chatdata)[1](renderer)
 }
 
-export function scheduleRender
+export function scheduleEvent
     <R extends { deferredRenderTimer?: NodeJS.Timeout }, H, E, C extends ChatState<R, H>>
     (timeout: number, ev: E): ChatAction<R, H, C, E, C> {
     {
@@ -95,6 +95,42 @@ export function applyInputHandler<R, H, E, C extends ChatState<R, H>>
         )
 }
 
+export function applyActionHandler<R, H, E, C extends ChatState<R, H>>
+    (actionToStateAction: <M>(a: (H & M) | (H & M)[]) => StateAction<C>[])
+    : ChatAction<R, H, C, E, C> {
+    return async (
+        app, ctx, renderer, chat, chatdata
+    ): Promise<C> =>
+        pipe(
+            O.fromNullable(chatdata.actionHandler),
+            O.map(f => f(ctx)),
+            O.chain(O.fromNullable),
+            O.fold(() => [], cs => [cs]),
+            actionToStateAction,
+            applyActions(chatdata)
+        )
+}
+
+// export function replyCallback<R, H, E, C extends ChatState<R, H>>()
+//     : ChatAction<R, H, C, E, C> {
+//     return async (
+//         app, ctx, renderer, chat, chatdata
+//     ) => {
+//         return ctx.answerCbQuery().then(_ => chatdata)
+//     }
+// }
+
+export async function replyCallback<R, H, E, C extends ChatState<R, H>>(
+    app: Application<C, H>,
+    ctx: TelegrafContext,
+    renderer: ChatRenderer,
+    chat: ChatHandler2<E>,
+    chatdata: C
+): Promise<C> {
+    return ctx.answerCbQuery().then(_ => chatdata)
+}
+
+
 export function chatState<R, H, T, E, C extends ChatState<R, H>>(
     pred: (state: C) => ChatAction<R, H, C, E, C>,
 ): ChatAction<R, H, C, E, C> {
@@ -117,6 +153,19 @@ export type Branch<R, H, T, E, C extends ChatState<R, H>> = [
     ChatAction<R, H, T, E, C>[],
     ChatAction<R, H, T, E, C>[]
 ]
+
+export function listHandler<R, H, E, C extends ChatState<R, H>>(
+    handlers: ChatAction<R, H, C, E, C>[]
+): ChatAction<R, H, C, E, C> {
+    return async (app, ctx, renderer, queue, chatdata): Promise<C> => {
+        let data = chatdata
+
+        for (const h of handlers) {
+            data = await h(app, ctx, renderer, queue, data)
+        }
+        return data
+    }
+}
 
 export function branchHandler<R, H, E, C extends ChatState<R, H>>(
     handlers: Branch<R, H, C, E, C>[]

@@ -1,6 +1,6 @@
 import { TelegrafContext } from "telegraf/typings/context"
 import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessageMedia, MessagePhoto } from "telegraf/typings/telegram-types"
-import { ContextOpt } from "./handler";
+import { ChatAction, ContextOpt } from "./handler";
 import { randomAnimal } from './util'
 
 export interface ChatRenderer {
@@ -154,7 +154,12 @@ export function getTrackingRenderer(t: Tracker) {
                 createChatRenderer(ctx)
             )
         },
-        saveMessageHandler: saveMessageHandler(t)
+        saveMessageHandler: saveMessageHandler(t),
+        saveToTracker: saveToTracker(t),
+        removeAll: (chatId: number) => async (renderer: ChatRenderer) => {
+            const messages = await t.getRenderedMessage(chatId)
+            await removeMessages(messages, renderer)
+        }
     }
 }
 import { Do } from 'fp-ts-contrib/lib/Do'
@@ -163,6 +168,13 @@ import { ChatHandler2, ChatState } from "./chathandler";
 import { send } from "node:process";
 import { mylog } from "./logging";
 
+
+export const saveToTracker =
+    (tracker: Tracker) => <R, H, E, C extends ChatState<R, H>>(): ChatAction<R, H, C, E, C> =>
+        async (app, ctx, renderer, chat, chatdata) => {
+            await tracker.addRenderedMessage(ctx.chat?.id!, ctx.message?.message_id!)
+            return chatdata
+        }
 
 export function saveMessageHandler<R, H>(registrar: Tracker) {
     return function (
