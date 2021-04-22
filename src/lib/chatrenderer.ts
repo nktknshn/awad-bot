@@ -156,10 +156,11 @@ export function getTrackingRenderer(t: Tracker) {
         },
         saveMessageHandler: saveMessageHandler(t),
         saveToTracker: saveToTracker(t),
-        removeAll: (chatId: number) => async (renderer: ChatRenderer) => {
+        cleanChat: (chatId: number) => async (renderer: ChatRenderer) => {
             const messages = await t.getRenderedMessage(chatId)
             await removeMessages(messages, renderer)
-        }
+        },
+        tracker: t
     }
 }
 import { Do } from 'fp-ts-contrib/lib/Do'

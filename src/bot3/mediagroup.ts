@@ -29,6 +29,8 @@ export class RenderedMediaGroup {
         readonly input: OutcomingPhotoGroupMessage,
         readonly output: Array<Message>
     ) { }
+
+    outputIds = () => this.output.map(_ => _.message_id)
 }
 
 const eqInputFile: Eq<InputFile> = {

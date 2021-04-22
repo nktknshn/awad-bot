@@ -67,6 +67,15 @@ export function draftToInputHandler<H>(draft: RenderDraft<H>, parseContext = par
     }
 }
 
+export async function removeRenderedElements(renderer: ChatRenderer, action: Actions.Remove) {
+    if (action.element.kind === 'RenderedPhotoGroup')
+        await mediaGroup.actions.remove(action.element)(renderer)
+    else if (action.element.kind === 'RenderedUserMessage')
+        await usermessage.actions.remove(action.element)(renderer)
+    else
+        await renderer.delete(action.element.output.message_id)
+}
+
 export async function renderActions(renderer: ChatRenderer, actions: Actions[]) {
     let rendered: RenderedElement[] = []
 
@@ -142,12 +151,13 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
             }
         }
         else if (action.kind === 'Remove') {
-            if (action.element.kind === 'RenderedPhotoGroup')
-                await mediaGroup.actions.remove(action.element)(renderer)
-            else if (action.element.kind === 'RenderedUserMessage')
-                await usermessage.actions.remove(action.element)(renderer)
-            else
-                await renderer.delete(action.element.output.message_id)
+            await removeRenderedElements(renderer, action)
+            // if (action.element.kind === 'RenderedPhotoGroup')
+            //     await mediaGroup.actions.remove(action.element)(renderer)
+            // else if (action.element.kind === 'RenderedUserMessage')
+            //     await usermessage.actions.remove(action.element)(renderer)
+            // else
+            //     await renderer.delete(action.element.output.message_id)
         }
         else if (action.kind === 'Replace') {
             if (action.newElement.kind === 'TextMessage' && action.element.kind === 'BotMessage')
@@ -242,10 +252,10 @@ export async function deleteAll(renderer: ChatRenderer, messages: RenderedElemen
                 for (const m of el.output)
                     await renderer.delete(m.message_id)
             else
-                if(el.kind === 'BotMessage')
+                if (el.kind === 'BotMessage')
                     await renderer.delete(el.output.message_id)
                 else if (el.kind === 'RenderedUserMessage')
-                await renderer.delete(el.output)
+                    await renderer.delete(el.output)
         } catch (e) {
             console.error(e);
             continue

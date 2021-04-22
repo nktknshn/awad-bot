@@ -25,6 +25,8 @@ export class RenderedUserMessage {
         readonly input: OutcomingUserMessage,
         readonly output: number
     ) { }
+
+    outputIds = () => [this.output]
 }
 
 

@@ -45,7 +45,7 @@ export const byMessageId = <R, H, T, E, C extends ChatState<R, H>>(dh: ((message
 }
 
 export async function clearChat<R, H, E, C extends ChatState<R, H>>(
-    app: Application<C, H>,
+    app: Application<C, H, E>,
     ctx: TelegrafContext,
     renderer: ChatRenderer,
     chat: ChatHandler2<E>,
@@ -56,7 +56,7 @@ export async function clearChat<R, H, E, C extends ChatState<R, H>>(
 }
 
 export type ChatAction<R, H, T, E, C extends ChatState<R, H>> = (
-    app: Application<C, H>,
+    app: Application<C, H, E>,
     ctx: TelegrafContext,
     renderer: ChatRenderer,
     chat: ChatHandler2<E>,
@@ -99,7 +99,7 @@ export function startHandler<R, H, E, C extends ChatState<R, H>>(c: ContextOpt):
 // }
 
 export type FuncF<R, H, E> = (
-    app: Application<ChatState<R, H>, H>,
+    app: Application<ChatState<R, H>, H, E>,
     ctx: TelegrafContext,
     renderer: ChatRenderer,
     chat: ChatHandler2<E>,
@@ -110,7 +110,7 @@ export type FuncF<R, H, E> = (
 export const handlerChain = <C, R, H, E>(chain: ((a: C) => O.Option<FuncF<R, H, E>>)[]) => {
     return (a: C) =>
         async (
-            app: Application<ChatState<R, H>, H>,
+            app: Application<ChatState<R, H>, H, E>,
             ctx: TelegrafContext,
             renderer: ChatRenderer,
             chat: ChatHandler2<E>,
@@ -132,7 +132,7 @@ export const or = <C, R, H, E>(a: (a: C) => O.Option<FuncF<R, H, E>>, b: (a: C) 
 export const withContextOpt = <R, H, E>(f: (ctxOpt: ContextOpt) => FuncF<R, H, E>): FuncF<R, H, E> => {
 
     return async function (
-        app: Application<ChatState<R, H>, H>,
+        app: Application<ChatState<R, H>, H, E>,
         ctx: TelegrafContext,
         renderer: ChatRenderer,
         chat: ChatHandler2<E>,
@@ -142,8 +142,8 @@ export const withContextOpt = <R, H, E>(f: (ctxOpt: ContextOpt) => FuncF<R, H, E
     }
 }
 
-export async function defaultHandleAction<R, H, E = any>(
-    app: Application<R, H>,
+export async function defaultHandleAction<R, H, E>(
+    app: Application<R, H, E>,
     ctx: TelegrafContext,
     renderer: ChatRenderer,
     chat: ChatHandler2<E>,
@@ -155,8 +155,8 @@ export async function defaultHandleAction<R, H, E = any>(
     // await chat.handleEvent("updated")
 }
 
-export function applyRenderedElementsAction<R, H, C extends ChatState<R, H>>(a: RenderedElementsAction) {
-    return function (cs: C): C {
+export function applyRenderedElementsAction(a: RenderedElementsAction) {
+    return function <R, H, C extends ChatState<R, H>>(cs: C): C {
         return {
             ...cs,
             renderedElements: a.f(cs.renderedElements)
@@ -165,8 +165,8 @@ export function applyRenderedElementsAction<R, H, C extends ChatState<R, H>>(a: 
 }
 
 
-export function applyTreeAction<R, H, C extends ChatState<R, H>>(a: LocalStateAction) {
-    return function (cs: C): C {
+export function applyTreeAction(a: LocalStateAction) {
+    return function <R, H, C extends ChatState<R, H>>(cs: C): C {
         return {
             ...cs,
             treeState: a.f(cs.treeState)
@@ -180,8 +180,9 @@ export function applyChatStateAction<R, H, C extends ChatState<R, H>>(a: (s: C) 
     }
 }
 
-export function applyStoreAction<S, C extends ChatState<A, B>, A extends { store: StoreF<S> }, B>(a: StoreAction<S, S>) {
-    return function (cs: C) {
+export function applyStoreAction<S>
+    (a: StoreAction<S, S>) {
+    return function <C extends ChatState<A, B>, A extends { store: StoreF<S> }, B>(cs: C) {
         return {
             ...cs,
             store: cs.store.apply(a.f)

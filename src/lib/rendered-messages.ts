@@ -5,6 +5,7 @@ import { OutcomingFileMessage } from "./draft";
 import { OutcomingPhotoGroupMessage, RenderedMediaGroup } from "../bot3/mediagroup";
 import { OutcomingMessageType } from "./elements-to-messages";
 import {UserMessageElement, RenderedUserMessage} from './usermessage'
+
 export type RenderedElement = RenderedUserMessage | BotMessage | BotDocumentMessage | RenderedMediaGroup
 
 
@@ -15,6 +16,8 @@ export class BotMessage {
         readonly input: OutcomingTextMessage,
         readonly output: Message
     ) { }
+
+    outputIds = () => [this.output.message_id]
 }
 
 export class BotDocumentMessage {
@@ -24,4 +27,6 @@ export class BotDocumentMessage {
         readonly input: OutcomingFileMessage,
         readonly output: MessageDocument | MessagePhoto
     ) { }
+
+    outputIds = () => [this.output.message_id]
 }

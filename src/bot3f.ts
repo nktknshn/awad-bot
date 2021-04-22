@@ -30,16 +30,24 @@ import { parseFromContext } from './lib/bot-util';
 import * as CA from './lib/chatactions'
 import { getTrackingRenderer, removeMessages, Tracker } from './lib/chatrenderer';
 import { createDatabase, LevelTracker } from './bot3/leveltracker'
-
-type Item = string | PhotoSize
+import { createBotStoreF, StoreState } from './bot3/store'
 
 type Context = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
 }
+type ChatStateAction<S> = {
+    kind: 'chatstate-action',
+    f: (s: S) => S
+}
+
+const append = <T>(a: T) => (as: T[]) => A.snoc(as, a)
+const defer = (n: number) => ({
+    kind: 'chatstate-action' as 'chatstate-action',
+    f: <S extends { deferRender: number }>(s: S) => ({ ...s, deferRender: n })
+})
 
 export const casePassword =
     (password: string) => on(caseText, ifTrue(({ messageText }) => messageText == password))
-
 
 const VisibleSecrets = connected4(
     (ctx: Context) => ctx,
@@ -78,18 +86,13 @@ const VisibleSecrets = connected4(
     }
 )
 
-const append = <T>(a: T) => (as: T[]) => A.snoc(as, a)
-const defer = (n: number) => ({
-    kind: 'chatstate-action' as 'chatstate-action',
-    f: <S extends { deferRender: number }>(s: S) => ({ ...s, deferRender: n })
-})
 
 const App = connected4(
     (ctx: Context) => ctx,
     function* (
         { isVisible, stringCandidate, dispatcher: { onSetVisible, onAddItem, setStringCandidate } },
         { password }: { password: string },
-        { getState, setStateF }: GetSetState<{
+        { getState, setStateF: setState }: GetSetState<{
             photoCandidates: PhotoSize[],
             userMessages: number[]
         }>
@@ -103,19 +106,19 @@ const App = connected4(
             return
         }
 
-        const resetPhotos = setStateF(
+        const resetPhotos = setState(
             F.flow(
                 lenses.photoCandidates.set([]),
                 lenses.userMessages.set([])
             ))
 
         const addUserMessage = (messageId: number) =>
-            setStateF(lenses.userMessages.modify(append(messageId)))
+            setState(lenses.userMessages.modify(append(messageId)))
 
-        const resetUserMessages = setStateF(lenses.userMessages.set([]))
+        const resetUserMessages = setState(lenses.userMessages.set([]))
 
         const addPhotoCandidate = (photo: PhotoSize[]) =>
-            setStateF(lenses.photoCandidates.modify(append(photo[0])))
+            setState(lenses.photoCandidates.modify(append(photo[0])))
 
         yield inputHandler([
             on(casePassword(password), action(() => [
@@ -174,6 +177,23 @@ const App = connected4(
 
 const flush = (): 'flush' => 'flush'
 
+interface RenderEvent<AppAction> {
+    kind: 'RenderEvent'
+    actions?: AppAction[]
+}
+
+interface StateActionEvent<AppAction> {
+    kind: 'StateActionEvent',
+    actions: AppAction[]
+}
+
+//  {
+//     kind: 'ChatActionEvent',
+//     a: ChatAction<MyState, HandlerActions, void, Event, AppChatState>,
+//     f: (s: AppChatState) => AppChatState
+//     ctx: TelegrafContext
+// }
+
 function createApp() {
     type MyState = ReturnType<typeof createBotStoreF> & {
         deferredRenderTimer?: NodeJS.Timeout,
@@ -181,38 +201,22 @@ function createApp() {
     }
 
     type HandlerActions = AppActionsFlatten<typeof App>
-    type ChatStateAction = {
-        kind: 'chatstate-action',
-        f: (s: AppChatState) => AppChatState
-    }
 
-    type AppAction = HandlerActions | ChatStateAction | RenderedElementsAction
-
+    type AppAction = HandlerActions | ChatStateAction<AppChatState>
+    //  | RenderedElementsAction
+    type Event = StateActionEvent<AppAction> | RenderEvent<AppAction>
     type AppChatState = ChatState<MyState, HandlerActions>
-    type AppStoreAction = StoreAction<StoreState, StoreState>
-    type AppStateAction = StateAction<AppChatState>
-    type AppChatAction<R> = ChatAction<MyState, HandlerActions, R, Event, AppChatState>
-    type AppChatActionM<R> = ChatAction<MyState, HandlerActions, [R, AppChatState], Event, AppChatState>
 
-    type Event = StateActionEvent | RenderEvent | {
-        kind: 'ChatActionEvent',
-        a: ChatAction<MyState, HandlerActions, void, Event, AppChatState>,
-        f: (s: AppChatState) => AppChatState
-        ctx: TelegrafContext
-    }
+    // type AppStoreAction = StoreAction<StoreState, StoreState>
 
-    interface RenderEvent {
-        kind: 'RenderEvent'
-        actions?: AppAction[]
-    }
+    // // type AppStateAction = StateAction<AppChatState>
 
-    interface StateActionEvent {
-        kind: 'StateActionEvent',
-        actions: AppAction[]
-    }
+    type AppStateAction = ChatAction<MyState, HandlerActions, AppChatState, Event, AppChatState>
+
+    // type AppChatAction<R> = ChatAction<MyState, HandlerActions, R, Event, AppChatState>
+    // type AppChatActionM<R> = ChatAction<MyState, HandlerActions, [R, AppChatState], Event, AppChatState>
 
     const chatState = (): AppChatState => {
-
         return {
             ...emptyChatState(),
             ...createBotStoreF(),
@@ -224,32 +228,47 @@ function createApp() {
         if (Array.isArray(a))
             return A.flatten(a.map(actionToStateAction))
         else if (a === 'flush') {
-            return [applyRenderedElementsAction({
-                kind: 'rendered-elements-action',
-                f: _ => []
-            })]
+            return [async (app, ctx, renderer, chat, chatdata) => {
+
+                for (const r of chatdata.renderedElements) {
+                    for (const id of r.outputIds()) {
+                        await tracker.removeRenderedMessage(ctx.chat?.id!, id)
+                    }
+                }
+
+                return pipe(
+                    chatdata,
+                    applyRenderedElementsAction({
+                        kind: 'rendered-elements-action',
+                        f: _ => []
+                    }))
+            }]
         }
         else if (a.kind === 'store-action')
-            return [applyStoreAction(a)]
+            return [CA.pipeState(applyStoreAction(a))]
         else if (a.kind === 'localstate-action')
-            return [applyTreeAction(a)]
+            return [CA.pipeState(applyTreeAction(a))]
         else if (a.kind === 'chatstate-action') {
-            return [applyChatStateAction(a.f)]
+            return [CA.pipeState(applyChatStateAction(a.f))]
         }
-        else if (a.kind === 'rendered-elements-action') {
-            return [applyRenderedElementsAction(a)]
-        }
-
-        // else if (a.kind === 'chat-action') {
-        //     return [applyChatStateAction(a.f)]
+        // else if (a.kind === 'rendered-elements-action') {
+        //     return [CA.pipeState(applyRenderedElementsAction(a))]
         // }
 
         return a
     }
 
-    const { renderer, saveToTracker, removeAll } = getTrackingRenderer(
+    const { renderer, saveToTracker, cleanChat, tracker } = getTrackingRenderer(
         LevelTracker(createDatabase('./mydb'))
     )
+
+    const addToRendered = <R, H, E, C extends ChatState<R, H>>()
+        : ChatAction<R, H, C, E, C> => {
+        return CA.ctx(c => CA.pipeState((s: C): C => ({
+            ...s,
+            renderedElements: [...s.renderedElements, createRendered(c.message?.message_id!)]
+        })))
+    }
 
     return getApp<MyState, HandlerActions, Event>({
         renderer,
@@ -262,9 +281,9 @@ function createApp() {
             getActionHandler
         ),
         init: async (app, ctx, renderer, queue, chatdata) => {
-            await removeAll(ctx.chat?.id!)(renderer)
+            await cleanChat(ctx.chat?.id!)(renderer)
 
-            chatdata.store.notify = (a) => queue.handleEvent({
+            chatdata.store.notify = (a) => queue.handleEvent(ctx, {
                 kind: 'StateActionEvent',
                 actions: [a]
             })
@@ -272,12 +291,12 @@ function createApp() {
         queueStrategy: function () {
 
         },
-        handleMessage: CA.branchHandler([
+        handleMessage: CA.branchHandler<MyState, HandlerActions, Event, AppChatState>([
             [
-                CA.ifStart,
-                [CA.addToRendered(actionToStateAction), clearChat, CA.render],
+                CA.ifTextEqual('/start'),
+                [addToRendered(), clearChat, CA.render],
                 [
-                    CA.addToRendered(actionToStateAction),
+                    addToRendered(),
                     saveToTracker(),
                     CA.applyInputHandler(actionToStateAction),
                     CA.chatState(c => c.deferRender == 0
@@ -291,106 +310,29 @@ function createApp() {
         handleAction: CA.listHandler(
             [CA.applyActionHandler(actionToStateAction), CA.replyCallback, CA.render]
         ),
-        handleEvent: async (app, renderer, queue, chatdata, event) => {
+        handleEvent: async (app, ctx, renderer, queue, chatdata, event) => {
             if (event.kind === 'StateActionEvent') {
                 return await app.renderFunc(
-                    actionToStateAction(event.actions).reduce((s, f) => f(s), chatdata)
+                    await CA.runActionsChain(
+                        actionToStateAction(event.actions))
+                        (app, ctx, renderer, queue, chatdata)
                 )[1](renderer)
             }
             else if (event.kind === 'RenderEvent') {
                 return await app.renderFunc(event.actions
-                    ? actionToStateAction(event.actions).reduce((s, f) => f(s), chatdata)
+                    ? await CA.runActionsChain(
+                        actionToStateAction(event.actions))
+                        (app, ctx, renderer, queue, chatdata)
                     : chatdata
                 )[1](renderer)
             }
-            else if (event.kind === 'ChatActionEvent') {
-                await event.a(app, event.ctx, renderer, queue, chatdata)
-                return event.f(chatdata)
-            }
+            // else if (event.kind === 'ChatActionEvent') {
+            //     await event.a(app, event.ctx, renderer, queue, chatdata)
+            //     return event.f(chatdata)
+            // }
             return chatdata
         },
     })
-}
-
-
-type StoreState = {
-    isVisible: boolean,
-    items: (string | PhotoSize)[],
-    secondsLeft: number,
-    timer: NodeJS.Timeout | undefined,
-    stringCandidate: string | undefined,
-}
-
-function createBotStoreF() {
-
-    const { store } = createStoreF<StoreState>({
-        isVisible: false,
-        items: [],
-        secondsLeft: 0,
-        timer: undefined,
-        stringCandidate: undefined
-    })
-
-    type Action<S> = (s: S) => S
-
-    const upd = (u: Partial<StoreState>) => (s: StoreState) => ({ ...s, ...u })
-    const updF = (
-        f: (s: StoreState) => Action<StoreState>
-    ) => (s: StoreState) => f
-
-    const onSetSecondsLeft = (secondsLeft: number): Action<StoreState> => (s: StoreState) => {
-        return upd({ secondsLeft })(s)
-    }
-
-    const updateSeconds = (): Action<StoreState> => (s: StoreState) => {
-        if (s.secondsLeft > 0)
-            return onSetSecondsLeft(s.secondsLeft - 1)(s)
-        else
-            return onSetVisible(false)(s)
-    }
-
-    const onSetVisible = (isVisible: boolean): Action<StoreState> => (s) => {
-
-        s = upd({ isVisible })(s)
-
-        if (isVisible) {
-            const timer = setInterval(() => store.notify(wrap(updateSeconds)()), 1000)
-            return upd({
-                secondsLeft: 15,
-                timer
-            })(s)
-        }
-        else {
-            s.timer && clearInterval(s.timer)
-
-            return upd({ timer: undefined })(s)
-        }
-    }
-
-    const onAddItem = (item: string | PhotoSize[]) => (s: StoreState) => {
-        mylog('TRACE onAddItem')
-        mylog(item)
-
-        return upd({ items: [...s.items, ...Array.isArray(item) ? item : [item]] })(s)
-    }
-
-    const onDeleteItem = (item: string | PhotoSize) => (s: StoreState) => {
-        return upd({ items: s.items.filter(_ => _ != item) })(s)
-    }
-
-    const setStringCandidate = (c?: string) => (s: StoreState) => upd({ stringCandidate: c })(s)
-
-    return {
-        store,
-        dispatcher: {
-            onSetVisible: wrap(onSetVisible),
-            onAddItem: wrap(onAddItem),
-            onSetSecondsLeft: wrap(onSetSecondsLeft),
-            onDeleteItem: wrap(onDeleteItem),
-            setStringCandidate: wrap(setStringCandidate)
-        }
-    }
-
 }
 
 
