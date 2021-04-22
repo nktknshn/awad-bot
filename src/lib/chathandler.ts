@@ -16,7 +16,7 @@ import { pipe } from "fp-ts/lib/pipeable"
 import * as O from 'fp-ts/lib/Option';
 import { StateAction } from "./handlerF"
 
-export interface ChatHandler<R, E=any> {
+export interface ChatHandler<R, E = any> {
     chatdata: R,
     handleMessage(self: ChatHandler<R>, ctx: TelegrafContext): Promise<unknown>
     handleAction(self: ChatHandler<R>, ctx: TelegrafContext): Promise<unknown>
@@ -58,7 +58,7 @@ class IncomingEvent<E> {
     }
 }
 
-export class QueuedChatHandler<R, E=any> implements ChatHandler2<E> {
+export class QueuedChatHandler<R, E = any> implements ChatHandler2<E> {
     incomingQueue: IncomingItem[] = []
     // eventQueue: IncomingEvent<any>[] = []
 
@@ -188,7 +188,7 @@ export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
     // actionHandler: function (a) { return identity },
 })
 
-export interface Application<R, H, E=any> {
+export interface Application<R, H, E = any> {
     renderer?: (ctx: TelegrafContext) => ChatRenderer,
     renderFunc: (s: R) => readonly [{
         draft: RenderDraft<H>,
@@ -221,20 +221,21 @@ export interface Application<R, H, E=any> {
     //     a: H[]
     // ) => Promise<any>,
     handleEvent: (
-        app: Application<R, H, E>, 
-        renderer: ChatRenderer, 
-        chat: ChatHandler2<E>, 
+        app: Application<R, H, E>,
+        renderer: ChatRenderer,
+        chat: ChatHandler2<E>,
         chatdata: R,
         event: E) => Promise<R>,
     queueStrategy: () => void
 }
 
-export function getApp<R, H, E=any>(
-    app: Application<ChatState<R, H>, H, E>): Application<ChatState<R, H>, H, E> {
+export function getApp<R, H, E>(
+    app: Application<ChatState<R, H>, H, E>
+): Application<ChatState<R, H>, H, E> {
     return app
 }
 
-export const createChatHandlerFactory = <UserState, Actions, E=any>(app: Application<ChatState<UserState, Actions>, Actions, E>)
+export const createChatHandlerFactory = <UserState, Actions, E>(app: Application<ChatState<UserState, Actions>, Actions, E>)
     : ChatHandlerFactory<ChatHandler2<E>, E> =>
     async ctx => {
         mylog("createChatHandlerFactory");

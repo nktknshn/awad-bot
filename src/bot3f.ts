@@ -173,8 +173,8 @@ const App = connected4(
 
 const flush = (): 'flush' => 'flush'
 
-import levelup from 'levelup'
-import leveldown from 'leveldown'
+import levelup, {LevelUp} from 'levelup'
+import leveldown, {LevelDown} from 'leveldown'
 
 const saveToTracker =
 <R, H, E, C extends ChatState<R, H>>(tracker: Tracker): ChatAction<R, H, C, E, C> =>
@@ -220,7 +220,6 @@ function createApp() {
         actions: AppAction[]
     }
 
-    const trackerDb = levelup(leveldown('./mydb'))
 
     const chatState = (): AppChatState => {
 
@@ -258,14 +257,14 @@ function createApp() {
         return a
     }
 
-    const tracker: Tracker = {
+    const LevelTracker = (trackerDb: LevelUp<LevelDown> ): Tracker =>  ({
         addRenderedMessage: async (chatId: number, messageId: number) => {
             let messages: number[] = []
             try {
                 const messagesStr = await trackerDb.get(`chat: ${chatId}`)
                 messages = JSON.parse(messagesStr.toString())
             }
-            catch {
+            catch (e){
             }
             finally {
                 await trackerDb.put(`chat: ${chatId}`, JSON.stringify([...messages, messageId]))
@@ -288,12 +287,15 @@ function createApp() {
 
             return messages
         },
-    }
-    const { renderer, saveMessageHandler } = getTrackingRenderer(tracker)
+    })
+    
+    const trackerDb = levelup(leveldown('./mydb'))
+    const tracker = LevelTracker(trackerDb)
+    const { renderer } = getTrackingRenderer(tracker)
 
     return getApp<MyState, HandlerActions, Event>({
-        chatData: chatState,
         renderer,
+        chatData: chatState,
         renderFunc: genericRenderFunction(
             App, { password: 'a' },
             chatstate => ({ dispatcher: chatstate.dispatcher, ...chatstate.store.state }),
@@ -305,7 +307,7 @@ function createApp() {
         init: async (app, ctx, renderer, queue, chatdata) => {
             const messages = await tracker.getRenderedMessage(ctx.chat?.id!)
             await removeMessages(messages, renderer)
-            
+
             chatdata.store.notify = (a) => queue.handleEvent({
                 kind: 'StateActionEvent',
                 actions: [a]
@@ -324,7 +326,7 @@ function createApp() {
                     CA.applyInputHandler(actionToStateAction),
                     CA.chatState(c => c.deferRender == 0
                         ? CA.render
-                        : CA.scheduleRender(c.deferRender, {
+                        : CA.scheduleEvent(c.deferRender, {
                             kind: 'RenderEvent'
                         }))
                 ]
