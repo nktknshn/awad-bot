@@ -1,49 +1,45 @@
 import * as A from 'fp-ts/lib/Array';
-import * as O from 'fp-ts/lib/Option';
 import * as F from 'fp-ts/lib/function';
-import * as T from 'fp-ts/lib/Task';
-
 import { pipe } from "fp-ts/lib/pipeable";
 import { StackFrame } from 'stacktrace-js';
 import Telegraf from "telegraf";
 import { TelegrafContext } from "telegraf/typings/context";
 import { PhotoSize } from "telegraf/typings/telegram-types";
+import { createDatabase, LevelTracker } from './bot3/leveltracker';
 import { photos } from './bot3/mediagroup';
-import { Application, ChatState, createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler";
+import { createBotStoreF, StoreState } from './bot3/store';
+import * as CA from './lib/chatactions';
+import { ChatAction } from './lib/chatactions';
+import { ChatState, createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler";
+import { getTrackingRenderer } from './lib/chatrenderer';
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
 import { createDraftWithImages } from './lib/draft';
-import { GetSetState, RenderedElementsAction, wrapR } from "./lib/elements";
-import { button, effect, message } from "./lib/elements-constructors";
-import { applyChatStateAction, applyRenderedElementsAction, applyStoreAction, applyTreeAction, byMessageId, chainInputHandlers, ChatAction, contextOpt, ContextOpt, clearChat, getActionHandler, getInputHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler";
-import { StateAction } from './lib/handlerF';
-import { action, actionMapped, casePhoto, caseText, ifTrue, inputHandler, on, otherwise } from "./lib/input";
+import { GetSetState } from "./lib/elements";
+import { button, message } from "./lib/elements-constructors";
+import { applyChatStateAction, applyStoreAction, applyTreeAction, clearChat, getActionHandler, getInputHandler, modifyRenderedElements } from "./lib/handler";
+import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { initLogging, mylog } from './lib/logging';
-import { createStoreF, StoreAction, wrap } from './lib/store2';
-import { AppActions, AppActionsFlatten } from './lib/types-util';
+import { AppActionsFlatten } from './lib/types-util';
+import { createRendered, UserMessageElement } from './lib/usermessage';
 import { token } from "./telegram-token.json";
-import { task } from 'fp-ts/lib/Task';
-import { addRenderedUserMessage, createRendered, OutcomingUserMessage, RenderedUserMessage, UserMessageElement } from './lib/usermessage';
-import { Lens } from 'monocle-ts'
-import { RenderedElement } from './lib/rendered-messages';
-import { parseFromContext } from './lib/bot-util';
-import * as CA from './lib/chatactions'
-import { getTrackingRenderer, removeMessages, Tracker } from './lib/chatrenderer';
-import { createDatabase, LevelTracker } from './bot3/leveltracker'
-import { createBotStoreF, StoreState } from './bot3/store'
+
 
 type Context = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
 }
-type ChatStateAction<S> = {
+
+type ChatStateAction<R, H> = {
     kind: 'chatstate-action',
-    f: (s: S) => S
+    f: (s: ChatState<R, H>) => ChatState<R, H>
 }
 
 const append = <T>(a: T) => (as: T[]) => A.snoc(as, a)
-const defer = (n: number) => ({
+
+const deferRender = (n: number) => ({
     kind: 'chatstate-action' as 'chatstate-action',
-    f: <S extends { deferRender: number }>(s: S) => ({ ...s, deferRender: n })
+    f: <R extends { deferRender: number }, H>(s: ChatState<R, H>): ChatState<R, H> =>
+        ({ ...s, deferRender: n })
 })
 
 export const casePassword =
@@ -131,7 +127,7 @@ const App = connected4(
             on(casePhoto, action(({ photo, messageId }) => [
                 addUserMessage(messageId),
                 addPhotoCandidate(photo),
-                defer(300)
+                deferRender(300)
             ]))
         ])
 
@@ -153,8 +149,16 @@ const App = connected4(
             return
         }
         else if (photoCandidates.length) {
-            const reset = [resetUserMessages, resetPhotos]
-            const addItem = [onAddItem(photoCandidates), reset, defer(0)]
+            const reset = [
+                resetUserMessages, 
+                resetPhotos,
+                deferRender(0)
+            ]
+
+            const addItem = [
+                onAddItem(photoCandidates),
+                reset,
+            ]
 
             if (!isVisible) {
 
@@ -187,12 +191,13 @@ interface StateActionEvent<AppAction> {
     actions: AppAction[]
 }
 
-//  {
-//     kind: 'ChatActionEvent',
-//     a: ChatAction<MyState, HandlerActions, void, Event, AppChatState>,
-//     f: (s: AppChatState) => AppChatState
-//     ctx: TelegrafContext
-// }
+const addToRendered = <R, H, E>()
+    : ChatAction<R, H, ChatState<R, H>, E> => {
+    return CA.ctx(c => CA.pipeState((s: ChatState<R, H>): ChatState<R, H> => ({
+        ...s,
+        renderedElements: [...s.renderedElements, createRendered(c.message?.message_id!)]
+    })))
+}
 
 function createApp() {
     type MyState = ReturnType<typeof createBotStoreF> & {
@@ -202,16 +207,17 @@ function createApp() {
 
     type HandlerActions = AppActionsFlatten<typeof App>
 
-    type AppAction = HandlerActions | ChatStateAction<AppChatState>
-    //  | RenderedElementsAction
     type Event = StateActionEvent<AppAction> | RenderEvent<AppAction>
     type AppChatState = ChatState<MyState, HandlerActions>
 
+    type AppAction = HandlerActions
+    //  | ChatStateAction<MyState, HandlerActions>
+    //  | RenderedElementsAction
     // type AppStoreAction = StoreAction<StoreState, StoreState>
 
     // // type AppStateAction = StateAction<AppChatState>
 
-    type AppStateAction = ChatAction<MyState, HandlerActions, AppChatState, Event, AppChatState>
+    type AppStateAction = ChatAction<MyState, HandlerActions, ChatState<MyState, HandlerActions>, Event>
 
     // type AppChatAction<R> = ChatAction<MyState, HandlerActions, R, Event, AppChatState>
     // type AppChatActionM<R> = ChatAction<MyState, HandlerActions, [R, AppChatState], Event, AppChatState>
@@ -228,24 +234,23 @@ function createApp() {
         if (Array.isArray(a))
             return A.flatten(a.map(actionToStateAction))
         else if (a === 'flush') {
-            return [async (app, ctx, renderer, chat, chatdata) => {
+            return [async ({ chatdata, tctx }) => {
 
                 for (const r of chatdata.renderedElements) {
                     for (const id of r.outputIds()) {
-                        await tracker.removeRenderedMessage(ctx.chat?.id!, id)
+                        await tracker.removeRenderedMessage(tctx.chat?.id!, id)
                     }
                 }
 
                 return pipe(
                     chatdata,
-                    applyRenderedElementsAction({
-                        kind: 'rendered-elements-action',
-                        f: _ => []
-                    }))
+                    modifyRenderedElements(_ => [])
+                )
             }]
         }
-        else if (a.kind === 'store-action')
+        else if (a.kind === 'store-action') {
             return [CA.pipeState(applyStoreAction(a))]
+        }
         else if (a.kind === 'localstate-action')
             return [CA.pipeState(applyTreeAction(a))]
         else if (a.kind === 'chatstate-action') {
@@ -261,14 +266,6 @@ function createApp() {
     const { renderer, saveToTracker, cleanChat, tracker } = getTrackingRenderer(
         LevelTracker(createDatabase('./mydb'))
     )
-
-    const addToRendered = <R, H, E, C extends ChatState<R, H>>()
-        : ChatAction<R, H, C, E, C> => {
-        return CA.ctx(c => CA.pipeState((s: C): C => ({
-            ...s,
-            renderedElements: [...s.renderedElements, createRendered(c.message?.message_id!)]
-        })))
-    }
 
     return getApp<MyState, HandlerActions, Event>({
         renderer,
@@ -291,7 +288,7 @@ function createApp() {
         queueStrategy: function () {
 
         },
-        handleMessage: CA.branchHandler<MyState, HandlerActions, Event, AppChatState>([
+        handleMessage: CA.branchHandler<MyState, HandlerActions, Event>([
             [
                 CA.ifTextEqual('/start'),
                 [addToRendered(), clearChat, CA.render],
@@ -310,27 +307,27 @@ function createApp() {
         handleAction: CA.listHandler(
             [CA.applyActionHandler(actionToStateAction), CA.replyCallback, CA.render]
         ),
-        handleEvent: async (app, ctx, renderer, queue, chatdata, event) => {
+        handleEvent: async (ctx, event) => {
             if (event.kind === 'StateActionEvent') {
-                return await app.renderFunc(
+                return await ctx.app.renderFunc(
                     await CA.runActionsChain(
                         actionToStateAction(event.actions))
-                        (app, ctx, renderer, queue, chatdata)
-                )[1](renderer)
+                        (ctx)
+                )[1](ctx.renderer)
             }
             else if (event.kind === 'RenderEvent') {
-                return await app.renderFunc(event.actions
+                return await ctx.app.renderFunc(event.actions
                     ? await CA.runActionsChain(
                         actionToStateAction(event.actions))
-                        (app, ctx, renderer, queue, chatdata)
-                    : chatdata
-                )[1](renderer)
+                        (ctx)
+                    : ctx.chatdata
+                )[1](ctx.renderer)
             }
             // else if (event.kind === 'ChatActionEvent') {
             //     await event.a(app, event.ctx, renderer, queue, chatdata)
             //     return event.f(chatdata)
             // }
-            return chatdata
+            return ctx.chatdata
         },
     })
 }

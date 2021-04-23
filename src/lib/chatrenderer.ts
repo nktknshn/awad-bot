@@ -1,6 +1,6 @@
 import { TelegrafContext } from "telegraf/typings/context"
 import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessageMedia, MessagePhoto } from "telegraf/typings/telegram-types"
-import { ChatAction, ContextOpt } from "./handler";
+import { ContextOpt } from "./handler";
 import { randomAnimal } from './util'
 
 export interface ChatRenderer {
@@ -127,7 +127,7 @@ export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => Cha
             const sent = await r.sendMediaGroup(fs)
 
             if (r.chatId)
-                for(const m of sent)
+                for (const m of sent)
                     await tracker.addRenderedMessage(r.chatId, m.message_id!)
 
             return sent
@@ -168,12 +168,13 @@ import * as O from 'fp-ts/lib/Option'
 import { ChatHandler2, ChatState } from "./chathandler";
 import { send } from "node:process";
 import { mylog } from "./logging";
+import { ChatAction } from "./chatactions";
 
 
 export const saveToTracker =
-    (tracker: Tracker) => <R, H, E, C extends ChatState<R, H>>(): ChatAction<R, H, C, E, C> =>
-        async (app, ctx, renderer, chat, chatdata) => {
-            await tracker.addRenderedMessage(ctx.chat?.id!, ctx.message?.message_id!)
+    (tracker: Tracker) => <R, H, E>(): ChatAction<R, H, ChatState<R, H>, E> =>
+        async ({ tctx, chatdata }) => {
+            await tracker.addRenderedMessage(tctx.chat?.id!, tctx.message?.message_id!)
             return chatdata
         }
 

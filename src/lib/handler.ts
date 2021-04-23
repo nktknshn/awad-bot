@@ -34,41 +34,30 @@ export const contextOpt = flow(
 export type ContextOpt = ReturnType<typeof contextOpt>
 
 
-export const byMessageId = <R, H, T, E, C extends ChatState<R, H>>(dh: ((messageId: number) => ChatAction<R, H, T, E, C>)) => (c: ContextOpt) => {
-    return pipe(
-        Do(O.option)
-            .bind('messageId', c.messageId)
-            .return(({ messageId }) => {
-                return dh(messageId)
-            }),
-    )
+export const byMessageId = <R, H, T, E, C extends ChatState<R, H>>
+    (dh: ((messageId: number) => ChatAction<R, H, ChatState<R, H>, E>)) => (c: ContextOpt) => {
+        return pipe(
+            Do(O.option)
+                .bind('messageId', c.messageId)
+                .return(({ messageId }) => {
+                    return dh(messageId)
+                }),
+        )
+    }
+
+export async function clearChat<R, H, E>(
+    ctx: ChatActionContext<R, H, E>
+): Promise<ChatState<R, H>> {
+    await deleteAll(ctx.renderer, ctx.chatdata.renderedElements)
+    return { ...ctx.chatdata, renderedElements: [] }
 }
 
-export async function clearChat<R, H, E, C extends ChatState<R, H>>(
-    app: Application<C, H, E>,
-    ctx: TelegrafContext,
-    renderer: ChatRenderer,
-    chat: ChatHandler2<E>,
-    chatdata: C
-): Promise<C> {
-    await deleteAll(renderer, chatdata.renderedElements)
-    return { ...chatdata, renderedElements: [] }
-}
-
-export type ChatAction<R, H, T, E, C extends ChatState<R, H>> = (
-    app: Application<C, H, E>,
-    ctx: TelegrafContext,
-    renderer: ChatRenderer,
-    chat: ChatHandler2<E>,
-    chatdata: C
-) => Promise<T>
-
-export function startHandler<R, H, E, C extends ChatState<R, H>>(c: ContextOpt):
-    O.Option<ChatAction<R, H, C, E, C>> {
+export function startHandler<R, H, E>(c: ContextOpt):
+    O.Option<ChatAction<R, H, ChatState<R, H>, E>> {
     return pipe(
         c.messageText,
         O.filter(m => m == '/start'),
-        O.map((): ChatAction<R, H, C, E, C> => clearChat)
+        O.map((): ChatAction<R, H, ChatState<R, H>, E> => clearChat)
     )
 }
 
@@ -164,9 +153,17 @@ export function applyRenderedElementsAction(a: RenderedElementsAction) {
     }
 }
 
+export const modifyRenderedElements = (f: (rs: RenderedElement[]) => RenderedElement[]) =>
+    <C extends ChatState<R, H>, R, H>(cs: C) => ({
+        ...cs,
+        renderedElements: f(cs.renderedElements)
+    })
+
+export const renderedElementsLens = <C extends ChatState<R, H>, R, H>() =>
+    Lens.fromProp<C>()('renderedElements')
 
 export function applyTreeAction(a: LocalStateAction) {
-    return function <R, H, C extends ChatState<R, H>>(cs: C): C {
+    return function <R, H>(cs: ChatState<R, H>): ChatState<R, H> {
         return {
             ...cs,
             treeState: a.f(cs.treeState)
@@ -174,21 +171,29 @@ export function applyTreeAction(a: LocalStateAction) {
     }
 }
 
-export function applyChatStateAction<R, H, C extends ChatState<R, H>>(a: (s: C) => C) {
+export function applyChatStateAction<C>
+    (f: (s: C) => C) {
     return function (cs: C): C {
-        return a(cs)
+        return f(cs)
     }
 }
 
 export function applyStoreAction<S>
     (a: StoreAction<S, S>) {
-    return function <C extends ChatState<A, B>, A extends { store: StoreF<S> }, B>(cs: C) {
+    return function <C extends ChatState<R, H>, R extends { store: StoreF<S> }, H>(cs: C): ChatState<R, H> {
         return {
             ...cs,
-            store: cs.store.apply(a.f)
+            store: cs.store.map(a.f)
         }
     }
 }
+
+import { Lens } from 'monocle-ts'
+import { ChatAction, ChatActionContext } from './chatactions';
+
+export const applyStoreAction2 = <C extends { store: StoreF<S> }, S>()
+    : (f: (a: C["store"]) => C["store"]) => (c: C) => C =>
+    Lens.fromProp<C>()('store').modify
 
 export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext): A | undefined => {
     const d = parseFromContext(ctx)

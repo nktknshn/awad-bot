@@ -1,9 +1,9 @@
 import * as O from 'fp-ts/lib/Option';
 import { TelegrafContext } from 'telegraf/typings/context';
+import { ChatAction } from './chatactions';
 import { ChatHandler2, ChatState } from './chathandler';
 import { ChatRenderer } from './chatrenderer';
 import { InputHandlerElement } from "./elements";
-import { ChatAction } from './handler';
 import { mylog } from './logging';
 import { InputHandlerData } from "./messages";
 
@@ -96,11 +96,12 @@ export const defaultHF = <R extends
 }
 
 
-export type HandlerAction<R, H, E, A, T, C extends ChatState<R, H>> = (a: A) => ChatAction<R, H, T, E, C>
+export type HandlerAction<R, H, E, A, T> = (a: A) => ChatAction<R, H, T, E>
 
-export const deleteMessage = <R, H, E, C extends ChatState<R, H>>(messageId: number): ChatAction<R, H, void, E, C> => {
+export const deleteMessage = <R, H, E>(messageId: number)
+    : ChatAction<R, H, void, E> => {
     return async function (
-        app, ctx, renderer, chat, chatdata
+        { renderer }
     ) {
         await renderer.delete(messageId)
     }

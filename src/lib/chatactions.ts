@@ -4,29 +4,25 @@ import * as F from 'fp-ts/lib/function';
 import * as T from 'fp-ts/lib/Task';
 import { pipe } from "fp-ts/lib/pipeable";
 import { StateAction } from './handlerF'
-import { ChatAction, contextOpt } from './handler';
+import { contextOpt } from './handler';
 import { Application, ChatHandler2, ChatState } from './chathandler';
 import { TelegrafContext } from 'telegraf/typings/context';
 import { ChatRenderer } from './chatrenderer';
 import { addRenderedUserMessage } from './usermessage';
 import { RenderedElementsAction, Subtract } from './elements';
 
-export async function render<R, H, E, C extends ChatState<R, H>>(
-    app: Application<C, H, E>,
-    ctx: TelegrafContext,
-    renderer: ChatRenderer,
-    chat: ChatHandler2<E>,
-    chatdata: C
-): Promise<C> {
-    return app.renderFunc(chatdata)[1](renderer)
+export async function render<R, H, E>(
+    ctx: ChatActionContext<R, H, E>
+): Promise<ChatState<R, H>> {
+    return ctx.app.renderFunc(ctx.chatdata)[1](ctx.renderer)
 }
 
 export function scheduleEvent
-    <R extends { deferredRenderTimer?: NodeJS.Timeout }, H, E, C extends ChatState<R, H>, EE extends E>
-    (timeout: number, ev: EE): ChatAction<R, H, C, E, C> {
+    <R extends { deferredRenderTimer?: NodeJS.Timeout }, H, E, EE extends E>
+    (timeout: number, ev: EE): ChatAction<R, H, ChatState<R, H>, E> {
     {
         return async function
-            (app, ctx, renderer, chat, chatdata) {
+            ({ chatdata, chat, tctx }) {
 
             chatdata.deferredRenderTimer && clearTimeout(chatdata.deferredRenderTimer)
 
@@ -35,7 +31,7 @@ export function scheduleEvent
                 c => ({
                     ...c,
                     deferredRenderTimer: setTimeout(
-                        () => chat.handleEvent(ctx, ev),
+                        () => chat.handleEvent(tctx, ev),
                         timeout
                     )
                 })
@@ -49,24 +45,24 @@ export const applyActionsF = <S>(as: StateAction<S>[]) => (data: S) => applyActi
 
 export const addRendered =
     <R, H, E, C extends ChatState<R, H>>(actionToStateAction:
-        (a: RenderedElementsAction) => ChatAction<R, H, C, E, C>[]
+        (a: RenderedElementsAction) => ChatAction<R, H, ChatState<R, H>, E>[]
     ) =>
         (messageId: number) =>
             actionToStateAction(addRenderedUserMessage(messageId))
 
 // function wrapToAction
 
-export function addToRendered<R, H, E, C extends ChatState<R, H>>
-    (actionToStateAction: (a: RenderedElementsAction) => ChatAction<R, H, C, E, C>[])
-    : ChatAction<R, H, C, E, C> {
+export function addToRendered<R, H, E>
+    (actionToStateAction: (a: RenderedElementsAction) => ChatAction<R, H, ChatState<R, H>, E>[])
+    : ChatAction<R, H, ChatState<R, H>, E> {
     return async function
-        (app, ctx, renderer, chat, chatdata) {
+        (ctx) {
 
-        const as = addRendered(actionToStateAction)(ctx.message?.message_id!)
+        const as = addRendered(actionToStateAction)(ctx.tctx.message?.message_id!)
 
-        return await runActionsChain(as)(app, ctx, renderer, chat, chatdata)
-            // applyActionsF(
-            //     addRendered(actionToStateAction)(ctx.message?.message_id!))
+        return await runActionsChain(as)(ctx)
+        // applyActionsF(
+        //     addRendered(actionToStateAction)(ctx.message?.message_id!))
     }
 
 }
@@ -79,72 +75,71 @@ export const ifTextEqual = (text: string) => F.flow(
 
 export const ifStart = ifTextEqual('/start')
 
-export function applyInputHandler<R, H, E, C extends ChatState<R, H>>
-    (actionToStateAction: <M extends H>(a: M | M[]) => ChatAction<R, H, C, E, C>[])
-    : ChatAction<R, H, C, E, C> {
+export function applyInputHandler<R, H, E>
+    (actionToStateAction: <M extends H>(a: M | M[]) => ChatAction<R, H, ChatState<R, H>, E>[])
+    : ChatAction<R, H, ChatState<R, H>, E> {
     return async (
-        app, ctx, renderer, chat, chatdata
-    ): Promise<C> =>
+        ctx
+    ): Promise<ChatState<R, H>> =>
         pipe(
-            O.fromNullable(chatdata.inputHandler),
-            O.map(f => f(ctx)),
+            O.fromNullable(ctx.chatdata.inputHandler),
+            O.map(f => f(ctx.tctx)),
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
             actionToStateAction,
-            // applyActions(chatdata)
-            hs => runActionsChain(hs),
-            a => a(app, ctx, renderer, chat, chatdata),
+            runActionsChain,
+            a => a(ctx),
         )
 }
 
-export function runActionsChain<R, H, E, C extends ChatState<R, H>>(
-    hs: ChatAction<R, H, C, E, C>[]
-): ChatAction<R, H, C, E, C> {
-    return async function (app, ctx, renderer, chat, chatdata) {
-        let data = chatdata
+export function runActionsChain<R, H, E>(
+    hs: ChatAction<R, H, ChatState<R, H>, E>[]
+): ChatAction<R, H, ChatState<R, H>, E> {
+    return async function (ctx) {
+        let data = ctx.chatdata
         for (const h of hs) {
-            data = await h(app, ctx, renderer, chat, data)
+            data = await h({...ctx, chatdata: data})
         }
         return data
     }
 }
 
-export function applyActionHandler<R, H, E, C extends ChatState<R, H>>
-    (actionToStateAction: <M>(a: (H & M) | (H & M)[]) => ChatAction<R, H, C, E, C>[])
-    : ChatAction<R, H, C, E, C> {
+export function applyActionHandler<R, H, E>
+    (actionToStateAction: <M>(a: (H & M) | (H & M)[]) => ChatAction<R, H, ChatState<R, H>, E>[])
+    : ChatAction<R, H, ChatState<R, H>, E> {
     return async (
-        app, ctx, renderer, chat, chatdata
-    ): Promise<C> =>
+        ctx
+    ): Promise<ChatState<R, H>> =>
         pipe(
-            O.fromNullable(chatdata.actionHandler),
-            O.map(f => f(ctx)),
+            O.fromNullable(ctx.chatdata.actionHandler),
+            O.map(f => f(ctx.tctx)),
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
             actionToStateAction,
-            hs => runActionsChain(hs),
-            a => a(app, ctx, renderer, chat, chatdata),
+            runActionsChain,
+            a => a(ctx),
             // r => r,
             // applyActions(chatdata)
         )
 }
 
-export function applyActionHandler2<R, E, C extends ChatState<R, H1 | H2>, H1, H2>
+export function applyActionHandler2<R, E, H1, H2>
     (
-        getHandler: (c: C) => ((ctx: TelegrafContext) => H1 | H2) | undefined,
+        getHandler: (c: ChatState<R, H1 | H2>) => ((ctx: TelegrafContext) => H1 | H2) | undefined,
         filt: (a: H1 | H2) => a is H1,
-        func1: (a: (H1)[]) => ChatAction<R, H1 | H2, C, E, C>,
-        actionToStateAction: (a: H2 | H2[]) => StateAction<C>[]
-    ): ChatAction<R, H1 | H2, C, E, C> {
+        func1: (a: (H1)[]) => ChatAction<R, H1 | H2, ChatState<R, H1 | H2>, E>,
+        actionToStateAction: (a: H2 | H2[]) => StateAction<ChatState<R, H1 | H2>>[]
+    ): ChatAction<R, H1 | H2, ChatState<R, H1 | H2>, E> {
     return async (
-        app, ctx, renderer, chat, chatdata
-    ): Promise<C> =>
+        ctx
+    ): Promise<ChatState<R, H1 | H2>> =>
         pipe(
-            O.fromNullable(getHandler(chatdata)),
-            O.map(f => f(ctx)),
+            O.fromNullable(getHandler(ctx.chatdata)),
+            O.map(f => f(ctx.tctx)),
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
             A.partition(filt),
-            ({ left, right }) => func1(right)(app, ctx, renderer, chat, chatdata)
+            ({ left, right }) => func1(right)(ctx)
                 .then((s) => pipe(
                     left as H2[],
                     actionToStateAction,
@@ -153,71 +148,79 @@ export function applyActionHandler2<R, E, C extends ChatState<R, H1 | H2>, H1, H
         )
 }
 
-export async function replyCallback<R, H, E, C extends ChatState<R, H>>(
-    app: Application<C, H, E>,
-    ctx: TelegrafContext,
+export type ChatAction<R, H, T, E> = (
+    ctx: ChatActionContext<R, H, E>
+) => Promise<T>
+
+export interface ChatActionContext<R, H, E> {
+    app: Application<R, H, E>,
+    tctx: TelegrafContext,
     renderer: ChatRenderer,
     chat: ChatHandler2<E>,
-    chatdata: C
-): Promise<C> {
-    return ctx.answerCbQuery().then(_ => chatdata)
+    chatdata: ChatState<R, H>
+}
+
+export async function replyCallback<R, H, E>(
+    { tctx, chatdata }: ChatActionContext<R, H, E>
+): Promise<ChatState<R, H>> {
+    return tctx.answerCbQuery().then(_ => chatdata)
 }
 
 
-export function chatState<R, H, T, E, C extends ChatState<R, H>>(
-    pred: (state: C) => ChatAction<R, H, C, E, C>,
-): ChatAction<R, H, C, E, C> {
+export function chatState<R, H, E>(
+    pred: (state: ChatState<R, H>) => ChatAction<R, H, ChatState<R, H>, E>,
+): ChatAction<R, H, ChatState<R, H>, E> {
     return async (
-        app, ctx, renderer, chat, chatdata
-    ) => pred(chatdata)(app, ctx, renderer, chat, chatdata)
+        ctx: ChatActionContext<R, H, E>
+    ) => pred(ctx.chatdata)(ctx)
 }
 
-export function ctx<R, H, E, C extends ChatState<R, H>>(
-    pred: (ctx: TelegrafContext) => ChatAction<R, H, C, E, C>,
-): ChatAction<R, H, C, E, C> {
+export function ctx<R, H, E>(
+    pred: (ctx: TelegrafContext) => ChatAction<R, H, ChatState<R, H>, E>,
+): ChatAction<R, H, ChatState<R, H>, E> {
     return async (
-        app, ctx, renderer, chat, chatdata
-    ) => pred(ctx)(app, ctx, renderer, chat, chatdata)
+        ctx
+    ) => pred(ctx.tctx)(ctx)
 }
 
 
-export type Branch<R, H, T, E, C extends ChatState<R, H>> = [
+export type Branch<R, H, T, E> = [
     (ctx: TelegrafContext) => boolean,
-    ChatAction<R, H, T, E, C>[],
-    ChatAction<R, H, T, E, C>[]
+    ChatAction<R, H, T, E>[],
+    ChatAction<R, H, T, E>[]
 ]
 
-export function listHandler<R, H, E, C extends ChatState<R, H>>(
-    handlers: ChatAction<R, H, C, E, C>[]
-): ChatAction<R, H, C, E, C> {
-    return async (app, ctx, renderer, queue, chatdata): Promise<C> => {
-        let data = chatdata
+export function listHandler<R, H, E>(
+    handlers: ChatAction<R, H, ChatState<R, H>, E>[]
+): ChatAction<R, H, ChatState<R, H>, E> {
+    return async (ctx): Promise<ChatState<R, H>> => {
+        let data = ctx.chatdata
 
         for (const h of handlers) {
-            data = await h(app, ctx, renderer, queue, data)
+            data = await h({ ...ctx, chatdata: data })
         }
         return data
     }
 }
 
-export function branchHandler<R, H, E, C extends ChatState<R, H>>(
-    handlers: Branch<R, H, C, E, C>[]
-): ChatAction<R, H, C, E, C> {
-    return async (app, ctx, renderer, queue, chatdata): Promise<C> => {
+export function branchHandler<R, H, E>(
+    handlers: Branch<R, H, ChatState<R, H>, E>[]
+): ChatAction<R, H, ChatState<R, H>, E> {
+    return async (ctx): Promise<ChatState<R, H>> => {
 
-        let data = chatdata
+        let data = ctx.chatdata
 
         for (const branch of handlers) {
             const [pred, ontrue, onfalse] = branch
 
-            if (pred(ctx)) {
+            if (pred(ctx.tctx)) {
                 for (const a of ontrue) {
-                    data = await a(app, ctx, renderer, queue, data)
+                    data = await a({ ...ctx, chatdata: data })
                 }
             }
             else {
                 for (const a of onfalse) {
-                    data = await a(app, ctx, renderer, queue, data)
+                    data = await a({ ...ctx, chatdata: data })
                 }
             }
         }
@@ -227,10 +230,10 @@ export function branchHandler<R, H, E, C extends ChatState<R, H>>(
     }
 }
 
-export function pipeState<R, H, E, C extends ChatState<R, H>>(
-    f: (s: C) => C
-): ChatAction<R, H, C, E, C> {
-    return async function(app, ctx, renderer, chat, chatdata) {
-        return f(chatdata)
+export function pipeState<R, H, E>(
+    f: (s: ChatState<R, H>) => ChatState<R, H>
+): ChatAction<R, H, ChatState<R, H>, E> {
+    return async function (ctx) {
+        return f(ctx.chatdata)
     }
 }
