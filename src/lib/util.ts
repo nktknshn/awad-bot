@@ -233,9 +233,9 @@ export function callHandlersChain<R>(
     )
 }
 
-export function attachAppToBot<R, H, E>(bot: Telegraf<TelegrafContext>, createApp: () => Application<R, H, E>) {
+export function attachAppToBot<R, H, E>(bot: Telegraf<TelegrafContext>, createApp: Application<R, H, E>) {
     const dispatcher = new ChatsDispatcher(
-        createChatHandlerFactory(createApp())
+        createChatHandlerFactory(createApp)
     )
 
     bot.on('message', dispatcher.messageHandler)

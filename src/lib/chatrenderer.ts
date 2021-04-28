@@ -1,7 +1,12 @@
-import { TelegrafContext } from "telegraf/typings/context"
-import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessageMedia, MessagePhoto } from "telegraf/typings/telegram-types"
+import { Do } from 'fp-ts-contrib/lib/Do';
+import * as O from 'fp-ts/lib/Option';
+import { TelegrafContext } from "telegraf/typings/context";
+import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types";
+import { ChatActionContext } from "./chatactions";
+import { ChatHandler2, ChatState } from "./chathandler";
 import { ContextOpt } from "./inputhandler";
-import { randomAnimal } from './util'
+import { mylog } from "./logging";
+import { randomAnimal } from './util';
 
 export interface ChatRenderer {
     chatId: number,
@@ -171,12 +176,6 @@ export function getTrackingRenderer(t: Tracker) {
         tracker: t
     }
 }
-import { Do } from 'fp-ts-contrib/lib/Do'
-import * as O from 'fp-ts/lib/Option'
-import { ChatHandler2, ChatState } from "./chathandler";
-import { send } from "node:process";
-import { mylog } from "./logging";
-import { ChatAction, ChatActionContext } from "./chatactions";
 
 
 export const saveToTracker =

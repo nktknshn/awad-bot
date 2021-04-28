@@ -6,7 +6,7 @@ import { CheckListStateless } from "../../lib/components/checklist"
 import { GetSetState } from "../../lib/elements"
 import { Component, connected2 } from "../../lib/component"
 import { button, buttonsRow, input, message, nextMessage, radioRow } from "../../lib/elements-constructors"
-import { action, inputHandler, nextHandlerAction, on, otherwise } from "../../lib/input"
+import { action, caseText, inputHandler, nextHandler, nextHandlerAction, on, otherwise } from "../../lib/input"
 import { InputHandlerData } from "../../lib/messages"
 import { select } from "../../lib/state"
 import { toggleItem } from "../../lib/util"
@@ -17,7 +17,6 @@ import { Card } from "./Card"
 import { CardPageInput } from "./CardPage"
 import { WordsList } from "./WordsList"
 import { WithDispatcher } from "../storeToDispatch"
-import { addRenderedUserMessage } from "../../lib/usermessage"
 
 type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
 
@@ -32,7 +31,7 @@ interface WordsPageState {
 function WordsPageInput({ onWordId }: { onWordId: (wordId: number) => Promise<void> }) {
   return inputHandler(
     [
-      on(caseWordId, action(a => [addRenderedUserMessage(a.messageId), onWordId(a.example)])),
+      on(caseWordId, action(a => [onWordId(a.example)])),
       on(otherwise, nextHandlerAction)
     ]
   )
@@ -211,19 +210,11 @@ function* InputBox({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Ca
   onWrongInput: (ctx: InputHandlerData) => Promise<void>,
 }) {
 
-  yield input(async (data, next) => {
-
-
-    if (data.messageText) {
-      await onSuccess(data.messageText)
-      return
-    }
-    else {
-      await onWrongInput(data)
-    }
-
-    return await next()
-  })
+  yield inputHandler([
+    on(caseText, action(({messageText}) => onSuccess(messageText))),
+    on(otherwise, action(a => onWrongInput(a.data))),
+    action(nextHandler)
+  ])
 
   yield message(title)
 

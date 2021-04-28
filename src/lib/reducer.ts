@@ -214,7 +214,7 @@ export function defaultMatcher<R, H, E>() {
     )
 }
 
-export function defaultActionToChatAction<R, H, E>() {
+export function defaultActionReducer<R, H, E>() {
     const m = matcherToChatActionMatcher<R, H, E>()
     const defaultMatcher = composeChatActionMatchers(
         m(localStateMatcher<ChatState<R, H>>()),
@@ -228,15 +228,15 @@ export function defaultActionToChatAction<R, H, E>() {
     return defaultActionToChatAction
 }
 
-type DefaultActions<R, H, E> = LocalStateAction | ChatStateAction<ChatState<R, H>>
+type DefaultActions<R, H> = LocalStateAction | ChatStateAction<ChatState<R, H>>
 
 export function extendDefaultReducer<R, H, E, T1>(
     m1: ChatActionMatcher<T1, R, H, E>,
-): (a: (T1 | DefaultActions<R, H, E>) | (T1 | DefaultActions<R, H, E>)[]) => CA.AppChatAction<R, H, E>[]
+): (a: (T1 | DefaultActions<R, H>) | (T1 | DefaultActions<R, H>)[]) => CA.AppChatAction<R, H, E>[]
 export function extendDefaultReducer<R, H, E, T1, T2>(
     m1: ChatActionMatcher<T1, R, H, E>,
     m2: ChatActionMatcher<T2, R, H, E>,
-): (a: (T1 | T2 | DefaultActions<R, H, E>) | (T1 | T2 | DefaultActions<R, H, E>)[]) => CA.AppChatAction<R, H, E>[]
+): (a: (T1 | T2 | DefaultActions<R, H>) | (T1 | T2 | DefaultActions<R, H>)[]) => CA.AppChatAction<R, H, E>[]
 export function extendDefaultReducer<R, H, E>(
     m1: any, m2?: any
 ) {

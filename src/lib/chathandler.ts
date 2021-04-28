@@ -1,28 +1,51 @@
-import { identity } from "fp-ts/lib/function"
+import * as A from 'fp-ts/lib/Array'
+import * as O from 'fp-ts/lib/Option'
+import { pipe } from "fp-ts/lib/pipeable"
 import { Store } from "redux"
 import { TelegrafContext } from "telegraf/typings/context"
+import { PhotoGroupElement } from "../bot3/mediagroup"
+import { parseFromContext } from './bot-util'
+import { AppChatAction, ChatActionContext } from "./chatactions"
 import { ChatRenderer, createChatRenderer } from "./chatrenderer"
 import { ChatHandlerFactory } from "./chatsdispatcher"
 import { ComponentElement } from "./component"
-import { defaultCreateDraft, RenderDraft } from "./elements-to-messages"
-import { mylog } from "./logging"
-import { Actions, createRenderActions } from "./render-actions"
-import { RenderedElement } from "./rendered-messages"
-import { ElementsTree, TreeState } from "./tree"
-import { AppActions, AppActionsFlatten, AppReqs, GetAllBasics } from "./types-util"
-import { draftToInputHandler, renderActions as applyRenderActions, renderedElementsToActionHandler } from "./ui"
-import * as A from 'fp-ts/lib/Array';
-import { pipe } from "fp-ts/lib/pipeable"
-import * as O from 'fp-ts/lib/Option';
-import { StateAction } from "./handlerF"
-import { AppChatAction, ChatActionContext, chatState } from "./chatactions"
-import { defaultActionToChatAction } from "./reducer"
-import { getInputHandler as getInputHandlerImpl, getActionHandler as getActionHandlerImpl } from "./inputhandler"
 import { createDraftWithImages } from "./draft"
 import { BasicElement } from "./elements"
-import { PhotoGroupElement } from "../bot3/mediagroup"
+import { RenderDraft } from "./elements-to-messages"
+import { chainInputHandlers, contextOpt, findRepliedTo } from './inputhandler'
+import { mylog } from "./logging"
+import { createRenderActions } from "./render-actions"
+import { BotMessage, RenderedElement } from "./rendered-messages"
+import { ElementsTree, TreeState } from "./tree"
+import { AppActionsFlatten, AppReqs, GetAllBasics } from "./types-util"
+import { renderActions as applyRenderActions } from "./ui"
 import { RenderedUserMessage, UserMessageElement } from "./usermessage"
 
+export function getInputHandler<Draft extends RenderDraft<H>, H>(draft: Draft)
+    : ((ctx: TelegrafContext) => H | undefined) {
+    return ctx => chainInputHandlers(
+        draft.inputHandlers.reverse().map(_ => _.element.callback),
+        parseFromContext(ctx)
+    )
+}
+
+export const getActionHandler = <A>(rs: RenderedElement[]) => {
+    return function (ctx: TelegrafContext): A | undefined {
+        const { action, repliedTo } = contextOpt(ctx)
+        const p = pipe(
+            repliedTo
+            , O.map(findRepliedTo(rs))
+            , O.chain(O.fromNullable)
+            , O.filter((callbackTo): callbackTo is BotMessage => callbackTo.kind === 'BotMessage')
+            , O.chain(callbackTo => pipe(action, O.map(action => ({ action, callbackTo }))))
+            , O.chainNullableK(({ callbackTo, action }) => callbackTo.input.callback2<A>(action))
+        )
+
+        if (O.isSome(p)) {
+            return p.value
+        }
+    }
+}
 
 export interface ChatHandler<R, E = any> {
     chatdata: R,
@@ -98,11 +121,6 @@ export class QueuedChatHandler<R, E = unknown> implements ChatHandler2<E> {
             mylog(`queue finished`)
             this.busy = false
 
-
-            // if (this.rerender) {
-            //     await this.processItem(new IncomingEvent("render"))
-            //     this.rerender = false
-            // }
 
         }
     }
@@ -280,33 +298,6 @@ export function fromSource<Props, RootComponent extends ComponentElement, Contex
     return src
 }
 
-export const defaultRenderFunction = <
-    Props,
-    RootComponent extends ComponentElement,
-    ContextReqs extends AppReqs<RootComponent>,
-    Ctx,
-    HandlerReturn extends AppActionsFlatten<RootComponent>,
-    Draft extends RenderDraft<HandlerReturn>,
-    Simple extends
-    If<GetAllBasics<RootComponent>, DefaultEls, {}, never>
-    = If<GetAllBasics<RootComponent>, DefaultEls, {}, never>
->
-    (
-        app: (props: Props) => RootComponent,
-        props: Props & Simple,
-        gc: (c: ChatState<Ctx, HandlerReturn>) => ContextReqs
-    ) => createRenderFunction<
-        Props,
-        RootComponent,
-        ContextReqs,
-        GetAllBasics<RootComponent>,
-        Ctx,
-        Draft,
-        HandlerReturn
-    >(app, props, gc, createDraftWithImages as (els: DefaultEls[]) => Draft,
-        getInputHandlerImpl as (draft: Draft) => InputHandlerF<HandlerReturn | undefined>, getActionHandlerImpl
-    )
-
 
 interface RenderScheme<
     Els,
@@ -323,14 +314,12 @@ function getScheme<Els>(s: RenderScheme<Els>) {
 
 export const defaultRenderScheme = getScheme({
     createDraft: createDraftWithImages,
-    getInputHandler: getInputHandlerImpl,
-    getActionHandler: getActionHandlerImpl
+    getInputHandler,
+    getActionHandler
 })
 
 
-export const func2 = <
-    Els
->(scheme: RenderScheme<Els>) => {
+export const func2 = <Els>(scheme: RenderScheme<Els>) => {
     return <
         Props,
         RootComponent extends ComponentElement,
@@ -340,11 +329,13 @@ export const func2 = <
         HandlerReturn extends AppActionsFlatten<RootComponent>,
         TypeAssert extends If<CompEls, Els, {}, never> = If<CompEls, Els, {}, never>
     >(source: RenderSource<Props, RootComponent, ContextReqs, Ctx, HandlerReturn> & TypeAssert) => {
+        console.log(scheme);
 
         return (chatState: ChatState<Ctx, HandlerReturn>) => {
             const [els, treeState] = ElementsTree.createElements(source.component, source.contextCreator(chatState), source.props, chatState.treeState)
 
             const draft = scheme.createDraft<HandlerReturn>(els)
+
             const inputHandler = scheme.getInputHandler(draft)
             const renderActions = createRenderActions(chatState.renderedElements, draft.messages)
 
@@ -375,62 +366,6 @@ export const func2 = <
 }
 
 export const renderComponent = func2(defaultRenderScheme)
-
-export const createRenderFunction = <
-    Props,
-    RootComponent extends ComponentElement,
-    ContextReqs extends AppReqs<RootComponent>,
-    Els extends GetAllBasics<RootComponent>,
-    Ctx,
-    Draft extends RenderDraft<HandlerReturn>,
-    HandlerReturn extends AppActionsFlatten<RootComponent>
->
-    (
-        app: (props: Props) => RootComponent,
-        props: Props,
-        gc: (c: ChatState<Ctx, HandlerReturn>) => ContextReqs,
-        createDraft: ((els: Els[]) => Draft),
-        getInputHandler: (draft: Draft) => InputHandlerF<HandlerReturn | undefined> =
-            getInputHandlerImpl as (draft: Draft) => InputHandlerF<HandlerReturn | undefined>,
-        getActionHandler: (rs: RenderedElement[]) => (ctx: TelegrafContext) => (HandlerReturn | undefined) =
-            getActionHandlerImpl
-    ) =>
-    (chatState: ChatState<Ctx, HandlerReturn>): readonly [{
-        draft: Draft,
-        treeState: TreeState,
-        inputHandler: InputHandlerF<HandlerReturn | undefined>,
-        renderActions: Actions[],
-        effectsActions: HandlerReturn[]
-    }, (renderer: ChatRenderer) => Promise<ChatState<Ctx, HandlerReturn>>] => {
-
-        const [els, treeState] = ElementsTree.createElements(app, gc(chatState), props, chatState.treeState)
-
-        const draft = createDraft(els)
-        const effects = draft.effects
-        const effectsActions = effects.map(_ => _.element.callback())
-
-        const inputHandler = getInputHandler(draft)
-        const renderActions = createRenderActions(chatState.renderedElements, draft.messages)
-
-        return [
-            { draft, treeState, inputHandler, renderActions, effectsActions },
-            async (renderer: ChatRenderer): Promise<ChatState<Ctx, HandlerReturn>> => {
-                const renderedElements = await applyRenderActions(renderer, renderActions)
-                const actionHandler = getActionHandler(renderedElements)
-
-                mylog("renderedElements");
-                mylog(JSON.stringify(renderedElements));
-
-                return {
-                    ...chatState,
-                    treeState,
-                    inputHandler,
-                    actionHandler,
-                    renderedElements
-                }
-            }
-        ] as const
-    }
 
 export const storeWithDispatcher = <S extends Store, D>(store: S, storeToDispatch: (s: S) => D) => {
     return () => ({

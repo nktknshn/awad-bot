@@ -2,7 +2,7 @@
   "name": "awad-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/run.js",
+  "main": "dist/bot2.js",
   "scripts": {
     "build": "./node_modules/.bin/tsc",
     "start-bot": "DEBUG=awad-bot ./node_modules/.bin/ts-node src/bot.ts",

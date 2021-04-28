@@ -55,7 +55,10 @@ export type AddLastArgument<F extends (...args: any) => any, C> =
     ? (...args: [...ARGS, C]) => R1 : never
 
 export type GetAllButtons<T> = GetAllBasics<T> extends infer B ? B extends ButtonElement<infer R> ? R : never : never
+
 export type GetAllInputHandlers<T> = Flatten<GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R : never : never> extends infer R ? R extends Matcher2<infer G> ? G : never : never
+
+export type _GetAllInputHandlers<T> = GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R  extends Matcher2<infer G> ? G : never : never : never
 
 export type GetAllEffects<T> = GetAllBasics<T> extends infer B ? B extends EffectElement<infer R> ? R : never : never
 

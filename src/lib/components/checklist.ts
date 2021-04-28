@@ -2,6 +2,7 @@ import { button, input, message, messagePart } from "../elements-constructors"
 import { GetSetState } from "../elements"
 import { Component } from "../component"
 import { enumerate, partitate, textColumns, toggleItem } from "../util"
+import { action, caseText, inputHandler, nextHandler, on } from "../input"
 
 type OnClick<T> = { onClick: (arg: T) => Promise<void> }
 type OnUpdate<T> = { onUpdate: (arg: T) => Promise<void> }
@@ -48,20 +49,34 @@ export function* CheckListInput({
     items,
     onClick
 }: CheckListProps & OnClick<number> & { selectedIds: number[] }) {
-    yield input(async ({ messageText }, next) => {
-        if (messageText) {
-            const p = parseCommandAndId(messageText)
+    yield inputHandler([
+        on(caseText, action(({ messageText }) => {
+            const p = parseCommandAndId(messageText) 
             if (p) {
                 const [cmd, id] = p
                 if (cmd == 'opt') {
-                    await onClick(id)
-                    return
+                    return onClick(id)
                 }
             }
-        }
+            
+            return nextHandler()
+        }))
+    ])
 
-        return await next()
-    })
+    // async ({ messageText }, next) => {
+    //     if (messageText) {
+    //         const p = parseCommandAndId(messageText)
+    //         if (p) {
+    //             const [cmd, id] = p
+    //             if (cmd == 'opt') {
+    //                 await onClick(id)
+    //                 return
+    //             }
+    //         }
+    //     }
+
+    //     return await next()
+    // }
 }
 
 function codeRow(string1: string, string2: string, length: number = 20) {

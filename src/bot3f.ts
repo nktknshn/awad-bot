@@ -8,22 +8,21 @@ import { PhotoSize } from "telegraf/typings/telegram-types";
 import { createDatabase, LevelTracker } from './bot3/leveltracker';
 import { photos } from './bot3/mediagroup';
 import { createBotStoreF, StoreState } from './bot3/store';
-import { append, deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util';
+import { append, deferRender, flush, RenderEvent, StateActionEvent } from './bot3/util';
 import * as CA from './lib/chatactions';
-import { ChatState, createChatHandlerFactory, createRenderFunction, defaultRenderFunction, renderComponent, createChatState, getApp } from "./lib/chathandler";
+import { ChatState, createChatHandlerFactory, createChatState, getApp, renderComponent } from "./lib/chathandler";
 import { getTrackingRenderer } from './lib/chatrenderer';
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
-import { createDraftWithImages } from './lib/draft';
 import { GetSetState } from "./lib/elements";
 import { button, message } from "./lib/elements-constructors";
-import { clearChat, getActionHandler, getInputHandler, modifyRenderedElements } from "./lib/inputhandler";
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
+import { clearChat, modifyRenderedElements } from "./lib/inputhandler";
 import { initLogging, mylog } from './lib/logging';
+import { extendDefaultReducer, flushMatcher, runBefore, storeReducer } from './lib/reducer';
 import { AppActionsFlatten } from './lib/types-util';
 import { UserMessageElement } from './lib/usermessage';
 import { token } from "./telegram-token.json";
-import { ChatActionMatcher, composeChatActionMatchers, defaultMatcher, extendDefaultReducer, flushMatcher, makeActionToChatAction, runBefore, storeReducer } from './lib/reducer';
 
 type AppContext = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']

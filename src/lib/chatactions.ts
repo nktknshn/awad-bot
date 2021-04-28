@@ -70,20 +70,6 @@ export function fromList<R, H, E>(
     }
 }
 
-// export function runActionsChain<R, H, E>(
-//     hs: AppChatAction<R, H, E>[]
-// ): AppChatAction<R, H, E> {
-//     return async function (ctx) {
-//         let data = ctx.chatdata
-//         for (const h of hs) {
-//             console.log(hs);
-
-//             data = await h({ ...ctx, chatdata: data })
-//         }
-//         return data
-//     }
-// }
-
 export function applyInputHandler<R, H, E>
     (): AppChatAction<R, H, E> {
     return async (

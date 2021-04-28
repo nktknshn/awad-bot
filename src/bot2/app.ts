@@ -1,10 +1,9 @@
 import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
-import { connected1 as connected1, connected2, connected4 } from "../lib/component";
+import { connected1 as connected1, connected4 } from "../lib/component";
 import { button, buttonsRow, effect, message } from "../lib/elements-constructors";
 import { action, inputHandler, on, otherwise } from "../lib/input";
 import { select } from "../lib/state";
-import { addRenderedUserMessage } from "../lib/usermessage";
 import { parsePath, tryKey } from "../lib/util";
 import Settings from "./components/Settings";
 import { Trainer } from "./components/trainer";

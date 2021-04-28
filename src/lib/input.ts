@@ -21,6 +21,7 @@ export const on = flow;
 export const otherwise = O.chain((d: InputHandlerData) =>
     Do(O.option)
         .bind('messageId', messageId(d))
+        .bind('data', O.some(d))
         .return(identity))
 
 

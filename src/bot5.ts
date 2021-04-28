@@ -142,7 +142,7 @@ async function main() {
         () => true
     ])
 
-    const bot = attachAppToBot(new Telegraf(token), createApp)
+    const bot = attachAppToBot(new Telegraf(token), createApp())
 
     mylog('Starting...')
 

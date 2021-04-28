@@ -3,7 +3,7 @@ import {
     OneToMany, PrimaryColumn, JoinColumn, EntityRepository, Repository
 } from 'typeorm';
 import { WordEntity } from './word';
-
+import 'reflect-metadata'
 
 @Entity({ name: 'user' })
 export class UserEntity extends BaseEntity {
@@ -24,14 +24,13 @@ export class UserEntity extends BaseEntity {
 
 @EntityRepository(UserEntity)
 export class UserRepository extends Repository<UserEntity> {
-
-    addRenderedMessage(userId: number, messageId: number) {
+    trackRenderedMessage(userId: number, messageId: number) {
         return this.query(
             `UPDATE "user" SET "renderedMessagesIds" = array_append("user"."renderedMessagesIds",$1) WHERE id = $2`, [messageId, userId]
         )
     }
     
-    removeRenderedMessage(userId: number, messageId: number) {
+    untrackRenderedMessage(userId: number, messageId: number) {
         return this.query(
             `UPDATE "user" SET "renderedMessagesIds" = array_remove("user"."renderedMessagesIds",$1) WHERE id = $2`, [messageId, userId]
         )

@@ -5,8 +5,7 @@ import {
 } from 'typeorm';
 import { Meaning } from '../../bot/interfaces';
 import { UserEntity } from './user';
-// import { ObjectType, Field, ID } from "type-graphql";
-
+import 'reflect-metadata'
 
 @Entity({ name: 'word' })
 // @ObjectType()
