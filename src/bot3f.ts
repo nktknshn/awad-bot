@@ -8,9 +8,9 @@ import { PhotoSize } from "telegraf/typings/telegram-types";
 import { createDatabase, LevelTracker } from './bot3/leveltracker';
 import { photos } from './bot3/mediagroup';
 import { createBotStoreF, StoreState } from './bot3/store';
+import { deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util';
 import * as CA from './lib/chatactions';
-import { ChatAction } from './lib/chatactions';
-import { ChatState, createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler";
+import { ChatState, createChatHandlerFactory, createRenderFunction, emptyChatState, getApp } from "./lib/chathandler";
 import { getTrackingRenderer } from './lib/chatrenderer';
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
@@ -21,10 +21,9 @@ import { clearChat, getActionHandler, getInputHandler, modifyRenderedElements } 
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { initLogging, mylog } from './lib/logging';
 import { AppActionsFlatten } from './lib/types-util';
-import { createRendered, UserMessageElement } from './lib/usermessage';
+import { UserMessageElement } from './lib/usermessage';
 import { token } from "./telegram-token.json";
-import { composeChatActionMatchers, defaultActionToChatAction, defaultMatcher, makeActionToChatAction, storeMatcher } from './trying1';
-import { deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util'
+import { composeChatActionMatchers, defaultMatcher, makeActionToChatAction, storeMatcher } from './trying1';
 
 type AppContext = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
@@ -208,7 +207,7 @@ function createApp() {
                 storeMatcher(),
                 ({
                     isA: (a: Flush | any): a is Flush => a.kind === 'flush',
-                    f: (): AppChatAction => {
+                    f: () => {
                         return async ({ chatdata, tctx }) => {
                             for (const r of chatdata.renderedElements) {
                                 for (const id of r.outputIds()) {
@@ -227,7 +226,7 @@ function createApp() {
         ),
         renderer,
         chatDataFactory,
-        renderFunc: genericRenderFunction(
+        renderFunc: createRenderFunction(
             App, { password: 'a' },
             chatstate => ({ dispatcher: chatstate.dispatcher, ...chatstate.store.state }),
             createDraftWithImages,
@@ -242,20 +241,20 @@ function createApp() {
                 actions: [a]
             })
         },
-
         handleMessage: CA.branchHandler([
             [
                 CA.ifTextEqual('/start'),
-                [CA.addToRendered(), clearChat, CA.render],
+                [CA.createRendered(), clearChat, CA.render],
                 [
-                    CA.addToRendered(),
+                    CA.createRendered(),
                     saveToTracker(),
                     CA.applyInputHandler(),
-                    CA.chatState(c => c.deferRender == 0
-                        ? CA.render
-                        : CA.scheduleEvent(c.deferRender, {
-                            kind: 'RenderEvent'
-                        }))
+                    CA.chatState(c =>
+                        c.deferRender == 0
+                            ? CA.render
+                            : CA.scheduleEvent(c.deferRender, {
+                                kind: 'RenderEvent'
+                            }))
                 ]
             ],
         ]),

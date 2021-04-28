@@ -9,7 +9,7 @@ import { ChatRenderer } from './chatrenderer';
 import { RenderedElementsAction } from './elements';
 import { contextOpt } from './handler';
 import { StateAction } from './handlerF';
-import { addRenderedUserMessage, createRendered } from './usermessage';
+import { addRenderedUserMessage, createRendered as createRenderedMessage } from './usermessage';
 
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
@@ -19,7 +19,7 @@ export async function render<R, H, E>(
 
 export function scheduleEvent
     <R extends { deferredRenderTimer?: NodeJS.Timeout }, H, E, EE extends E>
-    (timeout: number, ev: EE): ChatAction<R, H, ChatState<R, H>, E> {
+    (timeout: number, ev: EE): AppChatAction<R, H, E> {
     {
         return async function
             ({ chatdata, chat, tctx }) {
@@ -50,22 +50,6 @@ export const addRendered =
         (messageId: number) =>
             actionToStateAction(addRenderedUserMessage(messageId))
 
-// function wrapToAction
-
-// export function addToRendered<R, H, E>
-//     (actionToStateAction: (a: RenderedElementsAction) => ChatAction<R, H, ChatState<R, H>, E>[])
-//     : ChatAction<R, H, ChatState<R, H>, E> {
-//     return async function
-//         (ctx) {
-
-//         const as = addRendered(actionToStateAction)(ctx.tctx.message?.message_id!)
-
-//         return await runActionsChain(as)(ctx)
-//         // applyActionsF(
-//         //     addRendered(actionToStateAction)(ctx.message?.message_id!))
-//     }
-// }
-
 export const ifTextEqual = (text: string) => F.flow(
     contextOpt,
     c => c.messageText,
@@ -76,10 +60,7 @@ export const ifTextEqual = (text: string) => F.flow(
 export const ifStart = ifTextEqual('/start')
 
 export function applyInputHandler<R, H, E>
-    (
-        // actionToStateAction: <M extends H>(a: M | M[]) => ChatAction<R, H, ChatState<R, H>, E>[]
-    )
-    : ChatAction<R, H, ChatState<R, H>, E> {
+    (): AppChatAction<R, H, E> {
     return async (
         ctx
     ): Promise<ChatState<R, H>> =>
@@ -95,8 +76,8 @@ export function applyInputHandler<R, H, E>
 }
 
 export function runActionsChain<R, H, E>(
-    hs: ChatAction<R, H, ChatState<R, H>, E>[]
-): ChatAction<R, H, ChatState<R, H>, E> {
+    hs: AppChatAction<R, H, E>[]
+): AppChatAction<R, H, E> {
     return async function (ctx) {
         let data = ctx.chatdata
         for (const h of hs) {
@@ -109,10 +90,7 @@ export function runActionsChain<R, H, E>(
 }
 
 export function applyActionHandler<R, H, E>
-    (
-        // actionToStateAction: <M>(a: (H & M) | (H & M)[]) => ChatAction<R, H, ChatState<R, H>, E>[]
-    )
-    : ChatAction<R, H, ChatState<R, H>, E> {
+    (): AppChatAction<R, H, E> {
     return async (
         ctx
     ): Promise<ChatState<R, H>> =>
@@ -124,8 +102,6 @@ export function applyActionHandler<R, H, E>
             ctx.app.actionToChatAction,
             runActionsChain,
             a => a(ctx),
-            // r => r,
-            // applyActions(chatdata)
         )
 }
 
@@ -133,9 +109,9 @@ export function applyActionHandler2<R, E, H1, H2>
     (
         getHandler: (c: ChatState<R, H1 | H2>) => ((ctx: TelegrafContext) => H1 | H2) | undefined,
         filt: (a: H1 | H2) => a is H1,
-        func1: (a: (H1)[]) => ChatAction<R, H1 | H2, ChatState<R, H1 | H2>, E>,
+        func1: (a: (H1)[]) => AppChatAction<R, H1 | H2, E>,
         actionToStateAction: (a: H2 | H2[]) => StateAction<ChatState<R, H1 | H2>>[]
-    ): ChatAction<R, H1 | H2, ChatState<R, H1 | H2>, E> {
+    ): AppChatAction<R, H1 | H2, E>{
     return async (
         ctx
     ): Promise<ChatState<R, H1 | H2>> =>
@@ -176,24 +152,24 @@ export async function replyCallback<R, H, E>(
 
 
 export function chatState<R, H, E>(
-    pred: (state: ChatState<R, H>) => ChatAction<R, H, ChatState<R, H>, E>,
-): ChatAction<R, H, ChatState<R, H>, E> {
+    pred: (state: ChatState<R, H>) => AppChatAction<R, H, E>,
+): AppChatAction<R, H, E> {
     return async (
         ctx: ChatActionContext<R, H, E>
     ) => pred(ctx.chatdata)(ctx)
 }
 
 export function ctx<R, H, E>(
-    pred: (ctx: TelegrafContext) => ChatAction<R, H, ChatState<R, H>, E>,
-): ChatAction<R, H, ChatState<R, H>, E> {
+    pred: (ctx: TelegrafContext) => AppChatAction<R, H, E>,
+): AppChatAction<R, H, E> {
     return async (
         ctx
     ) => pred(ctx.tctx)(ctx)
 }
 
 export function app<R, H, E>(
-    pred: (app: Application<R, H, E>) => ChatAction<R, H, ChatState<R, H>, E>,
-): ChatAction<R, H, ChatState<R, H>, E> {
+    pred: (app: Application<R, H, E>) => AppChatAction<R, H, E>,
+): AppChatAction<R, H, E> {
     return async (
         ctx
     ) => pred(ctx.app)(ctx)
@@ -208,8 +184,8 @@ export type Branch<R, H, T, E> = [
 ]
 
 export function fromList<R, H, E>(
-    handlers: ChatAction<R, H, ChatState<R, H>, E>[]
-): ChatAction<R, H, ChatState<R, H>, E> {
+    handlers: AppChatAction<R, H, E>[]
+): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {
         let data = ctx.chatdata
 
@@ -222,7 +198,7 @@ export function fromList<R, H, E>(
 
 export function branchHandler<R, H, E>(
     handlers: Branch<R, H, ChatState<R, H>, E>[]
-): ChatAction<R, H, ChatState<R, H>, E> {
+): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {
 
         let data = ctx.chatdata
@@ -249,22 +225,22 @@ export function branchHandler<R, H, E>(
 
 export function pipeState<R, H, E>(
     f: (s: ChatState<R, H>) => ChatState<R, H>
-): ChatAction<R, H, ChatState<R, H>, E> {
+): AppChatAction<R, H, E> {
     return async function (ctx) {
         return f(ctx.chatdata)
     }
 }
 
-export type PipeChatAction<R, H, E> = ChatAction<R, H, ChatState<R, H>, E>
+export type PipeChatAction<R, H, E> = AppChatAction<R, H, E>
 
-export const addToRendered = <R, H, E>()
+export const createRendered = <R, H, E>()
     : CA.PipeChatAction<R, H, E> => {
     return CA.ctx(c =>
         CA.pipeState(s => ({
             ...s,
             renderedElements: [
                 ...s.renderedElements,
-                createRendered(c.message?.message_id!)
+                createRenderedMessage(c.message?.message_id!)
             ]
         })))
 }

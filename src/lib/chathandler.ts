@@ -255,7 +255,7 @@ export interface InputHandlerF<R> {
     (ctx: TelegrafContext): R
 }
 
-export const genericRenderFunction = <
+export const createRenderFunction = <
     Props,
     RootComponent extends ComponentElement,
     ContextReqs extends AppReqs<RootComponent>,

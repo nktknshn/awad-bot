@@ -7,7 +7,7 @@ import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
 import { PhotoSize } from "telegraf/typings/telegram-types"
 import { mediaGroup, PhotoGroupElement, photos } from './bot3/mediagroup'
-import { createChatHandlerFactory, emptyChatState, genericRenderFunction, getApp } from "./lib/chathandler"
+import { createChatHandlerFactory, emptyChatState, createRenderFunction, getApp } from "./lib/chathandler"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
 import { connected4 } from "./lib/component"
 import { BasicElement, GetSetState } from "./lib/elements"
@@ -171,7 +171,7 @@ function createApp() {
 
     return getApp({
         chatDataFactory: chatState,
-        renderFunc: genericRenderFunction(
+        renderFunc: createRenderFunction(
             App, { password: 'a' },
             d => ({ dispatcher: d.dispatcher, ...d.store.state }),
             createDraftWithImages,

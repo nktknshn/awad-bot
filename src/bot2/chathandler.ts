@@ -3,7 +3,7 @@ import { identity } from "fp-ts/lib/function";
 import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
 import { parseFromContext } from "../lib/bot-util";
-import { ChatState, emptyChatState, genericRenderFunction, getApp, storeWithDispatcher } from "../lib/chathandler";
+import { ChatState, emptyChatState, createRenderFunction, getApp, storeWithDispatcher } from "../lib/chathandler";
 import { getTrackingRenderer, removeMessages } from "../lib/chatrenderer";
 import { defaultCreateDraft } from "../lib/elements-to-messages";
 import { applyRenderedElementsAction, chainInputHandlers, getActionHandler } from '../lib/handler';
@@ -67,7 +67,7 @@ export function createAwadApplication(services: AwadServices) {
     return getApp<MyState, AppAction, "updated">({
         chatDataFactory: chatState,
         renderer,
-        renderFunc: genericRenderFunction(
+        renderFunc: createRenderFunction(
             App, {},
             s => storeWithDispatcher(s.store, storeToDispatch)(),
             defaultCreateDraft,
