@@ -10,20 +10,20 @@ import { photos } from './bot3/mediagroup';
 import { createBotStoreF, StoreState } from './bot3/store';
 import { append, deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util';
 import * as CA from './lib/chatactions';
-import { ChatState, createChatHandlerFactory, createRenderFunction, emptyChatState, getApp } from "./lib/chathandler";
+import { ChatState, createChatHandlerFactory, createRenderFunction, defaultRenderFunction, defaultRenderFunction2, emptyChatState, getApp } from "./lib/chathandler";
 import { getTrackingRenderer } from './lib/chatrenderer';
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
 import { createDraftWithImages } from './lib/draft';
 import { GetSetState } from "./lib/elements";
 import { button, message } from "./lib/elements-constructors";
-import { clearChat, getActionHandler, getInputHandler, modifyRenderedElements } from "./lib/handler";
+import { clearChat, getActionHandler, getInputHandler, modifyRenderedElements } from "./lib/inputhandler";
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { initLogging, mylog } from './lib/logging';
 import { AppActionsFlatten } from './lib/types-util';
 import { UserMessageElement } from './lib/usermessage';
 import { token } from "./telegram-token.json";
-import { ChatActionMatcher, composeChatActionMatchers, defaultMatcher, extendDefault, flushMatcher, makeActionToChatAction, onMatcher, storeMatcher } from './trying1';
+import { ChatActionMatcher, composeChatActionMatchers, defaultMatcher, extendDefaultReducer, flushMatcher, makeActionToChatAction, runBefore, storeReducer } from './lib/reducer';
 
 type AppContext = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
@@ -188,42 +188,41 @@ function createApp() {
         }
 
     const chatDataFactory = (): AppChatState => {
-        return {
-            ...emptyChatState(),
+        return emptyChatState({
             ...createBotStoreF(),
             deferRender: 0
-        }
+        })
     }
 
-    const { renderer, saveToTracker, cleanChat, tracker } = getTrackingRenderer(
+    const { renderer, saveToTrackerAction: saveToTracker, cleanChat, tracker } = getTrackingRenderer(
         LevelTracker(createDatabase('./mydb'))
     )
 
     return getApp<MyState, AppAction, Event>({
-        actionToChatAction: extendDefault(
-                onMatcher(
-                    flushMatcher(),
-                    async ({ chatdata, tctx }) => {
-                        for (const r of chatdata.renderedElements) {
-                            for (const id of r.outputIds()) {
-                                await tracker.untrackRenderedMessage(tctx.chat?.id!, id)
-                            }
+        actionReducer: extendDefaultReducer(
+            runBefore(
+                flushMatcher(),
+                async ({ chatdata, tctx }) => {
+                    for (const r of chatdata.renderedElements) {
+                        for (const id of r.outputIds()) {
+                            await tracker.untrackRenderedMessage(tctx.chat?.id!, id)
                         }
-                        return pipe(
-                            chatdata,
-                            modifyRenderedElements(_ => [])
-                        )
-                    }),
-                    storeMatcher()            
+                    }
+                    return pipe(
+                        chatdata,
+                        modifyRenderedElements(_ => [])
+                    )
+                }),
+            storeReducer()
         ),
         renderer,
         chatDataFactory,
-        renderFunc: createRenderFunction(
-            App, { password: 'a' },
-            chatstate => ({ dispatcher: chatstate.dispatcher, ...chatstate.store.state }),
-            createDraftWithImages,
-            getInputHandler,
-            getActionHandler
+        renderFunc: defaultRenderFunction2(
+            {
+                app: App,
+                props: { password: 'a' },
+                gc: chatstate => ({ dispatcher: chatstate.dispatcher, ...chatstate.store.state }),
+            }
         ),
         init: async ({ tctx, renderer, chat, chatdata }) => {
             await cleanChat(tctx.chat?.id!)(renderer)
@@ -232,14 +231,16 @@ function createApp() {
                 kind: 'StateActionEvent',
                 actions: [a]
             })
+
+            return chatdata
         },
         handleMessage: CA.branchHandler([
             [
                 CA.ifTextEqual('/start'),
-                [CA.createRendered(), clearChat, CA.render],
+                [CA.addRenderedUserMessage(), clearChat, CA.render],
                 [
-                    CA.createRendered(),
-                    saveToTracker(),
+                    CA.addRenderedUserMessage(),
+                    saveToTracker,
                     CA.applyInputHandler(),
                     CA.chatState(c =>
                         c.deferRender == 0
@@ -256,15 +257,15 @@ function createApp() {
         handleEvent: async (ctx, event) => {
             if (event.kind === 'StateActionEvent') {
                 return await ctx.app.renderFunc(
-                    await CA.runActionsChain(ctx.app.actionToChatAction(event.actions))(ctx)
-                )[1](ctx.renderer)
+                    await CA.fromList(ctx.app.actionReducer(event.actions))(ctx)
+                ).renderFunction(ctx.renderer)
             }
             else if (event.kind === 'RenderEvent') {
                 return await ctx.app.renderFunc(
                     event.actions
-                        ? await CA.runActionsChain(ctx.app.actionToChatAction(event.actions))(ctx)
+                        ? await CA.fromList(ctx.app.actionReducer(event.actions))(ctx)
                         : ctx.chatdata
-                )[1](ctx.renderer)
+                ).renderFunction(ctx.renderer)
             }
             return ctx.chatdata
         },

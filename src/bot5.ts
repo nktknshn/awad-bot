@@ -1,9 +1,9 @@
 import { StackFrame } from "stacktrace-js"
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
-import { Application, ChatState, createChatHandlerFactory, defaultRenderFunction, defaultRenderFunction2, emptyChatState, getApp, getUserMessages } from "./lib/chathandler"
+import { Application, ChatState, createChatHandlerFactory, createRenderFunction, defaultRenderFunction, defaultRenderFunction2, defaultRenderScheme, emptyChatState, fromSource, func2, getApp, getUserMessages } from "./lib/chathandler"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
-import { connected4 } from "./lib/component"
+import { Component, connected4 } from "./lib/component"
 import { createDraftWithImages } from "./lib/draft"
 import { button, message, messagePart, nextMessage } from "./lib/elements-constructors"
 import { getActionHandler, getInputHandler, modifyRenderedElements } from "./lib/inputhandler"
@@ -11,12 +11,12 @@ import { initLogging, mylog } from "./lib/logging"
 import { token } from "./telegram-token.json";
 import { defaultActionToChatAction, extendDefaultReducer, flushMatcher, runBefore, storeReducer } from "./lib/reducer"
 import * as CA from './lib/chatactions';
-import { AppActionsFlatten } from "./lib/types-util"
+import { AppActionsFlatten, Flatten, GetAllBasics, GetAllInputHandlers } from "./lib/types-util"
 import { RenderDraft } from "./lib/elements-to-messages"
-import { GetSetState } from "./lib/elements"
+import { GetSetState, InputHandlerElement } from "./lib/elements"
 import { RenderedUserMessage, UserMessageElement } from "./lib/usermessage"
 import * as A from 'fp-ts/lib/Array'
-import { action, caseText, inputHandler, on } from "./lib/input"
+import { action, caseText, ifTrue, inputHandler, Matcher2, on } from "./lib/input"
 import { append, flush } from "./bot3/util"
 import { addErrorLoggingToSchema } from "apollo-server"
 import { pipe } from "fp-ts/lib/pipeable"
@@ -39,62 +39,61 @@ interface Context {
     };
 }
 
+const caseTextEqual = (text: string) => on(caseText, ifTrue(({ messageText }) => messageText == text))
+
+const Greeting = Component(
+    function* () {
+        yield messagePart('Привет')
+        yield messagePart('Комманды:')
+        yield messagePart('/get')
+        yield messagePart('/set')
+        yield nextMessage()
+    }
+)
+
 const App = connected4(
     (s: Context) => s,
-    function* App(
-        ctx, props, {
-            getState, setStateF
-        }: GetSetState<{
-            isCreatingList: boolean,
-            list: string[]
-        }>
+    function* (
+        ctx, props,
+        { getState, setStateF }: GetSetState<{ path: string }>
     ) {
 
-        const { isCreatingList, list, lenses } = getState({ isCreatingList: false, list: [] })
+        const { path, lenses } = getState({ path: '/main' })
 
-        const addItem = (item: string) => setStateF(lenses.list.modify(append(item)))
-        const addList = () => [
-            setStateF(lenses.isCreatingList.set(false)),
-            ctx.store.addList(list),
-            setStateF(lenses.list.set([]))
-        ]
+        yield inputHandler([
+            on(caseTextEqual('/start'), action(c => [
+                setStateF(lenses.path.set('/main')),
+                flush()
+            ])),
+            on(caseTextEqual('/main'), action(c => [
+                setStateF(lenses.path.set('/main')),
+                flush()
+            ])),
+            on(caseTextEqual('/get'), action(c => [
+                setStateF(lenses.path.set('/get')),
+                flush()
+            ])),
+            on(caseTextEqual('/set'), action(c => [
+                setStateF(lenses.path.set('/set')),
+                flush()
+            ])),
 
-        if (isCreatingList) {
-            yield message('make a list:')
+        ])
 
-            yield inputHandler([
-                on(caseText, action(({ messageText }) => addItem(messageText)))
-            ])
-
-            for (const m of ctx.userMessages) {
-                yield new UserMessageElement(m)
-            }
-
-            if (ctx.userMessages.length) {
-                yield message("finished?")
-                yield button("Yes", addList)
-            }
+        if (path == '/main') {
+            yield Greeting({})
         }
-        else {
-            yield message('hello')
-            yield nextMessage()
-
-            for (const list of ctx.store.lists) {
-                for (const item of list) {
-                    yield messagePart(item)
-                }
-                yield nextMessage()
-            }
-
-            if (ctx.store.lists.length)
-                yield button('reset lists', () => [
-                    ctx.store.reset()
-                ])
-
-            yield button('create a list', () => setStateF(lenses.isCreatingList.set(true)))
+        else if (path == '/set') {
+            yield message('set here')
+            yield message('/main')
+        }
+        else if (path == '/get') {
+            yield message('get here')
+            yield message('/main')
         }
     }
 )
+
 
 function createApp() {
 
@@ -105,7 +104,7 @@ function createApp() {
     type AppAction = AppActionsFlatten<typeof App>
     type AppChatState = ChatState<MyState, AppAction>
 
-    const getContext = (c: AppChatState) => ({
+    const createAppContext = (c: AppChatState) => ({
         userMessages: getUserMessages(c),
         store: {
             addList: storeAction((list: string[]) => c.store.lens().lists.modify(append(list))),
@@ -114,8 +113,8 @@ function createApp() {
         }
     })
 
-    const { renderer, saveToTrackerAction: saveToTracker, cleanChat, tracker } = getTrackingRenderer(
-        LevelTracker(createDatabase('./mydb_bot4'))
+    const { renderer, saveToTrackerAction, cleanChatAction } = getTrackingRenderer(
+        LevelTracker(createDatabase('./mydb_bot5'))
     )
 
     return getApp<MyState, AppAction>({
@@ -123,14 +122,11 @@ function createApp() {
         chatDataFactory: () => emptyChatState({
             store: storef<StoreState>({ lists: [] })
         }),
-        init: async ({ tctx, renderer, chatdata }) => {
-            await cleanChat(tctx.chat?.id!)(renderer)
-            return chatdata 
-        },
+        init: CA.fromList([cleanChatAction]),
         renderFunc: defaultRenderFunction2({
             app: App,
-            props: {},
-            gc: getContext
+            gc: createAppContext,
+            props: {}
         }),
         actionReducer: extendDefaultReducer(
             runBefore(
@@ -144,7 +140,7 @@ function createApp() {
             ),
             storeReducer()
         ),
-        handleMessage: CA.fromList([CA.addRenderedUserMessage(), saveToTracker, CA.applyInputHandler(), CA.render]),
+        handleMessage: CA.fromList([CA.addRenderedUserMessage(), saveToTrackerAction, CA.applyInputHandler(), CA.render]),
         handleAction: CA.fromList([CA.applyActionHandler(), CA.replyCallback, CA.render])
     })
 }

@@ -5,6 +5,10 @@ import { none, some } from 'fp-ts/lib/Option'
 import { InputHandlerData } from './messages'
 import { InputHandler } from './draft'
 import { mylog } from './logging'
+import Telegraf from 'telegraf'
+import { TelegrafContext } from 'telegraf/typings/context'
+import { Application, createChatHandlerFactory } from './chathandler'
+import { ChatsDispatcher } from './chatsdispatcher'
 
 type Piper<T,
     A extends keyof T,
@@ -227,4 +231,19 @@ export function callHandlersChain<R>(
         data,
         () => callHandlersChain(inputHandlers, data, idx + 1)
     )
+}
+
+export function attachAppToBot<R, H, E>(bot: Telegraf<TelegrafContext>, createApp: () => Application<R, H, E>) {
+    const dispatcher = new ChatsDispatcher(
+        createChatHandlerFactory(createApp())
+    )
+
+    bot.on('message', dispatcher.messageHandler)
+    bot.action(/.+/, dispatcher.actionHandler)
+
+    bot.catch((err: any, ctx: TelegrafContext) => {
+        console.error(`Ooops, encountered an error for ${ctx.updateType}`, err)
+    })
+
+    return bot
 }

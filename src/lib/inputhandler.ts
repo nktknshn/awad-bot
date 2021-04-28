@@ -3,19 +3,17 @@ import * as A from 'fp-ts/lib/Array';
 import { flow } from "fp-ts/lib/function";
 import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
-import * as T from "fp-ts/lib/Task";
+import { Lens } from 'monocle-ts';
 import { TelegrafContext } from "telegraf/typings/context";
-import { Application, ChatHandler2, ChatState } from "../lib/chathandler";
-import { ChatRenderer } from "../lib/chatrenderer";
-import { deleteAll } from "../lib/ui";
+import { Application, ChatHandler2, ChatState } from "./chathandler";
+import { ChatRenderer } from "./chatrenderer";
+import { deleteAll } from "./ui";
 import { parseFromContext } from './bot-util';
-import { InputHandler } from './draft';
+import { ChatAction, ChatActionContext } from './chatactions';
 import { LocalStateAction, RenderedElementsAction } from './elements';
 import { RenderDraft } from './elements-to-messages';
-import { InputHandlerF } from './handlerF';
-import { mylog } from './logging';
 import { BotMessage, RenderedElement } from './rendered-messages';
-import { StoreAction, StoreAction2, StoreF } from './store2';
+import { StoreAction, StoreF } from './storeF';
 
 export const findRepliedTo = (r: RenderedElement[]) => (repliedTo: number) =>
     r.filter((_): _ is BotMessage => _.kind === 'BotMessage').find(_ => Array.isArray(_.output)
@@ -70,40 +68,40 @@ export type FuncF<R, H, E> = (
 ) => Promise<ChatState<R, H>>
 
 
-export const handlerChain = <C, R, H, E>(chain: ((a: C) => O.Option<FuncF<R, H, E>>)[]) => {
-    return (a: C) =>
-        async (
-            app: Application<ChatState<R, H>, H, E>,
-            ctx: TelegrafContext,
-            renderer: ChatRenderer,
-            chat: ChatHandler2<E>,
-            chatdata: ChatState<R, H>
-        ) =>
-            await Promise.all(pipe(
-                chain,
-                A.map(z => z(a)),
-                A.map(
-                    O.map(z => z(app, ctx, renderer, chat, chatdata))
-                ),
-                A.filter(O.isSome),
-                A.map(a => a.value)
-            ))
-}
+// export const handlerChain = <C, R, H, E>(chain: ((a: C) => O.Option<FuncF<R, H, E>>)[]) => {
+//     return (a: C) =>
+//         async (
+//             app: Application<ChatState<R, H>, H, E>,
+//             ctx: TelegrafContext,
+//             renderer: ChatRenderer,
+//             chat: ChatHandler2<E>,
+//             chatdata: ChatState<R, H>
+//         ) =>
+//             await Promise.all(pipe(
+//                 chain,
+//                 A.map(z => z(a)),
+//                 A.map(
+//                     O.map(z => z(app, ctx, renderer, chat, chatdata))
+//                 ),
+//                 A.filter(O.isSome),
+//                 A.map(a => a.value)
+//             ))
+// }
 
-export const or = <C, R, H, E>(a: (a: C) => O.Option<FuncF<R, H, E>>, b: (a: C) => O.Option<FuncF<R, H, E>>) => (c: C) => pipe(a(c), O.alt(() => b(c)))
+// export const or = <C, R, H, E>(a: (a: C) => O.Option<FuncF<R, H, E>>, b: (a: C) => O.Option<FuncF<R, H, E>>) => (c: C) => pipe(a(c), O.alt(() => b(c)))
 
-export const withContextOpt = <R, H, E>(f: (ctxOpt: ContextOpt) => FuncF<R, H, E>): FuncF<R, H, E> => {
+// export const withContextOpt = <R, H, E>(f: (ctxOpt: ContextOpt) => FuncF<R, H, E>): FuncF<R, H, E> => {
 
-    return async function (
-        app: Application<ChatState<R, H>, H, E>,
-        ctx: TelegrafContext,
-        renderer: ChatRenderer,
-        chat: ChatHandler2<E>,
-        chatdata: ChatState<R, H>) {
-        return await f(contextOpt(ctx))(app, ctx, renderer, chat, chatdata)
+//     return async function (
+//         app: Application<ChatState<R, H>, H, E>,
+//         ctx: TelegrafContext,
+//         renderer: ChatRenderer,
+//         chat: ChatHandler2<E>,
+//         chatdata: ChatState<R, H>) {
+//         return await f(contextOpt(ctx))(app, ctx, renderer, chat, chatdata)
 
-    }
-}
+//     }
+// }
 
 export function applyRenderedElementsAction(a: RenderedElementsAction) {
     return function <R, H, C extends ChatState<R, H>>(cs: C): C {
@@ -148,11 +146,7 @@ export function applyStoreAction<S>
     }
 }
 
-import { Lens } from 'monocle-ts'
-import { ChatAction, ChatActionContext } from './chatactions';
-
-
-export function applyStoreAction2<S>(a: StoreAction2<S>) {
+export function applyStoreAction2<S>(a: StoreAction<S>) {
     return function <R extends { store: StoreF<S> }, H>(cs: ChatState<R, H>): ChatState<R, H> {
         return {
             ...cs,
@@ -161,14 +155,7 @@ export function applyStoreAction2<S>(a: StoreAction2<S>) {
     }
 }
 
-
-// export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext): A | undefined => {
-//     const d = parseFromContext(ctx)
-//     mylog(`TRACE ${ctx.message?.message_id}`)
-//     return h.element.callback(d, () => { return undefined })
-// }
-
-export function getInputHandler<Draft extends RenderDraft<Exclude<H, undefined>>, H>(draft: Draft)
+export function getInputHandler<Draft extends RenderDraft<H>, H>(draft: Draft)
     : ((ctx: TelegrafContext) => H | undefined) {
     return ctx => chainInputHandlers(
         draft.inputHandlers.reverse().map(_ => _.element.callback),

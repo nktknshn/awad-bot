@@ -14,18 +14,11 @@ export type Subtract<T1 extends T2, T2> = {
 
 export type AppType<P> = (props: P) => ComponentGenerator
 
-// export function isGenerator(compel: Element): compel is ComponentConstructor {
-//     return Symbol.iterator in Object(compel)
-// }
 export class WithContext<C, R> {
     kind: 'WithContext' = 'WithContext'
     constructor(public readonly f: (ctx: C) => R) {
 
     }
-}
-
-interface Kinded<T> {
-    kind: T 
 }
 
 export type BasicElement = 
@@ -78,18 +71,9 @@ export const wrapR = (f: (rs: RenderedElement[]) => RenderedElement[]): Rendered
     f
 })
 
-// export function connected<P extends M, S, M, State, PP, R extends ComponentGenerator>(
-//     mapper: (state: State) => M,
-//     cons: CompConstructorWithState<P, S, R> | ((reqs: P) => (props: PP, getset: GetSetState<S>) => R)
-// ) {
-//     return ConnectedComp(cons, mapper)
-// }
-
 export class KeyboardElement {
     kind: 'Keyboard' = 'Keyboard'
     constructor(readonly text: string, readonly hide: boolean = true) { }
-
-   
 }
 
 export class RequestLocationButtonElement {
@@ -125,12 +109,6 @@ export function isAppliable(b: BasicElement | Appliable) : b is Appliable {
     return 'apply' in b
 }
 
-// const buttonElementApply = (b: ButtonElement) => (d: RenderDraft) => {
-//     return {
-//         ...d
-//     }
-// }
-
 export class ButtonElement<R = any> {
     kind: 'ButtonElement' = 'ButtonElement'
     constructor(
@@ -138,29 +116,7 @@ export class ButtonElement<R = any> {
         readonly data?: string,
         readonly callback?: () => R,
     ) { }
-    
-    // public addContext<C>(ctx: C) {
-    //     return new ButtonElement(this.text, this.data, () => this.callback(ctx))
-    // }
-    // public apply = buttonElementApply(this)
 }
-
-// export class InputHandler2<D>
-// //  implements Appliable 
-//  {
-//     kind: 'InputHandler2' = 'InputHandler2'
-//     constructor(
-//         readonly callback: (
-//             input: InputHandlerData,
-//             next: () => Promise<boolean | void>,
-//             dispatcher: D
-//         ) => Promise<boolean | void>
-//     ) { }
-
-//     public apply = (draft: RenderDraft) => {
-//         return draft
-//     }
-// }
 
 export class ButtonsRowElement {
     kind: 'ButtonsRowElement' = 'ButtonsRowElement'
@@ -182,7 +138,6 @@ export class EffectElement<R> {
         readonly callback: () => R
     ) { }
 }
-
 
 export class ActionsHandlerElement {
     kind: 'ActionsHandlerElement' = 'ActionsHandlerElement'

@@ -1,6 +1,6 @@
 import { TelegrafContext } from "telegraf/typings/context"
 import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessageMedia, MessagePhoto } from "telegraf/typings/telegram-types"
-import { ContextOpt } from "./handler";
+import { ContextOpt } from "./inputhandler";
 import { randomAnimal } from './util'
 
 export interface ChatRenderer {
@@ -149,6 +149,11 @@ export async function removeMessages(renderedMessagesIds: number[], renderer: Ch
 }
 
 export function getTrackingRenderer(t: Tracker) {
+    const cleanChat = (chatId: number) => async (renderer: ChatRenderer) => {
+        const messages = await t.getRenderedMessage(chatId)
+        await removeMessages(messages, renderer)
+    }
+
     return {
         renderer: function (ctx: TelegrafContext) {
             return messageTrackingRenderer(
@@ -157,10 +162,11 @@ export function getTrackingRenderer(t: Tracker) {
             )
         },
         saveMessageHandler: saveMessageHandler(t),
-        saveToTracker: saveToTracker(t),
-        cleanChat: (chatId: number) => async (renderer: ChatRenderer) => {
-            const messages = await t.getRenderedMessage(chatId)
-            await removeMessages(messages, renderer)
+        saveToTrackerAction: saveToTracker(t),
+        cleanChat,
+        cleanChatAction: async <R, H, E>(ctx: ChatActionContext<R, H, E>): Promise<ChatState<R, H>> => {
+            await cleanChat(ctx.tctx.chat?.id!)(ctx.renderer)
+            return ctx.chatdata
         },
         tracker: t
     }
@@ -170,15 +176,15 @@ import * as O from 'fp-ts/lib/Option'
 import { ChatHandler2, ChatState } from "./chathandler";
 import { send } from "node:process";
 import { mylog } from "./logging";
-import { ChatAction } from "./chatactions";
+import { ChatAction, ChatActionContext } from "./chatactions";
 
 
 export const saveToTracker =
-    (tracker: Tracker) => <R, H, E>(): ChatAction<R, H, ChatState<R, H>, E> =>
-        async ({ tctx, chatdata }) => {
-            await tracker.trackRenderedMessage(tctx.chat?.id!, tctx.message?.message_id!)
-            return chatdata
-        }
+    (tracker: Tracker) => 
+        (async <R, H, E>(ctx: ChatActionContext<R, H, E>) => {
+            await tracker.trackRenderedMessage(ctx.tctx.chat?.id!, ctx.tctx.message?.message_id!)
+            return ctx.chatdata
+        })
 
 export function saveMessageHandler<R, H>(registrar: Tracker) {
     return function (

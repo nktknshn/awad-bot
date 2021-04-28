@@ -13,10 +13,10 @@ import { connected4 } from "./lib/component"
 import { BasicElement, GetSetState } from "./lib/elements"
 import { button, effect, message } from "./lib/elements-constructors"
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./lib/elements-to-messages"
-import { handlerChain, or, startHandler, withContextOpt } from "./lib/handler"
+import { handlerChain, or, startHandler, withContextOpt } from "./lib/inputhandler"
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input"
 import { initLogging, mylog } from './lib/logging'
-import { createStore } from "./lib/store2"
+import { createStore } from "./lib/storeF"
 import { draftToInputHandler } from './lib/ui'
 import { token } from "./telegram-token.json"
 

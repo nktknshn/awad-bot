@@ -88,13 +88,4 @@ export const defaultHF = <R extends
 
 export type HandlerAction<R, H, E, A, T> = (a: A) => ChatAction<R, H, T, E>
 
-// export const deleteMessage = <R, H, E>(messageId: number)
-//     : ChatAction<R, H, void, E> => {
-//     return async function (
-//         { renderer }
-//     ) {
-//         await renderer.delete(messageId)
-//     }
-// }
-
 export type StateAction<S> = (s: S) => S

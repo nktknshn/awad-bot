@@ -1,6 +1,6 @@
 import { PhotoSize } from "telegraf/typings/telegram-types"
 import { mylog } from "../lib/logging"
-import { createStoreF, storeAction } from "../lib/store2"
+import { createStoreF, storeAction } from "../lib/storeF"
 
 export type StoreState = {
     isVisible: boolean,

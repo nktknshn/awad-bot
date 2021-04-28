@@ -1,13 +1,12 @@
-// import { App, deferRender } from "./bot3f"
 import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/pipeable'
-import { Flush } from './bot3/util'
-import * as CA from './lib/chatactions'
-import { ChatState } from "./lib/chathandler"
-import { LocalStateAction } from "./lib/elements"
-import { applyChatStateAction, applyStoreAction2, applyTreeAction, modifyRenderedElements } from "./lib/handler"
-import { StoreAction2, StoreF } from "./lib/store2"
-import { TreeState } from "./lib/tree"
+import { Flush } from '../bot3/util'
+import * as CA from './chatactions'
+import { ChatState } from "./chathandler"
+import { LocalStateAction } from "./elements"
+import { applyChatStateAction, applyStoreAction2, applyTreeAction, modifyRenderedElements } from "./inputhandler"
+import { StoreAction, StoreF } from "./storeF"
+import { TreeState } from "./tree"
 
 
 export interface ActionMatcher<T1, R> {
@@ -83,8 +82,8 @@ export const storeStateMatcher =
     <S, R extends { store: StoreF<S> }, H>() =>
         ({
             f: (a) => applyStoreAction2<S>(a),
-            isA: (a): a is StoreAction2<S> => 'kind' in a && a.kind === 'store-action',
-        }) as ActionMatcher<StoreAction2<S>, ResultFunc<ChatState<R, H>>>
+            isA: (a): a is StoreAction<S> => 'kind' in a && a.kind === 'store-action',
+        }) as ActionMatcher<StoreAction<S>, ResultFunc<ChatState<R, H>>>
 
 
 type ChatStateAction<R> = {
@@ -98,14 +97,6 @@ export const chatStateMatcher = <R>() => ({
 }) as ActionMatcher<ChatStateAction<R>, ResultFunc<R>>
 
 
-export function withStore<R extends { store: StoreF<any> }, H>() {
-    return <A>(m: ActionMatcher<A, ResultFunc<ChatState<R, H>>>) =>
-        composeMatchers2(
-            storeStateMatcher<R['store']['state'], R, H>(),
-            m
-        )
-}
-
 export const defaultActionsHandler = <R, H>() => {
     return composeMatchers2(
         localStateMatcher<ChatState<R, H>>(),
@@ -113,7 +104,7 @@ export const defaultActionsHandler = <R, H>() => {
     )
 }
 
-export function storeMatcher<R extends { store: StoreF<any> }, H, E>() {
+export function storeReducer<R extends { store: StoreF<any> }, H, E>() {
     const m = matcherToChatActionMatcher<R, H, E>()
     return m(storeStateMatcher<R['store']['state'], R, H>())
 }
@@ -284,7 +275,7 @@ export function flushMatcher<R, H, E>(): ChatActionMatcher<Flush, R, H, E> {
     }
 }
 
-export function onAction<T1, R, H, E>(
+export function runBefore<T1, R, H, E>(
     m1: ChatActionMatcher<T1, R, H, E>,
     f: CA.ChatAction<R, H, ChatState<R, H>, E>,
 ): ChatActionMatcher<T1, R, H, E> {

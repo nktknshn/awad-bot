@@ -1,8 +1,7 @@
 import { mediaGroup, PhotoGroupElement } from "../bot3/mediagroup"
 import { BasicElement, EffectElement, FileElement, InputHandlerElement } from "./elements"
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./elements-to-messages"
-import { InputHandlerElementF, InputHandlerF } from "./handlerF"
-import { UserMessageElement, usermessage } from "./usermessage"
+import { usermessage, UserMessageElement } from "./usermessage"
 
 export class InputHandler<R> {
     kind: 'InputHandler' = 'InputHandler'

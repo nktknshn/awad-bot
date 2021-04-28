@@ -6,7 +6,7 @@ import { parseFromContext } from "../lib/bot-util";
 import { ChatState, emptyChatState, createRenderFunction, getApp, storeWithDispatcher } from "../lib/chathandler";
 import { getTrackingRenderer, removeMessages } from "../lib/chatrenderer";
 import { defaultCreateDraft } from "../lib/elements-to-messages";
-import { applyRenderedElementsAction, chainInputHandlers, getActionHandler } from '../lib/handler';
+import { applyRenderedElementsAction, chainInputHandlers, getActionHandler } from '../lib/inputhandler';
 import { StateAction } from "../lib/handlerF";
 import { AppActionsFlatten } from "../lib/types-util";
 import { addRenderedUserMessage } from '../lib/usermessage';

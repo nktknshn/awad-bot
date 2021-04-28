@@ -1,3 +1,4 @@
+import { Lens } from "monocle-ts";
 import { mylog } from "./logging";
 
 type Store<S> = {
@@ -33,18 +34,31 @@ export function createStore<S>(state: S) {
     };
 }
 
+type LensObject<S> = {
+    [k in keyof S]-?: Lens<S, S[k]>
+}
 
-export class StoreF<S> {
+export function storef<S extends {}>(initial: S): StoreF<S> {
+    return new StoreF<S>(initial)
+}
+
+export class StoreF<S extends {}> {
     state: S
     constructor(initial: S) {
         this.state = { ...initial }
     }
 
-    public notify = (a: StoreAction2<S>) => { mylog("set notify function"); }
+    public notify = (a: StoreAction<S>) => { mylog("set notify function"); }
 
     map(f: (u: S) => S): StoreF<S> {
         const n = new StoreF(f(this.state))
         return n
+    }
+
+    lens(): LensObject<S> {
+        return Object.keys(this.state)
+            .map(k => [k, Lens.fromProp<any>()(k)] as const)
+            .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {}) as any
     }
 }
 
@@ -55,18 +69,18 @@ export function createStoreF<S>(initial: S) {
 }
 
 
+// export interface StoreAction<S> {
+//     kind: 'store-action',
+//     f: (s: S) => S
+// }
+
 export interface StoreAction<S> {
     kind: 'store-action',
     f: (s: S) => S
 }
 
-export interface StoreAction2<S> {
-    kind: 'store-action',
-    f: (s: S) => S
-}
-
 export const storeAction = <T extends any[], S>(
-    f: (...args: T) => (s: S) => S): (...args: T) => StoreAction2<S> => (...args) =>
+    f: (...args: T) => (s: S) => S): (...args: T) => StoreAction<S> => (...args) =>
     ({
         kind: 'store-action' as 'store-action',
         f: f(...args)

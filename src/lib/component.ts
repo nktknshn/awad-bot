@@ -91,20 +91,3 @@ export function connected4<P extends M, S, M, State, PP, R extends ComponentGene
         }
     );
 }
-
-
-// export function connected3<PP>() {
-//     return function <S, M, State, R extends ComponentGenerator>(
-//         mapper: (state: State) => M,
-//         cons: CompConstructorWithState<M & PP, S, R>
-//     ): (props: PP) => ComponentConnected<M & PP, S, M, State, R> {
-//         return {
-//             cons,
-//             mapper,
-//             props,
-//             kind: 'component-with-state-connected',
-//             id: cons.toString()
-//         }
-//     }
-// }
-

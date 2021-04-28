@@ -24,54 +24,9 @@ export const otherwise = O.chain((d: InputHandlerData) =>
         .return(identity))
 
 
-// export type Matcher = (
-//     done: () => 'done',
-//     next: () => 'next'
-// ) => (d: O.Option<InputHandlerData>) => O.Option<Promise<any> | 'done' | 'next'>;
-
-// export function inputGroup(
-//     matchers: Matcher[]
-// ) {
-//     return new InputHandlerElement(
-//         async (data, next) => {
-
-//             for (const m of matchers) {
-//                 const res = m(() => 'done', () => 'next')(O.of(data));
-
-//                 if (O.isSome(res))
-//                     switch (res.value) {
-//                         case 'next': continue;
-//                         case 'done': return next();
-//                         case undefined: return;
-//                         default: return res.value;
-//                     }
-//             }
-//             return next();
-//         }
-//     );
-// }
-
-
-
 export const nextHandler = (): 'done' => 'done';
 export const nextMatcher = (): 'next' => 'next';
 export const stop = (): undefined => undefined;
-
-// export function inputHandlerG<A>(...matchers: Matcher2<A>[]): InputHandlerElement<A | undefined>
-
-// export function inputHandlerG<A, B, R extends (Matcher2<A> | Matcher2<B>)[]>(matchers: R)
-//     : InputHandlerElement<A | B | undefined>
-
-// export function inputHandlerG<A, B, C, R extends (Matcher2<A> | Matcher2<B> | Matcher2<C>)[]>(matchers: R)
-//     : InputHandlerElement<A | B | C | undefined>
-
-// export function inputHandlerG<A, B, C, D, R extends (Matcher2<A> | Matcher2<B> | Matcher2<C>| Matcher2<D>)[]>(matchers: R): InputHandlerElement<A | B | C | D | undefined>
-
-// // export function inputHandlerG<A, B, C>(...matchers: (Matcher2<A> | Matcher2<B> | Matcher2<C>)[]): InputHandlerElement<A | B | C | undefined>
-// // export function inputHandlerG<A, B, C, D>(...matchers: (Matcher2<A> | Matcher2<B> | Matcher2<C>| Matcher2<D>)[]): InputHandlerElement<A | B | C | D | undefined>
-// export function inputHandlerG(matchers: any[]) {
-//     return inputHandler(matchers)
-// }
 
 export function inputHandler<R extends ReadonlyArray<Matcher2<any>>>(
     matchers: R
