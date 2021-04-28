@@ -1,471 +1,257 @@
+// import { App, deferRender } from "./bot3f"
+import { ChatState } from "./lib/chathandler"
+import { LocalStateAction } from "./lib/elements"
+import { applyChatStateAction, applyStoreAction, applyStoreAction2, applyTreeAction } from "./lib/handler"
+import { StoreAction, StoreAction2, StoreF, storeAction } from "./lib/store2"
+import { AppActionsFlatten } from "./lib/types-util"
 import { range } from "./lib/util"
+import * as A from 'fp-ts/lib/Array';
+import { StoreState } from "./bot3/store"
+import { TreeState } from "./lib/tree"
+import * as CA from './lib/chatactions';
 
-interface Element1 {
-    kind: 'Element1'
-    id: string
+
+export interface ActionMatcher<T1, R> {
+    f: (a: T1) => R,
+    isA: <T2>(a: T1 | T2) => a is T1,
 }
 
-interface Element2 {
-    kind: 'Element2'
-    id: string
+export function composeMatchers<T1, T2, R>(
+    am: ActionMatcher<T1, R>,
+    bm: ActionMatcher<T2, R>,
+): ActionMatcher<T1 | T2, R> {
+    return ({
+        f: (a: T1 | T2) => am.isA(a) ? am.f(a) : bm.f(a),
+        isA: <T2>(a: T1 | T2): a is T1 => am.isA(a) || bm.isA(a)
+    })
 }
 
-interface Element3 {
-    kind: 'Element3'
-    id: string
-}
-
-interface Element4 {
-    kind: 'Element4'
-    id: string
-    callback: () => void
-}
-
-const element1 = (id: string): Element1 => ({ kind: 'Element1', id })
-const element2 = (id: string): Element2 => ({ kind: 'Element2', id })
-const element3 = (id: string): Element3 => ({ kind: 'Element3', id })
-const element4 = (id: string, callback: () => void): Element4 => ({ kind: 'Element4', id, callback })
-
-type ComponentGenerator<R = Elements> = Generator<R, unknown, unknown>
-
-type CompConstructor<P, R> = ((props: P) => ComponentGenerator<R>)
-
-type CompConstructorWithState<P, R, S = never> = (props: P, getset: GetSetState<S>) => ComponentGenerator<R>
-
-interface ComponentStateless<P, R = Elements> {
-    comp: CompConstructor<P, R>
-    props: P,
-    // state?: S,
-    // instance: () => ComponentGenerator
-    kind: 'component'
-}
-
-interface ComponentWithState<P, R = Elements, S = never> {
-    comp: CompConstructorWithState<P, R, S>
-    props: P,
-    // state?: S,
-    // instance: () => ComponentGenerator
-    kind: 'component-with-state'
-}
-
-
-// interface Component<P> {
-//     comp: (props: P) => ComponentGenerator
-// }
-
-// function Comp<P, R>(
-//     comp: CompConstructor<P, R>,
-//     props: P,
-//     // state?: S
-// ): ComponentStateless<P, R> {
-//     return {
-//         comp,
-//         props,
-//         kind: 'component'
-//         // state,
-//         // instance: () => comp(props, state)
-//     }
-// }
-
-function CompWithState<P, R, S>(
-    comp: CompConstructorWithState<P, R, S>,
-    props: P
-): ComponentWithState<P, R, S> {
-    return {
-        comp,
-        props,
-        kind: 'component-with-state'
-    }
-}
-
-type SimpleElement = Element1 | Element2 | Element3 | Element4
-
-type ComponentElement =
-    | ComponentStateless<any, Elements>
-    | ComponentWithState<any, Elements, any>
-
-type Elements =
-    | SimpleElement
-    | ComponentElement
-
-function isComponent<P>(element: Elements): element is ComponentStateless<unknown, Elements> {
-    // return Symbol.iterator in Object(element)
-    return 'comp' in element
-}
-
-type AppProps = { n: number }
-
-type GetSetState<S> = {
-    getState: (initialState?: S) => S
-    setState: (state: Partial<S>) => Promise<void>
-}
-
-// function toString(el: SimpleElement): String 
-function toString(el: SimpleElement) {
-    return `${el.kind} (${el.id})`
-}
-
-const str = JSON.stringify
-
-const nspaces = (n: number) => [...range(0, n)].map(_ => "  ").join('')
-
-
-type Tree = [
-    ComponentElement, unknown, State,
-    (Tree | SimpleElement)[],
-]
-
-const isTree = (_: Tree | SimpleElement): _ is Tree => Array.isArray(_)
-
-// function componentToTree<P>({ comp, props }: ComponentStateless<P>): Tree 
-
-import equal from 'fast-deep-equal'
-import { ObjectHelper } from "./lib/util3dparty"
-
-function renderTree(tree: ZippedTree, component: ComponentElement): Tree {
-    const [newState, comp, props, state, children] = tree
-
-    let rerender = false
-
-    if (component.comp.name !== comp.comp.name) {
-        mylog(`${comp.comp.name} is to updated by new component`);
-        rerender = true
-    }
-
-    if (!equal(component.props, props)) {
-        mylog(`${comp.comp.name} is to updated by props`);
-        rerender = true
-    }
-
-    if (!equal(newState, state)) {
-        mylog(`${comp.comp.name} is to updated by state`);
-        rerender = true
-    }
-
-    if (rerender == true) {
-        return componentToTree(component, [newState, []])
-    }
-
-    return [
-        comp,
-        props,
-        state,
-        children.map(v => renderTree(v, v[1]))
-    ]
-}
-
-type State = {
-    value: any
-}
-
-type StateTree = [State, StateTree[]]
-
-function copyStateTree(tree: Tree): StateTree {
-    const [comp, props, state, children] = tree
-
-    const childrenState: any[] = []
-
-    for (const item of children) {
-        if (isTree(item)) {
-            childrenState.push(copyStateTree(item))
-        }
-    }
-
-    return [ObjectHelper.deepCopy(state), childrenState]
-}
-
-
-function printStateTree(stateTree: StateTree, depth = 0) {
-    const [state, states] = stateTree
-
-    if (states.length) {
-        mylog(`${nspaces(depth)}Comp(${str(state)}) {`);
-        for (const kid of states) {
-            printStateTree(kid, depth + 1)
-        }
-        mylog(`${nspaces(depth)}}`);
-    }
-    else {
-        mylog(`${nspaces(depth)}Comp(${str(state)}) { }`);
-    }
-}
-
-function componentToTree(component: ComponentElement, stateTree?: StateTree): Tree {
-
-    const items: (Tree | SimpleElement)[] = []
-
-    let state: State;
-    let childrenState: StateTree[];
-
-    if (stateTree !== undefined) {
-        [state, childrenState] = ObjectHelper.deepCopy(stateTree)
-        // state = stateValue
-    }
-    else {
-        state = {
-            value: undefined
-        }
-        childrenState = []
-    }
-
-    let iter = childrenState[Symbol.iterator]();
-
-    const getset = {
-        getState: (initial: State['value']) => {
-            if (state.value === undefined)
-                return state.value = initial
-
-            return state.value
+export function composeMatchers2<T1, R>(
+    m1: ActionMatcher<T1, R>,
+): ActionMatcher<T1, R>
+export function composeMatchers2<T1, T2, R>(
+    m1: ActionMatcher<T1, R>,
+    m2: ActionMatcher<T2, R>,
+): ActionMatcher<T1 | T2, R>
+export function composeMatchers2<T1, T2, T3, R>(
+    m1: ActionMatcher<T1, R>,
+    m2: ActionMatcher<T2, R>,
+    m3: ActionMatcher<T3, R>,
+): ActionMatcher<T1 | T2 | T3, R>
+export function composeMatchers2<T1, T2, T3, T4, R>(
+    m1: ActionMatcher<T1, R>,
+    m2: ActionMatcher<T2, R>,
+    m3: ActionMatcher<T3, R>,
+    m4: ActionMatcher<T4, R>,
+): ActionMatcher<T1 | T2 | T3 | T4, R>
+export function composeMatchers2<T1, T2, T3, T4, T5, R>(
+    m1: ActionMatcher<T1, R>,
+    m2: ActionMatcher<T2, R>,
+    m3: ActionMatcher<T3, R>,
+    m4: ActionMatcher<T4, R>,
+    m5: ActionMatcher<T5, R>,
+): ActionMatcher<T1 | T2 | T3 | T4 | T5, R>
+export function composeMatchers2<R>(...ms: ActionMatcher<any, R>[]) {
+    return ({
+        f: (a: any) => {
+            for (const m of ms) {
+                if (m.isA(a)) {
+                    return m.f(a)
+                }
+            }
         },
-        setState: async (updates: State['value']) => {
-            state.value = updates
-        }
+        isA: (a: any) => {
+            for (const m of ms) {
+                if (m.isA(a)) {
+                    return true
+                }
+            }
+            return false
+        },
+    })
+}
+
+export const URI = 'Result';
+export type URI = typeof URI;
+
+export type ResultFunc<S> = (s: S) => S
+
+export const flushMatcher: <S>() => ActionMatcher<'flush', ResultFunc<S>> =
+    () => ({
+        f: (a: 'flush') => (cs) => cs,
+        isA: (a): a is 'flush' => a === 'flush',
+    })
+
+export const localStateMatcher =
+    <S>() => ({
+        f: applyTreeAction,
+        isA: (a): a is LocalStateAction => 'kind' in a && a.kind === 'localstate-action',
+    }) as ActionMatcher<LocalStateAction, ResultFunc<S>>
+
+
+export const storeStateMatcher =
+    <S, R extends { store: StoreF<S> }, H>() =>
+        ({
+            f: (a) => applyStoreAction2<S>(a),
+            isA: (a): a is StoreAction2<S> => 'kind' in a && a.kind === 'store-action',
+        }) as ActionMatcher<StoreAction2<S>, ResultFunc<ChatState<R, H>>>
+
+
+type ChatStateAction<R> = {
+    kind: 'chatstate-action',
+    f: (s: R) => R
+}
+
+export const chatStateMatcher = <R>() => ({
+    f: (a) => applyChatStateAction(a.f),
+    isA: (a) => 'kind' in a && a.kind === 'chatstate-action',
+}) as ActionMatcher<ChatStateAction<R>, ResultFunc<R>>
+
+
+type StoredChatState<R extends { store: StoreF<S> }, H, S> = ChatState<R, H>
+
+export function withStore<R extends { store: StoreF<any> }, H>() {
+    return <A>(m: ActionMatcher<A, ResultFunc<ChatState<R, H>>>) =>
+        composeMatchers2(
+            storeStateMatcher<R['store']['state'], R, H>(),
+            m
+        )
+}
+
+export const defaultActionsHandler = <R, H>() => {
+    return composeMatchers2(
+        localStateMatcher<ChatState<R, H>>(),
+        chatStateMatcher<ChatState<R, H>>()
+    )
+}
+
+export function storeMatcher<R extends {store: StoreF<any>}, H, E>() {
+    const m = matcherToChatActionMatcher<R, H, E>()
+    return m(storeStateMatcher<R['store']['state'], R, H>())
+} 
+
+function localstateAction(index: number[], f: (ts: TreeState) => TreeState): LocalStateAction {
+    return { kind: 'localstate-action', index, f }
+}
+
+
+export type ActionToChatActionMapper<R, H, E> = (a: H | H[]) => CA.AppChatAction<R, H, E>[]
+
+
+export type AppActionMatcher<R, H1, H2, E> = ActionMatcher<H1, CA.AppChatAction<R, H2, E>>
+export type ChatActionMatcher<T1, R, H, E> = ActionMatcher<T1, CA.AppChatAction<R, H, E>>
+
+export function withStoreChatAction<R extends { store: StoreF<any> }, H>() {
+    return
+}
+
+type MatcherToChatActionMatcher<R, H, E> = () =>
+    <T1>(m: ActionMatcher<T1, ResultFunc<ChatState<R, H>>>) =>
+        ChatActionMatcher<T1, R, H, E>
+
+export const matcherToChatActionMatcher = <R, H, E>() =>
+    function matcherToChatActionMatcher<T1>(
+        m: ActionMatcher<T1, ResultFunc<ChatState<R, H>>>,
+    ): ChatActionMatcher<T1, R, H, E> {
+        return ({
+            isA: m.isA,
+            f: a => CA.pipeState<R, H, E>(
+                m.f(a)
+            )
+        })
     }
 
-    let elements: ComponentGenerator<Elements>;
+export function composeChatActionMatchers<T1, R, H, E>(
+    m1: ChatActionMatcher<T1, R, H, E>
+): ChatActionMatcher<T1, R, H, E>
+export function composeChatActionMatchers<T1, T2, R, H, E>(
+    m1: ChatActionMatcher<T1, R, H, E>,
+    m2: ChatActionMatcher<T2, R, H, E>
+): ChatActionMatcher<T1 | T2, R, H, E>
+export function composeChatActionMatchers<T1, T2, T3, R, H, E>(
+    m1: ChatActionMatcher<T1, R, H, E>,
+    m2: ChatActionMatcher<T2, R, H, E>,
+    m3: ChatActionMatcher<T3, R, H, E>,
+): ChatActionMatcher<T1 | T2 | T3, R, H, E>
+export function composeChatActionMatchers<T1, T2, T3, T4, R, H, E>(
+    m1: ChatActionMatcher<T1, R, H, E>,
+    m2: ChatActionMatcher<T2, R, H, E>,
+    m3: ChatActionMatcher<T3, R, H, E>,
+    m4: ChatActionMatcher<T4, R, H, E>,
+): ChatActionMatcher<T1 | T2 | T3 | T4, R, H, E>
+export function composeChatActionMatchers<T1, T2, T3, T4, T5, R, H, E>(
+    m1: ChatActionMatcher<T1, R, H, E>,
+    m2: ChatActionMatcher<T2, R, H, E>,
+    m3: ChatActionMatcher<T3, R, H, E>,
+    m4: ChatActionMatcher<T4, R, H, E>,
+    m5: ChatActionMatcher<T5, R, H, E>,
+): ChatActionMatcher<T1 | T2 | T3 | T4 | T5, R, H, E>
+export function composeChatActionMatchers<R, H, E>(...ms: ChatActionMatcher<any, R, H, E>[])
+    : ChatActionMatcher<any, R, H, E> {
+    return ({
+        isA: (a): a is any => {
+            for (const m of ms) {
+                if (m.isA(a))
+                    return true
+            }
+            return false
+        },
+        f: (a: any) => {
+            console.log(a);
+            console.log(ms);
 
-    if (component.kind === 'component') {
-        elements = component.comp(component.props)
-    }
-    else {
-        elements = component.comp(component.props, getset)
-    }
+            for (const m of ms) {
+                if (m.isA(a))
+                    return m.f(a)
+            }
 
-    for (const element of elements) {
-        if (element.kind === 'component') {
-            items.push(componentToTree(element, iter.next().value))
+            return 123 as any
         }
-        else if (element.kind === 'component-with-state') {
-            items.push(componentToTree(element, iter.next().value))
-        }
-        else {
-            items.push(element)
-        }
-    }
-
-    return [
-        component, component.props, state, items
-    ]
+    })
 }
 
-type ZippedTree = [
-    State,
-    ComponentElement,
-    unknown,
-    State,
-    ZippedTree[]
-]
+export type MakeActionToChatAction<R, H1, H2, E> =
+    (m: ChatActionMatcher<H1, R, H2, E>) => (a: H1 | H1[]) => CA.AppChatAction<R, H2, E>[]
 
-function unzipState(tree: ZippedTree): Tree {
-    const [newState, comp, props, state, children] = tree
-
-    const kidsTree = []
-
-    for (const item of children) {
-        if (Array.isArray(item)) {
-            kidsTree.push(unzipState(item))
-        }
-    }
-
-    return [comp, props, ObjectHelper.deepCopy(state), kidsTree]
-}
-
-
-
-function zipTreeWithStateTree(tree: Tree, stateTree: StateTree): ZippedTree {
-    const [comp, props, state, children] = tree
-    const [compNewState, childrenState] = stateTree
-
-    let zippedChildren: ZippedTree[] = []
-
-    for (const item of children) {
-        if (isTree(item)) {
-            zippedChildren.push(
-                zipTreeWithStateTree(
-                    item,
-                    childrenState[zippedChildren.length]
-                ))
-        }
-    }
-
-    return [
-        ObjectHelper.deepCopy(compNewState),
-        comp,
-        props,
-        ObjectHelper.deepCopy(state),
-        zippedChildren
-    ]
-}
-
-
-function printZippedTree(tree: ZippedTree, depth = 0) {
-    const [compNewState, comp, props, state, children] = tree
-
-    mylog(`${nspaces(depth)}${comp.comp.name}(props=${str(props)}, state=${str(state)}) new state ${str(compNewState)}`)
-
-    for (const item of children) {
-        if (Array.isArray(item)) {
-            printZippedTree(item, depth + 1)
-        }
-        else {
-            // mylog(,);
-            mylog(
-                `${nspaces(depth + 1)}${toString(item)}`);
-        }
-    }
-}
-
-
-function printTree(tree: Tree, depth = 0) {
-    const [comp, props, state, children] = tree
-
-    mylog(`${nspaces(depth)}${comp.comp.name}(${str(props)}, ${str(state)})`);
-
-    for (const item of children) {
-        if (isTree(item)) {
-            printTree(item, depth + 1)
-        }
-        else {
-            // mylog(,);
-            mylog(
-                `${nspaces(depth + 1)}${toString(item)}`);
-        }
-    }
-}
-
-function getRenderFromTree(tree: Tree): SimpleElement[] {
-    const [comp, props, state, children] = tree
-
-    let elements: SimpleElement[] = []
-
-    for (const element of children) {
-        if (isTree(element)) {
-            elements = [...elements, ...getRenderFromTree(element)]
-        }
-        else {
-            elements.push(element)
-        }
-    }
-
-    return elements
-}
-
-
-type Comp1Props = { n: number }
-type Comp2Props = { s: string }
-type Comp3Props = { b: string[] }
-
-type Comp4Props = { values: string[] }
-type Comp4State = { page: number }
-
-const Comp1 = Component(_Comp1)
-const Comp2 = Component(_Comp2)
-const Comp3 = Component(_Comp3)
-const Comp4 = ComponentWithState(_Comp4)
-
-function* _App({ n }: AppProps): Generator<Elements, void, unknown> {
-    yield element1('element1 from App')
-
-    yield Comp1({ n })
-    yield Comp2({ s: 'aa' })
-    yield Comp3({ b: [] })
-    yield Comp4({ values: [] })
-}
-
-function* _Comp1({ n }: Comp1Props) {
-    for (const _ of range(0, n))
-        yield element2(`element2 from Comp1, n ${_}`)
-}
-
-
-function* _Comp2({ s }: Comp2Props) {
-    yield element1('element1 from Comp2')
-    yield Comp3({ b: [] })
-}
-
-function* _Comp3({ b }: Comp3Props) {
-    yield element1('element1 from Comp3')
-    yield element3('element3 from Comp3')
-}
-
-function* _Comp4(
-    { values }: Comp4Props,
-    { getState, setState }: GetSetState<Comp4State>
+export function makeActionToChatAction<R, H1, H2, E>(
+    m: ChatActionMatcher<H1, R, H2, E>
 ) {
-    const { page } = getState({ page: 4 })
+    return function (
+        a: H1 | H1[],
+    ): CA.AppChatAction<R, H2, E>[] {
 
-    // setState({ page: 10 })
+        function go(aa: H1 | H1[]): CA.AppChatAction<R, H2, E>[] {
+            if (Array.isArray(aa)) {
+                return A.flatten(aa.map(go))
+            }
 
-    const { page: newPage } = getState()
-    // setState({page: 10})
-
-    for (const p of range(0, page))
-        yield element1(`page: ${page}`)
-
-    yield element1(`newPage=${newPage}`)
-
-    yield element4('element4 from Comp4', () => setState({ page: 8 }))
-}
-
-function Component<P>(comp: CompConstructor<P, Elements>) {
-    return function (props: P): ComponentStateless<P, Elements> {
-        return {
-            comp,
-            props,
-            kind: 'component'
+            return [m.f(aa)]
         }
+
+        return go(a)
     }
 }
 
-
-function ComponentWithState<P, S>(comp: CompConstructorWithState<P, Elements, S>) {
-    return function (props: P): ComponentWithState<P, Elements, S> {
-        return {
-            comp,
-            props,
-            kind: 'component-with-state'
-        }
-    }
+export function defaultMatcher<R, H, E>() {
+    const m = matcherToChatActionMatcher<R, H, E>()
+    return composeChatActionMatchers(
+        m(localStateMatcher<ChatState<R, H>>()),
+        m(chatStateMatcher<ChatState<R, H>>()),
+    )
 }
 
-(function main() {
-
-    const App = Component(_App)
-
-    const root = App({ n: 4 })
-
-    const tree = componentToTree(root)
-    const stateTree = copyStateTree(tree)
-
-    // const elements = getRenderFromTree(tree)
-    mylog();
-
-    printTree(tree);
-
-    mylog();
-    printStateTree(stateTree);
-
-    stateTree[1][3][0].value = { page: 11 }
-
-    mylog();
-    printStateTree(stateTree);
-
-    const zipped = zipTreeWithStateTree(tree, stateTree)
-
-    printZippedTree(zipped);
-
-    mylog();
-
-    const newTree = renderTree(zipped, App({ n: 4 }))
-
-    printTree(newTree);
-
-    const elements = getRenderFromTree(newTree)
-
-    mylog();
-
-    mylog(elements);
-
-})()
-
-// App
+export function defaultActionToChatAction<R, H, E>(
+    ) {
+        const m = matcherToChatActionMatcher<R, H, E>()
+        const defaultMatcher = composeChatActionMatchers(
+            m(localStateMatcher<ChatState<R, H>>()),
+            m(chatStateMatcher<ChatState<R, H>>()),
+        )
+    
+        const defaultActionToChatAction = makeActionToChatAction(
+            defaultMatcher
+        )
+    
+        return { defaultActionToChatAction, defaultMatcher, m }
+    }
+    

@@ -1,6 +1,6 @@
 import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
-import { connected1 as connected1, connected2 } from "../lib/component";
+import { connected1 as connected1, connected2, connected4 } from "../lib/component";
 import { button, buttonsRow, effect, message } from "../lib/elements-constructors";
 import { action, inputHandler, on, otherwise } from "../lib/input";
 import { select } from "../lib/state";
@@ -70,37 +70,39 @@ const App = connected1(
     }
 )
 
-const MainMenu = connected2(
+const MainMenu = connected4(
     select(getDispatcher, getUser),
-    ({ user, dispatcher: { onRedirect } }) =>
-        function* ({ titleMessage }: { titleMessage?: string }) {
+    function* (
+        { user, dispatcher: { onRedirect } },
+        { titleMessage }: { titleMessage?: string }
+    ) {
 
-            if (!user)
-                return
+        if (!user)
+            return
 
-            yield message([
-                titleMessage ? `${messages[titleMessage]}` : ``,
-                `Hello, You have ${user.words.length} words in your database.`
-            ])
+        yield message([
+            titleMessage ? `${messages[titleMessage]}` : ``,
+            `Hello, You have ${user.words.length} words in your database.`
+        ])
 
-            yield buttonsRow([
-                ['My words', 'words'],
-                ['Components', 'components'],
-                // ['Tags', 'tags'],
-                // ['Statistics', 'stats'],
-                // ['Random word', 'random'],
-                ['Train', 'trainer'],
+        yield buttonsRow([
+            ['My words', 'words'],
+            ['Components', 'components'],
+            // ['Tags', 'tags'],
+            // ['Statistics', 'stats'],
+            // ['Random word', 'random'],
+            ['Train', 'trainer'],
+        ],
+            (_, path) => onRedirect(path))
+
+        yield buttonsRow(
+            [
+                ['Settings', 'settings'],
+                ['Minimize', 'main'],
             ],
-                (_, path) => onRedirect(path))
-
-            yield buttonsRow(
-                [
-                    ['Settings', 'settings'],
-                    ['Minimize', 'main'],
-                ],
-                (_, path) => onRedirect(path)
-            )
-        }
+            (_, path) => onRedirect(path)
+        )
+    }
 )
 
 

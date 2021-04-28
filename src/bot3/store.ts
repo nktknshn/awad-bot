@@ -1,6 +1,6 @@
 import { PhotoSize } from "telegraf/typings/telegram-types"
 import { mylog } from "../lib/logging"
-import { createStoreF, wrap } from "../lib/store2"
+import { createStoreF, storeAction } from "../lib/store2"
 
 export type StoreState = {
     isVisible: boolean,
@@ -20,30 +20,30 @@ export function createBotStoreF() {
         stringCandidate: undefined
     })
 
-    type Action<S> = (s: S) => S
+    type ActionStoreState = (s: StoreState) => StoreState
 
     const upd = (u: Partial<StoreState>) => (s: StoreState) => ({ ...s, ...u })
     const updF = (
-        f: (s: StoreState) => Action<StoreState>
+        f: (s: StoreState) => ActionStoreState
     ) => (s: StoreState) => f
 
-    const onSetSecondsLeft = (secondsLeft: number): Action<StoreState> => (s: StoreState) => {
+    const onSetSecondsLeft = (secondsLeft: number): ActionStoreState => (s: StoreState) => {
         return upd({ secondsLeft })(s)
     }
 
-    const updateSeconds = (): Action<StoreState> => (s: StoreState) => {
+    const updateSeconds = (): ActionStoreState => (s: StoreState) => {
         if (s.secondsLeft > 0)
             return onSetSecondsLeft(s.secondsLeft - 1)(s)
         else
             return onSetVisible(false)(s)
     }
 
-    const onSetVisible = (isVisible: boolean): Action<StoreState> => (s) => {
+    const onSetVisible = (isVisible: boolean): ActionStoreState => (s) => {
 
         s = upd({ isVisible })(s)
 
         if (isVisible) {
-            const timer = setInterval(() => store.notify(wrap(updateSeconds)()), 1000)
+            const timer = setInterval(() => store.notify(storeAction(updateSeconds)()), 1000)
             return upd({
                 secondsLeft: 15,
                 timer
@@ -72,11 +72,11 @@ export function createBotStoreF() {
     return {
         store,
         dispatcher: {
-            onSetVisible: wrap(onSetVisible),
-            onAddItem: wrap(onAddItem),
-            onSetSecondsLeft: wrap(onSetSecondsLeft),
-            onDeleteItem: wrap(onDeleteItem),
-            setStringCandidate: wrap(setStringCandidate)
+            onSetVisible: storeAction(onSetVisible),
+            onAddItem: storeAction(onAddItem),
+            onSetSecondsLeft: storeAction(onSetSecondsLeft),
+            onDeleteItem: storeAction(onDeleteItem),
+            setStringCandidate: storeAction(setStringCandidate)
         }
     }
 

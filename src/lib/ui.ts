@@ -185,66 +185,6 @@ export async function renderActions(renderer: ChatRenderer, actions: Actions[]) 
     return rendered
 }
 
-// export class ChatUI {
-
-//     constructor(
-//     ) { }
-
-//     private isRendering = false
-//     private renderQueue: Actions[][] = []
-
-//     async renderUiActions
-//         (
-//             renderer: ChatRenderer,
-//             actions: Actions[]
-//         ): Promise<RenderedElement[] | undefined> {
-//         let renderedElements: RenderedElement[] = []
-
-//         if (this.isRendering) {
-//             mylog("this.isRendering == TRUE");
-
-//             this.renderQueue.push(actions)
-//             return
-//         }
-
-//         this.isRendering = true
-
-//         renderedElements = await renderActions(renderer, actions)
-
-//         mylog('Rendering Finished')
-
-//         this.isRendering = false
-
-//         const moreRender = lastItem(this.renderQueue)
-
-//         if (moreRender) {
-//             this.renderQueue = []
-//             return await this.renderUiActions(renderer, moreRender)
-//         }
-//         return renderedElements
-//     }
-
-//     async deleteAll(renderer: ChatRenderer, renderedElements: RenderedElement[]) {
-//         await this.clear(renderer, renderedElements)
-//     }
-
-//     async clear(renderer: ChatRenderer, messages: RenderedElement[]) {
-//         for (const el of messages) {
-//             try {
-//                 // await renderer.delete(el.output.message_id)
-//                 if (Array.isArray(el.output))
-//                     for (const m of el.output)
-//                         await renderer.delete(m.message_id)
-//                 else
-//                     await renderer.delete(el.output.message_id)
-//             } catch (e) {
-//                 console.error(e);
-//                 continue
-//             }
-//         }
-//     }
-// }
-
 export async function deleteAll(renderer: ChatRenderer, messages: RenderedElement[]) {
     for (const el of messages) {
         try {

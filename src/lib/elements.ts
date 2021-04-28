@@ -52,7 +52,7 @@ export function isComponentElement(el: Element): el is ComponentElement {
 import { Lens } from 'monocle-ts'
 
 type LensObject<S> = {
-    [k in keyof S]: Lens<S, S[k]>
+    [k in keyof S]-?: Lens<S, S[k]>
 }
 
 export type GetSetState<S> = {

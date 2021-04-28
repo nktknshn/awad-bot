@@ -67,4 +67,6 @@ export type GetAllEffects<T> = GetAllBasics<T> extends infer B ? B extends Effec
 
 export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlers<T> | GetAllEffects<T>
 
-export type AppActionsFlatten<T> = AppActions<T> extends infer B ? B extends Array<infer Z> ? Z : B : never
+type Flatten<T> = T extends Array<infer Z> ? Flatten<Z> : T
+
+export type AppActionsFlatten<T> = AppActions<T> extends infer B ? Flatten<B> : never

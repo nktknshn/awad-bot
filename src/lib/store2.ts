@@ -40,7 +40,7 @@ export class StoreF<S> {
         this.state = { ...initial }
     }
 
-    public notify = (a: StoreAction<S, S>) => { mylog("set notify function"); }
+    public notify = (a: StoreAction2<S>) => { mylog("set notify function"); }
 
     map(f: (u: S) => S): StoreF<S> {
         const n = new StoreF(f(this.state))
@@ -55,13 +55,19 @@ export function createStoreF<S>(initial: S) {
 }
 
 
-export interface StoreAction<S, R> {
+export interface StoreAction<S> {
     kind: 'store-action',
-    f: (s: S) => R
+    f: (s: S) => S
 }
 
-export const wrap = <T extends any[], R, S>(f: (...args: T) => (s: S) => R):
-    (...args: T) => StoreAction<S, R> => (...args) => ({
+export interface StoreAction2<S> {
+    kind: 'store-action',
+    f: (s: S) => S
+}
+
+export const storeAction = <T extends any[], S>(
+    f: (...args: T) => (s: S) => S): (...args: T) => StoreAction2<S> => (...args) =>
+    ({
         kind: 'store-action' as 'store-action',
         f: f(...args)
     })

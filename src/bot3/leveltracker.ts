@@ -6,10 +6,8 @@ import { getTrackingRenderer, removeMessages, Tracker } from '../lib/chatrendere
 
 export const createDatabase = (path: string) => levelup(leveldown(path))
 
-
-
 export const LevelTracker = (trackerDb: LevelUp<LevelDown>): Tracker => ({
-    addRenderedMessage: async (chatId: number, messageId: number) => {
+    trackRenderedMessage: async (chatId: number, messageId: number) => {
         let messages: number[] = []
         try {
             const messagesStr = await trackerDb.get(`chat: ${chatId}`)
@@ -22,7 +20,7 @@ export const LevelTracker = (trackerDb: LevelUp<LevelDown>): Tracker => ({
         }
 
     },
-    removeRenderedMessage: async (chatId: number, messageId: number) => {
+    untrackRenderedMessage: async (chatId: number, messageId: number) => {
         const messagesStr = await trackerDb.get(`chat: ${chatId}`)
         const messages: number[] = JSON.parse(messagesStr.toString())
 

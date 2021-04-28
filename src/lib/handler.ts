@@ -15,7 +15,7 @@ import { RenderDraft } from './elements-to-messages';
 import { InputHandlerF } from './handlerF';
 import { mylog } from './logging';
 import { BotMessage, RenderedElement } from './rendered-messages';
-import { StoreAction, StoreF } from './store2';
+import { StoreAction, StoreAction2, StoreF } from './store2';
 
 export const findRepliedTo = (r: RenderedElement[]) => (repliedTo: number) =>
     r.filter((_): _ is BotMessage => _.kind === 'BotMessage').find(_ => Array.isArray(_.output)
@@ -34,7 +34,7 @@ export const contextOpt = flow(
 export type ContextOpt = ReturnType<typeof contextOpt>
 
 
-export const byMessageId = <R, H, T, E, C extends ChatState<R, H>>
+export const byMessageId = <R, H, E>
     (dh: ((messageId: number) => ChatAction<R, H, ChatState<R, H>, E>)) => (c: ContextOpt) => {
         return pipe(
             Do(O.option)
@@ -131,19 +131,6 @@ export const withContextOpt = <R, H, E>(f: (ctxOpt: ContextOpt) => FuncF<R, H, E
     }
 }
 
-export async function defaultHandleAction<R, H, E>(
-    app: Application<R, H, E>,
-    ctx: TelegrafContext,
-    renderer: ChatRenderer,
-    chat: ChatHandler2<E>,
-    chatdata: ChatState<R, H>) {
-
-    if (!chatdata.actionHandler)
-        return
-    await chatdata.actionHandler(ctx)
-    // await chat.handleEvent("updated")
-}
-
 export function applyRenderedElementsAction(a: RenderedElementsAction) {
     return function <R, H, C extends ChatState<R, H>>(cs: C): C {
         return {
@@ -159,8 +146,8 @@ export const modifyRenderedElements = (f: (rs: RenderedElement[]) => RenderedEle
         renderedElements: f(cs.renderedElements)
     })
 
-export const renderedElementsLens = <C extends ChatState<R, H>, R, H>() =>
-    Lens.fromProp<C>()('renderedElements')
+export const renderedElementsLens = <R, H>() =>
+    Lens.fromProp<ChatState<R, H>>()('renderedElements')
 
 export function applyTreeAction(a: LocalStateAction) {
     return function <R, H>(cs: ChatState<R, H>): ChatState<R, H> {
@@ -171,15 +158,14 @@ export function applyTreeAction(a: LocalStateAction) {
     }
 }
 
-export function applyChatStateAction<C>
-    (f: (s: C) => C) {
+export function applyChatStateAction<C>(f: (s: C) => C) {
     return function (cs: C): C {
         return f(cs)
     }
 }
 
 export function applyStoreAction<S>
-    (a: StoreAction<S, S>) {
+    (a: StoreAction<S>) {
     return function <C extends ChatState<R, H>, R extends { store: StoreF<S> }, H>(cs: C): ChatState<R, H> {
         return {
             ...cs,
@@ -191,15 +177,22 @@ export function applyStoreAction<S>
 import { Lens } from 'monocle-ts'
 import { ChatAction, ChatActionContext } from './chatactions';
 
-export const applyStoreAction2 = <C extends { store: StoreF<S> }, S>()
-    : (f: (a: C["store"]) => C["store"]) => (c: C) => C =>
-    Lens.fromProp<C>()('store').modify
 
-export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext): A | undefined => {
-    const d = parseFromContext(ctx)
-    mylog(`TRACE ${ctx.message?.message_id}`)
-    return h.element.callback(d, () => { return undefined })
+export function applyStoreAction2<S>(a: StoreAction2<S>) {
+    return function <R extends { store: StoreF<S> }, H>(cs: ChatState<R, H>): ChatState<R, H> {
+        return {
+            ...cs,
+            store: cs.store.map(a.f)
+        }
+    }
 }
+
+
+// export const inputHandlerFHandler = <A>(h: InputHandler<A>) => (ctx: TelegrafContext): A | undefined => {
+//     const d = parseFromContext(ctx)
+//     mylog(`TRACE ${ctx.message?.message_id}`)
+//     return h.element.callback(d, () => { return undefined })
+// }
 
 export function getInputHandler<Rdr extends RenderDraft<R>, R>(d: Rdr): ((ctx: TelegrafContext) => R | undefined) {
     return ctx => chainInputHandlers(

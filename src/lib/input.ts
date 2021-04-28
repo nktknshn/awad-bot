@@ -73,8 +73,8 @@ export const stop = (): undefined => undefined;
 //     return inputHandler(matchers)
 // }
 
-export function inputHandler<R extends Matcher2<any>>(
-    matchers: R[]
+export function inputHandler<R extends ReadonlyArray<Matcher2<any>>>(
+    matchers: R
 ) {
     return new InputHandlerElement<R | undefined>(
         (data, next) => {

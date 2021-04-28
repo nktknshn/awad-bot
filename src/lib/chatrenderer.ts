@@ -22,6 +22,8 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
         targetMessage?: Message,
         removeTarget?: boolean
     ) {
+
+        // ctx.reply()
         if (targetMessage) {
 
             if (removeTarget) {
@@ -35,7 +37,7 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
                     targetMessage.message_id,
                     undefined,
                     text,
-                    { ...extra, parse_mode: 'HTML' }
+                    { ...extra, disable_notification: false, parse_mode: 'HTML' }
                 )
 
                 if (typeof ret !== 'boolean')
@@ -84,8 +86,8 @@ export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
 })
 
 export type Tracker = {
-    addRenderedMessage(chatId: number, messageId: number): Promise<void>
-    removeRenderedMessage(chatId: number, messageId: number): Promise<void>
+    trackRenderedMessage(chatId: number, messageId: number): Promise<void>
+    untrackRenderedMessage(chatId: number, messageId: number): Promise<void>
     getRenderedMessage(chatId: number): Promise<number[]>
 }
 
@@ -97,13 +99,13 @@ export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => Cha
             const sent = await r.message(text, extra, targetMessage, removeTarget)
 
             if (!targetMessage && r.chatId)
-                await tracker.addRenderedMessage(r.chatId, sent.message_id!)
+                await tracker.trackRenderedMessage(r.chatId, sent.message_id!)
 
             return sent
         },
         async delete(messageId) {
             if (r.chatId)
-                await tracker.removeRenderedMessage(r.chatId, messageId)
+                await tracker.untrackRenderedMessage(r.chatId, messageId)
 
             return await r.delete(messageId)
         },
@@ -111,7 +113,7 @@ export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => Cha
             const sent = await r.sendFile(f)
 
             if (r.chatId)
-                await tracker.addRenderedMessage(r.chatId, sent.message_id!)
+                await tracker.trackRenderedMessage(r.chatId, sent.message_id!)
 
             return sent
         },
@@ -119,7 +121,7 @@ export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => Cha
             const sent = await r.sendPhoto(f)
 
             if (r.chatId)
-                await tracker.addRenderedMessage(r.chatId, sent.message_id!)
+                await tracker.trackRenderedMessage(r.chatId, sent.message_id!)
 
             return sent
         },
@@ -128,7 +130,7 @@ export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => Cha
 
             if (r.chatId)
                 for (const m of sent)
-                    await tracker.addRenderedMessage(r.chatId, m.message_id!)
+                    await tracker.trackRenderedMessage(r.chatId, m.message_id!)
 
             return sent
         }
@@ -174,7 +176,7 @@ import { ChatAction } from "./chatactions";
 export const saveToTracker =
     (tracker: Tracker) => <R, H, E>(): ChatAction<R, H, ChatState<R, H>, E> =>
         async ({ tctx, chatdata }) => {
-            await tracker.addRenderedMessage(tctx.chat?.id!, tctx.message?.message_id!)
+            await tracker.trackRenderedMessage(tctx.chat?.id!, tctx.message?.message_id!)
             return chatdata
         }
 
@@ -190,7 +192,7 @@ export function saveMessageHandler<R, H>(registrar: Tracker) {
                     renderer: ChatRenderer,
                     chat: ChatHandler2<ChatState<R, H>>,
                     chatdata: ChatState<R, H>
-                ) => registrar.addRenderedMessage(chatId, messageId)
+                ) => registrar.trackRenderedMessage(chatId, messageId)
             )
 
     }

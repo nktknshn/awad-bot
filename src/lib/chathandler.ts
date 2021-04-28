@@ -15,7 +15,9 @@ import * as A from 'fp-ts/lib/Array';
 import { pipe } from "fp-ts/lib/pipeable"
 import * as O from 'fp-ts/lib/Option';
 import { StateAction } from "./handlerF"
-import { ChatActionContext } from "./chatactions"
+import { AppChatAction, ChatActionContext } from "./chatactions"
+import { defaultActionToChatAction } from "../trying1"
+
 
 export interface ChatHandler<R, E = any> {
     chatdata: R,
@@ -28,15 +30,10 @@ export interface ChatHandler<R, E = any> {
 export interface ChatHandler2<E = any> {
     handleMessage(ctx: TelegrafContext): Promise<unknown>
     handleAction(ctx: TelegrafContext): Promise<unknown>
-    handleEvent(ctx: TelegrafContext, event: E): Promise<void>
+    handleEvent(ctx: TelegrafContext, event: E): Promise<unknown>
 }
 
-// export interface ChatS<R> {
-//     handleEvent(data: string, d?: StateAction<R>[]): Promise<unknown>
-// }
-
-
-type IncomingItem = IncomingMessage | IncomingAction | IncomingEvent<any>
+type IncomingItem = IncomingMessage | IncomingAction | IncomingEvent<unknown>
 
 class IncomingMessage {
     kind: 'IncomingMessage' = 'IncomingMessage'
@@ -59,7 +56,7 @@ class IncomingEvent<E> {
     }
 }
 
-export class QueuedChatHandler<R, E = any> implements ChatHandler2<E> {
+export class QueuedChatHandler<R, E = unknown> implements ChatHandler2<E> {
     incomingQueue: IncomingItem[] = []
     // eventQueue: IncomingEvent<any>[] = []
 
@@ -119,7 +116,7 @@ export class QueuedChatHandler<R, E = any> implements ChatHandler2<E> {
             await this._chat.handleAction(this._chat, item.ctx)
         }
         else if (item.kind === 'IncomingEvent') {
-            await this._chat.handleEvent(this._chat, item.ctx, item.event)
+            await this._chat.handleEvent(this._chat, item.ctx, item.event as E)
         }
 
         mylog(`done processItem: ${item.kind}`)
@@ -161,6 +158,7 @@ export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
 })
 
 export interface Application<R, H, E> {
+    chatDataFactory: (ctx: TelegrafContext) => ChatState<R, H>,
     renderer?: (ctx: TelegrafContext) => ChatRenderer,
     renderFunc: (s: ChatState<R, H>) => readonly [{
         draft: RenderDraft<H>,
@@ -168,33 +166,31 @@ export interface Application<R, H, E> {
         inputHandler: (ctx: TelegrafContext) => H | undefined,
         effectsActions: H[]
     }, (renderer: ChatRenderer) => Promise<ChatState<R, H>>],
-    init?: (app: Application<R, H, E>, ctx: TelegrafContext, renderer: ChatRenderer,
-        chat: ChatHandler2<E>, chatdata: ChatState<R, H>) => Promise<any>,
+    init?: (actx: ChatActionContext<R, H, E>) => Promise<any>,
     handleMessage: (
         ctx: ChatActionContext<R, H, E>,
     ) => Promise<ChatState<R, H>>,
     handleAction?: (
         ctx: ChatActionContext<R, H, E>,
     ) => Promise<ChatState<R, H>>,
-    chatData: (ctx: TelegrafContext) => ChatState<R, H>,
-    // handleStateAction: (
-    //     app: Application<C, H, E>,
-    //     ctx: TelegrafContext,
-    //     renderer: ChatRenderer,
-    //     chat: ChatHandler2<E>,
-    //     chatdata: C,
-    //     a: H[]
-    // ) => Promise<any>,
     handleEvent: (
         ctx: ChatActionContext<R, H, E>,
         event: E
     ) => Promise<ChatState<R, H>>,
-    queueStrategy: () => void
+    queueStrategy?: () => void,
+    actionToChatAction: (a: H | H[]) => AppChatAction<R, H, E>[]
 }
 
 export function getApp<R, H, E>(
     app: Application<R, H, E>
 ): Application<R, H, E> {
+
+    // if (app.actionToChatAction === undefined) {
+    //     return {
+    //         ...app,
+    //         actionToChatAction: defaultActionToChatAction<R, H, E>().defaultActionToChatAction
+    //     }
+    // }
     return app
 }
 
@@ -204,7 +200,7 @@ export const createChatHandlerFactory = <R, H, E>(app: Application<R, H, E>)
         mylog("createChatHandlerFactory");
 
         const renderer = (app.renderer ?? createChatRenderer)(ctx)
-        const chatdata = app.chatData(ctx)
+        const chatdata = app.chatDataFactory(ctx)
 
         const [{ inputHandler, treeState }, _] = app.renderFunc(chatdata)
 
@@ -249,7 +245,7 @@ export const createChatHandlerFactory = <R, H, E>(app: Application<R, H, E>)
             }
         }))
 
-        app.init && await app.init(app, ctx, renderer, queue, chatdata)
+        app.init && await app.init({ app, tctx: ctx, renderer, chat: queue, chatdata })
 
         return queue
     }

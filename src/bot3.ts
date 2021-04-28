@@ -13,7 +13,7 @@ import { connected4 } from "./lib/component"
 import { BasicElement, GetSetState } from "./lib/elements"
 import { button, effect, message } from "./lib/elements-constructors"
 import { elementsToMessagesAndHandlers, emptyDraft, RenderDraft } from "./lib/elements-to-messages"
-import { defaultHandler, handlerChain, or, startHandler, withContextOpt } from "./lib/handler"
+import { handlerChain, or, startHandler, withContextOpt } from "./lib/handler"
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input"
 import { initLogging, mylog } from './lib/logging'
 import { createStore } from "./lib/store2"
@@ -170,7 +170,7 @@ function createApp() {
     }
 
     return getApp({
-        chatData: chatState,
+        chatDataFactory: chatState,
         renderFunc: genericRenderFunction(
             App, { password: 'a' },
             d => ({ dispatcher: d.dispatcher, ...d.store.state }),

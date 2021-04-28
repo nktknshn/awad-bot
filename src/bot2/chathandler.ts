@@ -65,7 +65,7 @@ export function createAwadApplication(services: AwadServices) {
     }
 
     return getApp<MyState, AppAction, "updated">({
-        chatData: chatState,
+        chatDataFactory: chatState,
         renderer,
         renderFunc: genericRenderFunction(
             App, {},
