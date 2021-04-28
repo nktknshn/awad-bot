@@ -24,6 +24,7 @@ import { AppActionsFlatten } from './lib/types-util';
 import { createRendered, UserMessageElement } from './lib/usermessage';
 import { token } from "./telegram-token.json";
 import { composeChatActionMatchers, defaultActionToChatAction, defaultMatcher, makeActionToChatAction, storeMatcher } from './trying1';
+import { deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util'
 
 type AppContext = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
@@ -174,40 +175,6 @@ export const App = connected4(
     }
 )
 
-const flush = () => ({
-    kind: 'flush' as 'flush'
-})
-
-interface RenderEvent<AppAction> {
-    kind: 'RenderEvent'
-    actions?: AppAction[]
-}
-
-interface StateActionEvent<AppAction> {
-    kind: 'StateActionEvent',
-    actions: AppAction[]
-}
-
-
-const addToRendered = <R, H, E>()
-    : CA.PipeChatAction<R, H, E> => {
-    return CA.ctx(c =>
-        CA.pipeState(s => ({
-            ...s,
-            renderedElements: [
-                ...s.renderedElements,
-                createRendered(c.message?.message_id!)
-            ]
-        })))
-}
-
-export const deferRender = (n: number) => ({
-    kind: 'chatstate-action' as 'chatstate-action',
-    f: <R extends { deferRender: number }>(s: R) =>
-        ({ ...s, deferRender: n })
-})
-
-
 function createApp() {
 
     type AppAction = AppActionsFlatten<typeof App>
@@ -240,7 +207,7 @@ function createApp() {
                 defaultMatcher(),
                 storeMatcher(),
                 ({
-                    isA: (a: { kind: 'flush' } | any): a is { kind: 'flush' } => a.kind === 'flush',
+                    isA: (a: Flush | any): a is Flush => a.kind === 'flush',
                     f: (): AppChatAction => {
                         return async ({ chatdata, tctx }) => {
                             for (const r of chatdata.renderedElements) {
@@ -279,9 +246,9 @@ function createApp() {
         handleMessage: CA.branchHandler([
             [
                 CA.ifTextEqual('/start'),
-                [addToRendered(), clearChat, CA.render],
+                [CA.addToRendered(), clearChat, CA.render],
                 [
-                    addToRendered(),
+                    CA.addToRendered(),
                     saveToTracker(),
                     CA.applyInputHandler(),
                     CA.chatState(c => c.deferRender == 0
@@ -308,10 +275,6 @@ function createApp() {
                         : ctx.chatdata
                 )[1](ctx.renderer)
             }
-            // else if (event.kind === 'ChatActionEvent') {
-            //     await event.a(app, event.ctx, renderer, queue, chatdata)
-            //     return event.f(chatdata)
-            // }
             return ctx.chatdata
         },
     })

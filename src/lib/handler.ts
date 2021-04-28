@@ -211,7 +211,6 @@ export const getActionHandler = <A>(rs: RenderedElement[]) => {
             , O.filter((callbackTo): callbackTo is BotMessage => callbackTo.kind === 'BotMessage')
             , O.chain(callbackTo => pipe(action, O.map(action => ({ action, callbackTo }))))
             , O.chainNullableK(({ callbackTo, action }) => callbackTo.input.callback2<A>(action))
-            // , O.map(applyStoreAction)
         )
 
         if (O.isSome(p)) {

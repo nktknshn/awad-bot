@@ -1,15 +1,15 @@
 import * as A from 'fp-ts/lib/Array';
-import * as O from 'fp-ts/lib/Option';
 import * as F from 'fp-ts/lib/function';
-import * as T from 'fp-ts/lib/Task';
+import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
-import { StateAction } from './handlerF'
-import { contextOpt } from './handler';
-import { Application, ChatHandler2, ChatState } from './chathandler';
 import { TelegrafContext } from 'telegraf/typings/context';
+import * as CA from './chatactions';
+import { Application, ChatHandler2, ChatState } from './chathandler';
 import { ChatRenderer } from './chatrenderer';
-import { addRenderedUserMessage } from './usermessage';
-import { RenderedElementsAction, Subtract } from './elements';
+import { RenderedElementsAction } from './elements';
+import { contextOpt } from './handler';
+import { StateAction } from './handlerF';
+import { addRenderedUserMessage, createRendered } from './usermessage';
 
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
@@ -52,20 +52,20 @@ export const addRendered =
 
 // function wrapToAction
 
-export function addToRendered<R, H, E>
-    (actionToStateAction: (a: RenderedElementsAction) => ChatAction<R, H, ChatState<R, H>, E>[])
-    : ChatAction<R, H, ChatState<R, H>, E> {
-    return async function
-        (ctx) {
+// export function addToRendered<R, H, E>
+//     (actionToStateAction: (a: RenderedElementsAction) => ChatAction<R, H, ChatState<R, H>, E>[])
+//     : ChatAction<R, H, ChatState<R, H>, E> {
+//     return async function
+//         (ctx) {
 
-        const as = addRendered(actionToStateAction)(ctx.tctx.message?.message_id!)
+//         const as = addRendered(actionToStateAction)(ctx.tctx.message?.message_id!)
 
-        return await runActionsChain(as)(ctx)
-        // applyActionsF(
-        //     addRendered(actionToStateAction)(ctx.message?.message_id!))
-    }
+//         return await runActionsChain(as)(ctx)
+//         // applyActionsF(
+//         //     addRendered(actionToStateAction)(ctx.message?.message_id!))
+//     }
+// }
 
-}
 export const ifTextEqual = (text: string) => F.flow(
     contextOpt,
     c => c.messageText,
@@ -256,3 +256,15 @@ export function pipeState<R, H, E>(
 }
 
 export type PipeChatAction<R, H, E> = ChatAction<R, H, ChatState<R, H>, E>
+
+export const addToRendered = <R, H, E>()
+    : CA.PipeChatAction<R, H, E> => {
+    return CA.ctx(c =>
+        CA.pipeState(s => ({
+            ...s,
+            renderedElements: [
+                ...s.renderedElements,
+                createRendered(c.message?.message_id!)
+            ]
+        })))
+}
