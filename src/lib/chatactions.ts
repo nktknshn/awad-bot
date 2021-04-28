@@ -9,7 +9,7 @@ import { ChatRenderer } from './chatrenderer';
 import { RenderedElementsAction } from './elements';
 import { contextOpt } from './handler';
 import { StateAction } from './handlerF';
-import { addRenderedUserMessage, createRendered as createRenderedMessage } from './usermessage';
+import { addRenderedUserMessage as _addRenderedUserMessage, createRendered as createRenderedMessage } from './usermessage';
 
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
@@ -48,7 +48,7 @@ export const addRendered =
         (a: RenderedElementsAction) => ChatAction<R, H, ChatState<R, H>, E>[]
     ) =>
         (messageId: number) =>
-            actionToStateAction(addRenderedUserMessage(messageId))
+            actionToStateAction(_addRenderedUserMessage(messageId))
 
 export const ifTextEqual = (text: string) => F.flow(
     contextOpt,
@@ -69,7 +69,7 @@ export function applyInputHandler<R, H, E>
             O.map(f => f(ctx.tctx)),
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
-            ctx.app.actionToChatAction,
+            ctx.app.actionReducer,
             runActionsChain,
             a => a(ctx),
         )
@@ -99,7 +99,7 @@ export function applyActionHandler<R, H, E>
             O.map(f => f(ctx.tctx)),
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
-            ctx.app.actionToChatAction,
+            ctx.app.actionReducer,
             runActionsChain,
             a => a(ctx),
         )
@@ -233,7 +233,7 @@ export function pipeState<R, H, E>(
 
 export type PipeChatAction<R, H, E> = AppChatAction<R, H, E>
 
-export const createRendered = <R, H, E>()
+export const addRenderedUserMessage = <R, H, E>()
     : CA.PipeChatAction<R, H, E> => {
     return CA.ctx(c =>
         CA.pipeState(s => ({

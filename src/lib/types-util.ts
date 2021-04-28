@@ -26,7 +26,7 @@ type _GetAllBasics<Gen> =
     : T
     : never
 
-export type GetAllBasics<T> = T extends ComponentElement ? _GetAllBasics<GetCompGenerator<T>> : T extends (P: infer P) => infer A ? GetAllBasics<A> :_GetAllBasics<T>
+export type GetAllBasics<T> = T extends ComponentElement ? _GetAllBasics<GetCompGenerator<T>> : T extends (P: infer P) => infer A ? GetAllBasics<A> : _GetAllBasics<T>
 
 type _GetAllComps<Gen> =
     GenReturns<Gen> extends infer T
@@ -51,15 +51,15 @@ export type StateReq<T> = GetRootStates<T> extends infer J ? { [K in StatesKeys<
 export type AppReqs<A> = StateReq<GetAllComps<A>>
 
 export type WithCallback<T extends (...args: any) => any, C> =
-T extends (...args: infer P) => infer R1
-? (P extends [...args: infer ARGS, arg: infer ARG]
-    ? ARG extends (...args: infer P2) => infer R2
-    ? (...args: [...ARGS, (a: C) => ARG]) => WithContext<C, R1> : never
-    : never) : never
+    T extends (...args: infer P) => infer R1
+    ? (P extends [...args: infer ARGS, arg: infer ARG]
+        ? ARG extends (...args: infer P2) => infer R2
+        ? (...args: [...ARGS, (a: C) => ARG]) => WithContext<C, R1> : never
+        : never) : never
 
 export type AddLastArgument<F extends (...args: any) => any, C> =
-F extends (...args: infer ARGS) => infer R1
-? (...args: [...ARGS, C]) => R1 : never
+    F extends (...args: infer ARGS) => infer R1
+    ? (...args: [...ARGS, C]) => R1 : never
 
 export type GetAllButtons<T> = GetAllBasics<T> extends infer B ? B extends ButtonElement<infer R> ? R : never : never
 export type GetAllInputHandlers<T> = GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R extends Matcher2<infer G> ? G : never : never : never
@@ -69,4 +69,6 @@ export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlers<T> | GetAllEf
 
 type Flatten<T> = T extends Array<infer Z> ? Flatten<Z> : T
 
-export type AppActionsFlatten<T> = AppActions<T> extends infer B ? Flatten<B> : never
+export type AppActionsFlatten<T> = AppActions<T> extends infer B ? Flatten<B> : never | undefined
+
+// export type AppActionsFlatten<T> = _AppActionsFlatten<T> extends infer B ? [B] extends [never] ? {} : B : {}

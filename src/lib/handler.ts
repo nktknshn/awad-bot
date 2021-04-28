@@ -61,32 +61,6 @@ export function startHandler<R, H, E>(c: ContextOpt):
     )
 }
 
-// export function defaultHandler(c: ContextOpt) {
-//     return pipe(
-//         Do(O.option)
-//             .bind('messageId', c.messageId)
-//             .return(({ messageId }) => {
-//                 return defaultH(messageId)
-//             }),
-//     )
-// }
-
-
-// export const defaultH = <R>(messageId: number): ChatAction<R, Promise<boolean>, void> => {
-//     return async function def(
-//         app, ctx, renderer, chat, chatdata
-//     ) {
-//         if (!chatdata.inputHandler)
-//             return
-//         if (await chatdata.inputHandler(ctx))
-//             await renderer.delete(messageId)
-
-//         console.log("defaultH");
-
-//         await chat.handleEvent("updated")
-//     }
-// }
-
 export type FuncF<R, H, E> = (
     app: Application<ChatState<R, H>, H, E>,
     ctx: TelegrafContext,
@@ -194,9 +168,10 @@ export function applyStoreAction2<S>(a: StoreAction2<S>) {
 //     return h.element.callback(d, () => { return undefined })
 // }
 
-export function getInputHandler<Rdr extends RenderDraft<R>, R>(d: Rdr): ((ctx: TelegrafContext) => R | undefined) {
+export function getInputHandler<Draft extends RenderDraft<Exclude<H, undefined>>, H>(draft: Draft)
+    : ((ctx: TelegrafContext) => H | undefined) {
     return ctx => chainInputHandlers(
-        d.inputHandlers.reverse().map(_ => _.element.callback),
+        draft.inputHandlers.reverse().map(_ => _.element.callback),
         parseFromContext(ctx)
     )
 }

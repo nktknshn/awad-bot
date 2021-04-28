@@ -24,11 +24,10 @@ export class Effect<R> {
 
 }
 
-export function createDraftWithImages<AppAction extends any>(
+export function createDraftWithImages<H>(
     elements: (BasicElement | PhotoGroupElement| UserMessageElement )[]
-): RenderDraft<AppAction> {
-    const draft = emptyDraft<AppAction>()
-    const inputHandlersF: InputHandlerF<AppAction>[] = []
+): RenderDraft<H> {
+    const draft = emptyDraft<H>()
 
     function handle(compel: BasicElement | PhotoGroupElement| UserMessageElement) {
         if (compel.kind === 'PhotoGroupElement') {
@@ -38,7 +37,7 @@ export function createDraftWithImages<AppAction extends any>(
             usermessage.appendDraft(draft, compel)
         }
         else {
-            elementsToMessagesAndHandlers<AppAction>(compel, draft)
+            elementsToMessagesAndHandlers<H>(compel, draft)
         }
     }
 

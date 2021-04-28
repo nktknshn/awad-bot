@@ -1,14 +1,13 @@
 // import { App, deferRender } from "./bot3f"
+import * as A from 'fp-ts/lib/Array'
+import { pipe } from 'fp-ts/lib/pipeable'
+import { Flush } from './bot3/util'
+import * as CA from './lib/chatactions'
 import { ChatState } from "./lib/chathandler"
 import { LocalStateAction } from "./lib/elements"
-import { applyChatStateAction, applyStoreAction, applyStoreAction2, applyTreeAction } from "./lib/handler"
-import { StoreAction, StoreAction2, StoreF, storeAction } from "./lib/store2"
-import { AppActionsFlatten } from "./lib/types-util"
-import { range } from "./lib/util"
-import * as A from 'fp-ts/lib/Array';
-import { StoreState } from "./bot3/store"
+import { applyChatStateAction, applyStoreAction2, applyTreeAction, modifyRenderedElements } from "./lib/handler"
+import { StoreAction2, StoreF } from "./lib/store2"
 import { TreeState } from "./lib/tree"
-import * as CA from './lib/chatactions';
 
 
 export interface ActionMatcher<T1, R> {
@@ -71,16 +70,7 @@ export function composeMatchers2<R>(...ms: ActionMatcher<any, R>[]) {
     })
 }
 
-export const URI = 'Result';
-export type URI = typeof URI;
-
 export type ResultFunc<S> = (s: S) => S
-
-export const flushMatcher: <S>() => ActionMatcher<'flush', ResultFunc<S>> =
-    () => ({
-        f: (a: 'flush') => (cs) => cs,
-        isA: (a): a is 'flush' => a === 'flush',
-    })
 
 export const localStateMatcher =
     <S>() => ({
@@ -108,8 +98,6 @@ export const chatStateMatcher = <R>() => ({
 }) as ActionMatcher<ChatStateAction<R>, ResultFunc<R>>
 
 
-type StoredChatState<R extends { store: StoreF<S> }, H, S> = ChatState<R, H>
-
 export function withStore<R extends { store: StoreF<any> }, H>() {
     return <A>(m: ActionMatcher<A, ResultFunc<ChatState<R, H>>>) =>
         composeMatchers2(
@@ -125,25 +113,20 @@ export const defaultActionsHandler = <R, H>() => {
     )
 }
 
-export function storeMatcher<R extends {store: StoreF<any>}, H, E>() {
+export function storeMatcher<R extends { store: StoreF<any> }, H, E>() {
     const m = matcherToChatActionMatcher<R, H, E>()
     return m(storeStateMatcher<R['store']['state'], R, H>())
-} 
+}
 
 function localstateAction(index: number[], f: (ts: TreeState) => TreeState): LocalStateAction {
     return { kind: 'localstate-action', index, f }
 }
 
-
 export type ActionToChatActionMapper<R, H, E> = (a: H | H[]) => CA.AppChatAction<R, H, E>[]
-
 
 export type AppActionMatcher<R, H1, H2, E> = ActionMatcher<H1, CA.AppChatAction<R, H2, E>>
 export type ChatActionMatcher<T1, R, H, E> = ActionMatcher<T1, CA.AppChatAction<R, H, E>>
 
-export function withStoreChatAction<R extends { store: StoreF<any> }, H>() {
-    return
-}
 
 type MatcherToChatActionMatcher<R, H, E> = () =>
     <T1>(m: ActionMatcher<T1, ResultFunc<ChatState<R, H>>>) =>
@@ -240,18 +223,77 @@ export function defaultMatcher<R, H, E>() {
     )
 }
 
-export function defaultActionToChatAction<R, H, E>(
-    ) {
-        const m = matcherToChatActionMatcher<R, H, E>()
-        const defaultMatcher = composeChatActionMatchers(
-            m(localStateMatcher<ChatState<R, H>>()),
-            m(chatStateMatcher<ChatState<R, H>>()),
-        )
-    
-        const defaultActionToChatAction = makeActionToChatAction(
-            defaultMatcher
-        )
-    
-        return { defaultActionToChatAction, defaultMatcher, m }
+export function defaultActionToChatAction<R, H, E>() {
+    const m = matcherToChatActionMatcher<R, H, E>()
+    const defaultMatcher = composeChatActionMatchers(
+        m(localStateMatcher<ChatState<R, H>>()),
+        m(chatStateMatcher<ChatState<R, H>>()),
+    )
+
+    const defaultActionToChatAction = makeActionToChatAction(
+        defaultMatcher
+    )
+
+    return defaultActionToChatAction
+}
+
+type DefaultActions<R, H, E> = LocalStateAction | ChatStateAction<ChatState<R, H>>
+
+export function extendDefaultReducer<R, H, E, T1>(
+    m1: ChatActionMatcher<T1, R, H, E>,
+): (a: (T1 | DefaultActions<R, H, E>) | (T1 | DefaultActions<R, H, E>)[]) => CA.AppChatAction<R, H, E>[]
+export function extendDefaultReducer<R, H, E, T1, T2>(
+    m1: ChatActionMatcher<T1, R, H, E>,
+    m2: ChatActionMatcher<T2, R, H, E>,
+): (a: (T1 | T2 | DefaultActions<R, H, E>) | (T1 | T2 | DefaultActions<R, H, E>)[]) => CA.AppChatAction<R, H, E>[]
+export function extendDefaultReducer<R, H, E>(
+    m1: any, m2?: any
+) {
+    const c = m2 ? composeChatActionMatchers(
+        defaultMatcher<R, H, E>(),
+        m1, m2
+    ) : composeChatActionMatchers(
+        defaultMatcher<R, H, E>(),
+        m1
+    )
+
+
+    return makeActionToChatAction(c)
+}
+
+export const isFlush = (a: Flush | any): a is Flush => a.kind === 'flush'
+
+export function flushMatcher<R, H, E>(): ChatActionMatcher<Flush, R, H, E> {
+    return {
+        isA: isFlush,
+        f: () => {
+            return async ({ chatdata, tctx }) => {
+                // for (const r of chatdata.renderedElements) {
+                //     for (const id of r.outputIds()) {
+                //         await tracker.untrackRenderedMessage(tctx.chat?.id!, id)
+                //     }
+                // }
+
+                // return pipe(
+                //     chatdata,
+                //     modifyRenderedElements(_ => [])
+                // )
+                return chatdata
+            }
+        }
     }
-    
+}
+
+export function onAction<T1, R, H, E>(
+    m1: ChatActionMatcher<T1, R, H, E>,
+    f: CA.ChatAction<R, H, ChatState<R, H>, E>,
+): ChatActionMatcher<T1, R, H, E> {
+    return {
+        isA: m1.isA,
+        f: (a) => {
+            return async (ctx) => {
+                return await m1.f(a)({ ...ctx, chatdata: await f(ctx) })
+            }
+        }
+    }
+}

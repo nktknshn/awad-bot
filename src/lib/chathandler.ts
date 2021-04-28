@@ -15,8 +15,13 @@ import * as A from 'fp-ts/lib/Array';
 import { pipe } from "fp-ts/lib/pipeable"
 import * as O from 'fp-ts/lib/Option';
 import { StateAction } from "./handlerF"
-import { AppChatAction, ChatActionContext } from "./chatactions"
+import { AppChatAction, ChatActionContext, chatState } from "./chatactions"
 import { defaultActionToChatAction } from "../trying1"
+import { getInputHandler as getInputHandlerImpl, getActionHandler as getActionHandlerImpl } from "./handler"
+import { createDraftWithImages } from "./draft"
+import { BasicElement } from "./elements"
+import { PhotoGroupElement } from "../bot3/mediagroup"
+import { RenderedUserMessage, UserMessageElement } from "./usermessage"
 
 
 export interface ChatHandler<R, E = any> {
@@ -150,6 +155,11 @@ export type ChatState<R, H> = {
     // state: R
 } & R
 
+export const getUserMessages = <R, H>(c: ChatState<R, H>): number[] => {
+    return A.flatten(c.renderedElements.filter((_): _ is RenderedUserMessage => _.kind === 'RenderedUserMessage')
+        .map(_ => _.outputIds()))
+}
+
 export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
     treeState: {},
     renderedElements: [],
@@ -158,7 +168,7 @@ export const emptyChatState = <R, H>(): ChatState<{}, H> => ({
 })
 
 export interface Application<R, H, E> {
-    chatDataFactory: (ctx: TelegrafContext) => ChatState<R, H>,
+    chatDataFactory?: (ctx: TelegrafContext) => ChatState<R, H>,
     renderer?: (ctx: TelegrafContext) => ChatRenderer,
     renderFunc: (s: ChatState<R, H>) => readonly [{
         draft: RenderDraft<H>,
@@ -173,15 +183,15 @@ export interface Application<R, H, E> {
     handleAction?: (
         ctx: ChatActionContext<R, H, E>,
     ) => Promise<ChatState<R, H>>,
-    handleEvent: (
+    handleEvent?: (
         ctx: ChatActionContext<R, H, E>,
         event: E
     ) => Promise<ChatState<R, H>>,
     queueStrategy?: () => void,
-    actionToChatAction: (a: H | H[]) => AppChatAction<R, H, E>[]
+    actionReducer: (a: H | H[]) => AppChatAction<R, H, E>[]
 }
 
-export function getApp<R, H, E>(
+export function getApp<R = {}, H = never, E = {}>(
     app: Application<R, H, E>
 ): Application<R, H, E> {
 
@@ -200,7 +210,7 @@ export const createChatHandlerFactory = <R, H, E>(app: Application<R, H, E>)
         mylog("createChatHandlerFactory");
 
         const renderer = (app.renderer ?? createChatRenderer)(ctx)
-        const chatdata = app.chatDataFactory(ctx)
+        const chatdata = app.chatDataFactory ? app.chatDataFactory(ctx) : (emptyChatState<R, H>() as ChatState<R, H>)
 
         const [{ inputHandler, treeState }, _] = app.renderFunc(chatdata)
 
@@ -230,13 +240,14 @@ export const createChatHandlerFactory = <R, H, E>(app: Application<R, H, E>)
             handleEvent: async (self, ctx, event: E) => {
                 mylog(`handleEvent: ${event}`);
 
-                self.setChatData(
-                    self,
-                    await app.handleEvent(
-                        { app, tctx: ctx, renderer, chat: t, chatdata: self.chatdata },
-                        event
+                if (app.handleEvent)
+                    self.setChatData(
+                        self,
+                        await app.handleEvent(
+                            { app, tctx: ctx, renderer, chat: t, chatdata: self.chatdata },
+                            event
+                        )
                     )
-                )
             },
             setChatData: (self, d) => {
                 // mylog(self.chatdata.treeState.nextStateTree?.state)
@@ -254,6 +265,55 @@ export const createChatHandlerFactory = <R, H, E>(app: Application<R, H, E>)
 export interface InputHandlerF<R> {
     (ctx: TelegrafContext): R
 }
+/**
+ * Conditional: if `T` extends `U`, then returns `True` type, otherwise `False` type
+ */
+export type If<T, U, True, False> = [T] extends [U] ? True : False;
+
+/**
+ * If `T` is defined (not `never`), then resulting type is equivalent to `True`, otherwise to `False`.
+ */
+export type IfDef<T, True, False> = If<T, never, False, True>;
+
+/**
+ * If `MaybeNever` type is `never`, then a `Fallback` is returned. Otherwise `MaybeNever` type is returned as is.
+ */
+export type OrElse<MaybeNever, Fallback> = IfDef<MaybeNever, MaybeNever, Fallback>;
+
+type DefaultEls = BasicElement | PhotoGroupElement | UserMessageElement
+
+export const defaultRenderFunction = <
+    Props,
+    RootComponent extends ComponentElement,
+    ContextReqs extends AppReqs<RootComponent>,
+    Ctx,
+    HandlerReturn extends AppActionsFlatten<RootComponent>,
+    Draft extends RenderDraft<HandlerReturn>,
+    Simple extends
+    If<GetAllBasics<RootComponent>, DefaultEls, {}, never>
+    = If<GetAllBasics<RootComponent>, DefaultEls, {}, never>
+>
+    (
+        app: (props: Props) => RootComponent,
+        props: Props & Simple,
+        gc: (c: ChatState<Ctx, HandlerReturn>) => ContextReqs
+    ) => createRenderFunction<
+        Props,
+        RootComponent,
+        ContextReqs,
+        GetAllBasics<RootComponent>,
+        Ctx,
+        Draft,
+        HandlerReturn
+    >(app, props, gc, createDraftWithImages as (els: DefaultEls[]) => Draft,
+        getInputHandlerImpl as (draft: Draft) => InputHandlerF<HandlerReturn | undefined>, getActionHandlerImpl
+    )
+
+type A = 1 | 2
+
+type B = 1
+
+type C = B extends A ? true : false
 
 export const createRenderFunction = <
     Props,
@@ -261,19 +321,21 @@ export const createRenderFunction = <
     ContextReqs extends AppReqs<RootComponent>,
     Els extends GetAllBasics<RootComponent>,
     Ctx,
-    Rdr extends RenderDraft<HandlerReturn>,
+    Draft extends RenderDraft<HandlerReturn>,
     HandlerReturn extends AppActionsFlatten<RootComponent>
 >
     (
         app: (props: Props) => RootComponent,
         props: Props,
-        gc: (c: Ctx) => ContextReqs,
-        createDraft: ((els: Els[]) => Rdr),
-        draftToInputHandler: (draft: Rdr) => InputHandlerF<HandlerReturn | undefined>,
-        renderedElementsToActionHandler: (rs: RenderedElement[]) => (ctx: TelegrafContext) => (HandlerReturn | undefined)
+        gc: (c: ChatState<Ctx, HandlerReturn>) => ContextReqs,
+        createDraft: ((els: Els[]) => Draft),
+        getInputHandler: (draft: Draft) => InputHandlerF<HandlerReturn | undefined> =
+            getInputHandlerImpl as (draft: Draft) => InputHandlerF<HandlerReturn | undefined>,
+        getActionHandler: (rs: RenderedElement[]) => (ctx: TelegrafContext) => (HandlerReturn | undefined) =
+            getActionHandlerImpl
     ) =>
     (chatState: ChatState<Ctx, HandlerReturn>): readonly [{
-        draft: Rdr,
+        draft: Draft,
         treeState: TreeState,
         inputHandler: InputHandlerF<HandlerReturn | undefined>,
         renderActions: Actions[],
@@ -286,14 +348,14 @@ export const createRenderFunction = <
         const effects = draft.effects
         const effectsActions = effects.map(_ => _.element.callback())
 
-        const inputHandler = draftToInputHandler(draft)
+        const inputHandler = getInputHandler(draft)
         const renderActions = createRenderActions(chatState.renderedElements, draft.messages)
 
         return [
             { draft, treeState, inputHandler, renderActions, effectsActions },
             async (renderer: ChatRenderer): Promise<ChatState<Ctx, HandlerReturn>> => {
                 const renderedElements = await getRenderActions(renderer, renderActions)
-                const actionHandler = renderedElementsToActionHandler(renderedElements)
+                const actionHandler = getActionHandler(renderedElements)
 
                 mylog("renderedElements");
                 mylog(JSON.stringify(renderedElements));

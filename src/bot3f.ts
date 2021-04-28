@@ -8,7 +8,7 @@ import { PhotoSize } from "telegraf/typings/telegram-types";
 import { createDatabase, LevelTracker } from './bot3/leveltracker';
 import { photos } from './bot3/mediagroup';
 import { createBotStoreF, StoreState } from './bot3/store';
-import { deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util';
+import { append, deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util';
 import * as CA from './lib/chatactions';
 import { ChatState, createChatHandlerFactory, createRenderFunction, emptyChatState, getApp } from "./lib/chathandler";
 import { getTrackingRenderer } from './lib/chatrenderer';
@@ -23,13 +23,12 @@ import { initLogging, mylog } from './lib/logging';
 import { AppActionsFlatten } from './lib/types-util';
 import { UserMessageElement } from './lib/usermessage';
 import { token } from "./telegram-token.json";
-import { composeChatActionMatchers, defaultMatcher, makeActionToChatAction, storeMatcher } from './trying1';
+import { ChatActionMatcher, composeChatActionMatchers, defaultMatcher, extendDefault, flushMatcher, makeActionToChatAction, onMatcher, storeMatcher } from './trying1';
 
 type AppContext = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
 }
 
-const append = <T>(a: T) => (as: T[]) => A.snoc(as, a)
 
 export const casePassword =
     (password: string) => on(caseText, ifTrue(({ messageText }) => messageText == password))
@@ -201,28 +200,21 @@ function createApp() {
     )
 
     return getApp<MyState, AppAction, Event>({
-        actionToChatAction: makeActionToChatAction(
-            composeChatActionMatchers(
-                defaultMatcher(),
-                storeMatcher(),
-                ({
-                    isA: (a: Flush | any): a is Flush => a.kind === 'flush',
-                    f: () => {
-                        return async ({ chatdata, tctx }) => {
-                            for (const r of chatdata.renderedElements) {
-                                for (const id of r.outputIds()) {
-                                    await tracker.untrackRenderedMessage(tctx.chat?.id!, id)
-                                }
+        actionToChatAction: extendDefault(
+                onMatcher(
+                    flushMatcher(),
+                    async ({ chatdata, tctx }) => {
+                        for (const r of chatdata.renderedElements) {
+                            for (const id of r.outputIds()) {
+                                await tracker.untrackRenderedMessage(tctx.chat?.id!, id)
                             }
-
-                            return pipe(
-                                chatdata,
-                                modifyRenderedElements(_ => [])
-                            )
                         }
-                    }
-                }),
-            )
+                        return pipe(
+                            chatdata,
+                            modifyRenderedElements(_ => [])
+                        )
+                    }),
+                    storeMatcher()            
         ),
         renderer,
         chatDataFactory,
