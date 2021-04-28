@@ -1,30 +1,21 @@
-import { StackFrame } from "stacktrace-js"
-import Telegraf from "telegraf"
-import { TelegrafContext } from "telegraf/typings/context"
-import { Application, ChatState, createChatHandlerFactory, createRenderFunction, defaultRenderFunction, defaultRenderFunction2, defaultRenderScheme, emptyChatState, fromSource, func2, getApp, getUserMessages } from "./lib/chathandler"
-import { ChatsDispatcher } from "./lib/chatsdispatcher"
-import { Component, connected4 } from "./lib/component"
-import { createDraftWithImages } from "./lib/draft"
-import { button, message, messagePart, nextMessage } from "./lib/elements-constructors"
-import { getActionHandler, getInputHandler, modifyRenderedElements } from "./lib/inputhandler"
-import { initLogging, mylog } from "./lib/logging"
-import { token } from "./telegram-token.json";
-import { defaultActionToChatAction, extendDefaultReducer, flushMatcher, runBefore, storeReducer } from "./lib/reducer"
-import * as CA from './lib/chatactions';
-import { AppActionsFlatten, Flatten, GetAllBasics, GetAllInputHandlers } from "./lib/types-util"
-import { RenderDraft } from "./lib/elements-to-messages"
-import { GetSetState, InputHandlerElement } from "./lib/elements"
-import { RenderedUserMessage, UserMessageElement } from "./lib/usermessage"
-import * as A from 'fp-ts/lib/Array'
-import { action, caseText, ifTrue, inputHandler, Matcher2, on } from "./lib/input"
-import { append, flush } from "./bot3/util"
-import { addErrorLoggingToSchema } from "apollo-server"
 import { pipe } from "fp-ts/lib/pipeable"
-import { storeAction, StoreAction, storef, StoreF } from "./lib/storeF"
-import { Lens } from "monocle-ts"
-import { getTrackingRenderer } from "./lib/chatrenderer"
+import Telegraf from "telegraf"
 import { createDatabase, LevelTracker } from "./bot3/leveltracker"
+import { append, flush } from "./bot3/util"
+import * as CA from './lib/chatactions'
+import { ChatState, createChatState, getApp, getUserMessages, renderComponent } from "./lib/chathandler"
+import { getTrackingRenderer } from "./lib/chatrenderer"
+import { Component, connected4 } from "./lib/component"
+import { GetSetState } from "./lib/elements"
+import { message, messagePart, nextMessage } from "./lib/elements-constructors"
+import { action, caseText, ifTrue, inputHandler, on } from "./lib/input"
+import { modifyRenderedElements } from "./lib/inputhandler"
+import { initLogging, mylog } from "./lib/logging"
+import { extendDefaultReducer, flushMatcher, runBefore, storeReducer } from "./lib/reducer"
+import { storeAction, StoreAction, storef, StoreF } from "./lib/storeF"
+import { AppActionsFlatten } from "./lib/types-util"
 import { attachAppToBot } from "./lib/util"
+import { token } from "./telegram-token.json"
 
 type StoreState = {
     lists: string[][]
@@ -119,13 +110,13 @@ function createApp() {
 
     return getApp<MyState, AppAction>({
         renderer,
-        chatDataFactory: () => emptyChatState({
+        chatDataFactory: () => createChatState({
             store: storef<StoreState>({ lists: [] })
         }),
         init: CA.fromList([cleanChatAction]),
-        renderFunc: defaultRenderFunction2({
-            app: App,
-            gc: createAppContext,
+        renderFunc: renderComponent({
+            component: App,
+            contextCreator: createAppContext,
             props: {}
         }),
         actionReducer: extendDefaultReducer(
@@ -144,7 +135,6 @@ function createApp() {
         handleAction: CA.fromList([CA.applyActionHandler(), CA.replyCallback, CA.render])
     })
 }
-
 
 
 async function main() {

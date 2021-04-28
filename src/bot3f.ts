@@ -10,7 +10,7 @@ import { photos } from './bot3/mediagroup';
 import { createBotStoreF, StoreState } from './bot3/store';
 import { append, deferRender, Flush, flush, RenderEvent, StateActionEvent } from './bot3/util';
 import * as CA from './lib/chatactions';
-import { ChatState, createChatHandlerFactory, createRenderFunction, defaultRenderFunction, defaultRenderFunction2, emptyChatState, getApp } from "./lib/chathandler";
+import { ChatState, createChatHandlerFactory, createRenderFunction, defaultRenderFunction, renderComponent, createChatState, getApp } from "./lib/chathandler";
 import { getTrackingRenderer } from './lib/chatrenderer';
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected4 } from "./lib/component";
@@ -188,7 +188,7 @@ function createApp() {
         }
 
     const chatDataFactory = (): AppChatState => {
-        return emptyChatState({
+        return createChatState({
             ...createBotStoreF(),
             deferRender: 0
         })
@@ -217,11 +217,11 @@ function createApp() {
         ),
         renderer,
         chatDataFactory,
-        renderFunc: defaultRenderFunction2(
+        renderFunc: renderComponent(
             {
-                app: App,
+                component: App,
                 props: { password: 'a' },
-                gc: chatstate => ({ dispatcher: chatstate.dispatcher, ...chatstate.store.state }),
+                contextCreator: chatstate => ({ dispatcher: chatstate.dispatcher, ...chatstate.store.state }),
             }
         ),
         init: async ({ tctx, renderer, chat, chatdata }) => {

@@ -159,7 +159,7 @@ export const getUserMessages = <R, H>(c: ChatState<R, H>): number[] => {
         .map(_ => _.outputIds()))
 }
 
-export const emptyChatState = <R, H>(r: R): ChatState<R, H> => ({
+export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
     treeState: {},
     renderedElements: [],
     ...r
@@ -270,9 +270,9 @@ export type OrElse<MaybeNever, Fallback> = IfDef<MaybeNever, MaybeNever, Fallbac
 type DefaultEls = BasicElement | PhotoGroupElement | UserMessageElement
 
 interface RenderSource<Props, RootComponent extends ComponentElement, ContextReqs extends AppReqs<RootComponent>, R, H> {
-    app: (props: Props) => RootComponent,
+    component: (props: Props) => RootComponent,
     props: Props,
-    gc: (c: ChatState<R, H>) => ContextReqs
+    contextCreator: (c: ChatState<R, H>) => ContextReqs
 }
 
 export function fromSource<Props, RootComponent extends ComponentElement, ContextReqs extends AppReqs<RootComponent>, R, H>
@@ -317,9 +317,7 @@ interface RenderScheme<
     getActionHandler: <A>(rs: RenderedElement[]) => (ctx: TelegrafContext) => A | undefined
 }
 
-function getScheme<
-    Els,
-    >(s: RenderScheme<Els>) {
+function getScheme<Els>(s: RenderScheme<Els>) {
     return s
 }
 
@@ -339,11 +337,12 @@ export const func2 = <
         ContextReqs extends AppReqs<RootComponent>,
         CompEls extends GetAllBasics<RootComponent>,
         Ctx,
-        HandlerReturn extends AppActionsFlatten<RootComponent>
-    >(source: RenderSource<Props, RootComponent, ContextReqs, Ctx, HandlerReturn>) => {
+        HandlerReturn extends AppActionsFlatten<RootComponent>,
+        TypeAssert extends If<CompEls, Els, {}, never> = If<CompEls, Els, {}, never>
+    >(source: RenderSource<Props, RootComponent, ContextReqs, Ctx, HandlerReturn> & TypeAssert) => {
 
         return (chatState: ChatState<Ctx, HandlerReturn>) => {
-            const [els, treeState] = ElementsTree.createElements(source.app, source.gc(chatState), source.props, chatState.treeState)
+            const [els, treeState] = ElementsTree.createElements(source.component, source.contextCreator(chatState), source.props, chatState.treeState)
 
             const draft = scheme.createDraft<HandlerReturn>(els)
             const inputHandler = scheme.getInputHandler(draft)
@@ -375,8 +374,7 @@ export const func2 = <
     }
 }
 
-export const defaultRenderFunction2 = func2(defaultRenderScheme)
-
+export const renderComponent = func2(defaultRenderScheme)
 
 export const createRenderFunction = <
     Props,
