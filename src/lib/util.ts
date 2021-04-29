@@ -7,7 +7,8 @@ import { InputHandler } from './draft'
 import { mylog } from './logging'
 import Telegraf from 'telegraf'
 import { TelegrafContext } from 'telegraf/typings/context'
-import { Application, createChatHandlerFactory } from './chathandler'
+import { createChatHandlerFactory } from './chathandler'
+import { Application } from "./application"
 import { ChatsDispatcher } from './chatsdispatcher'
 
 type Piper<T,
@@ -241,9 +242,9 @@ export function attachAppToBot<R, H, E>(bot: Telegraf<TelegrafContext>, createAp
     bot.on('message', dispatcher.messageHandler)
     bot.action(/.+/, dispatcher.actionHandler)
 
-    bot.catch((err: any, ctx: TelegrafContext) => {
-        console.error(`Ooops, encountered an error for ${ctx.updateType}`, err)
-    })
+    // bot.catch((err: any, ctx: TelegrafContext) => {
+    //     console.error(`Ooops, encountered an error for ${ctx.updateType}`, err)
+    // })
 
     return bot
 }

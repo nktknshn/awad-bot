@@ -1,9 +1,9 @@
 import { pipe } from "fp-ts/lib/pipeable"
 import Telegraf from "telegraf"
-import { createDatabase, LevelTracker } from "./bot3/leveltracker"
-import { append } from "./bot3/util"
+import { levelDatabase, levelTracker } from "./bot3/leveltracker"
+import { append, flush } from "./bot3/util"
 import * as CA from './lib/chatactions'
-import { ChatState, createChatState, getApp, getUserMessages, renderComponent } from "./lib/chathandler"
+import { ChatState, createChatState, getApp, getUserMessages, renderComponent } from "./lib/application"
 import { getTrackingRenderer } from "./lib/chatrenderer"
 import { connected4 } from "./lib/component"
 import { GetSetState } from "./lib/elements"
@@ -11,7 +11,7 @@ import { button, message, messagePart, nextMessage } from "./lib/elements-constr
 import { action, caseText, inputHandler, on } from "./lib/input"
 import { modifyRenderedElements } from "./lib/inputhandler"
 import { initLogging, mylog } from "./lib/logging"
-import { extendDefaultReducer, flushMatcher, runBefore, storeReducer } from "./lib/reducer"
+import { extendDefaultReducer, flushReducer, runBefore, storeReducer } from "./lib/reducer"
 import { storeAction, StoreAction, storef, StoreF } from "./lib/storeF"
 import { AppActionsFlatten } from "./lib/types-util"
 import { UserMessageElement } from "./lib/usermessage"
@@ -47,7 +47,7 @@ const App = connected4(
         const addList = () => [
             setStateF(lenses.isCreatingList.set(false)),
             ctx.store.addList(list),
-            setStateF(lenses.list.set([]))
+            setStateF(lenses.list.set([])),
         ]
 
         if (isCreatingList) {
@@ -106,7 +106,7 @@ function createApp() {
     })
 
     const { renderer, saveToTrackerAction: saveToTracker, cleanChatAction, tracker } = getTrackingRenderer(
-        LevelTracker(createDatabase('./mydb_bot4'))
+        levelTracker(levelDatabase('./mydb_bot4'))
     )
 
     return getApp<MyState, AppAction>({
@@ -114,26 +114,23 @@ function createApp() {
         chatDataFactory: () => createChatState({
             store: storef<StoreState>({ lists: [] })
         }),
-        init: CA.fromList([cleanChatAction]),
+        init: CA.sequence([cleanChatAction]),
         renderFunc: renderComponent({
             component: App,
             props: {},
             contextCreator: getContext
         }),
         actionReducer: extendDefaultReducer(
-            runBefore(
-                flushMatcher(),
-                async ({ chatdata }) => {
-                    return pipe(
-                        chatdata,
-                        modifyRenderedElements(_ => [])
-                    )
-                }
-            ),
+            flushReducer(async ({ chatdata }) => {
+                return pipe(
+                    chatdata,
+                    modifyRenderedElements(_ => [])
+                )
+            }),
             storeReducer()
         ),
-        handleMessage: CA.fromList([CA.addRenderedUserMessage(), saveToTracker, CA.applyInputHandler(), CA.render]),
-        handleAction: CA.fromList([CA.applyActionHandler(), CA.replyCallback, CA.render])
+        handleMessage: CA.sequence([CA.addRenderedUserMessage(), saveToTracker, CA.applyInputHandler(), CA.render]),
+        handleAction: CA.sequence([CA.applyActionHandler(), CA.replyCallback, CA.render])
     })
 }
 

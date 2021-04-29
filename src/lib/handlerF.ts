@@ -1,7 +1,8 @@
 import * as O from 'fp-ts/lib/Option';
 import { TelegrafContext } from 'telegraf/typings/context';
 import { ChatAction } from './chatactions';
-import { ChatHandler2, ChatState } from './chathandler';
+import { ChatHandler2 } from './chathandler';
+import { ChatState } from "./application";
 import { ChatRenderer } from './chatrenderer';
 import { InputHandlerData } from "./messages";
 

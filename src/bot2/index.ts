@@ -1,15 +1,14 @@
 import * as CA from '../lib/chatactions';
-import { ChatState, createChatState, getApp, renderComponent, storeWithDispatcher } from "../lib/chathandler";
+import { ChatState, createChatState, getApp, renderComponent, storeWithDispatcher } from "../lib/application";
 import { getTrackingRenderer, removeMessages } from "../lib/chatrenderer";
 import { StateAction } from "../lib/handlerF";
 import { extendDefaultReducer } from '../lib/reducer';
-import { AppActions, AppActionsFlatten, GetAllInputHandlers, _GetAllInputHandlers } from "../lib/types-util";
+import { AppActionsFlatten } from "../lib/types-util";
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore } from "./store";
 import { updateUser } from "./store/user";
 import { storeToDispatch } from "./storeToDispatch";
-
 
 export function createAwadApplication(services: AwadServices) {
 
@@ -28,21 +27,21 @@ export function createAwadApplication(services: AwadServices) {
     }
 
     return getApp<MyState, AppAction, "updated">({
+        renderer,
         chatDataFactory: chatState,
         actionReducer: extendDefaultReducer(
             {
-                isA: (a: Promise<any> | any): a is Promise<any> => a instanceof Promise,
+                isA: (a): a is Promise<any> => a instanceof Promise,
                 f: (a) => async (ctx) => {
                     await a
                     return ctx.chatdata
                 }
             },
             {
-                isA: (a: ("done" | "next") | any): a is "done" | "next" => a === "done" || a === "next",
+                isA: (a): a is "done" | "next" => a === "done" || a === "next",
                 f: a => async ctx => ctx.chatdata
             }
         ),
-        renderer,
         renderFunc: renderComponent({
             component: App,
             contextCreator: s => storeWithDispatcher(s.store, storeToDispatch)(),
@@ -58,11 +57,17 @@ export function createAwadApplication(services: AwadServices) {
 
             ctx.chatdata.store.subscribe(() => ctx.chat.handleEvent(ctx.tctx, "updated"))
             ctx.chatdata.store.dispatch(updateUser(user))
+
             return ctx.chatdata
         },
-        handleMessage: CA.fromList([CA.addRenderedUserMessage(), saveToTrackerAction, CA.applyInputHandler(), CA.render]),
-        handleAction: CA.fromList([CA.applyActionHandler(), CA.replyCallback, CA.render]),
-        handleEvent: async ({app, tctx, renderer, chat, chatdata}, event: "updated") => {
+        handleMessage: CA.sequence([
+            CA.addRenderedUserMessage(),
+            saveToTrackerAction,
+            CA.applyInputHandler(),
+            CA.render
+        ]),
+        handleAction: CA.sequence([CA.applyActionHandler(), CA.replyCallback, CA.render]),
+        handleEvent: async ({ app, renderer, chatdata }, _) => {
             return await app.renderFunc(chatdata).renderFunction(renderer)
         },
     })

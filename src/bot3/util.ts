@@ -21,6 +21,7 @@ export const deferRender = (n: number) => ({
     f: <R extends { deferRender: number }>(s: R) =>
         ({ ...s, deferRender: n })
 })
+
 import * as A from 'fp-ts/lib/Array';
 
 export const append = <T>(a: T) => (as: T[]) => A.snoc(as, a)

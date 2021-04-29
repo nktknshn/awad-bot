@@ -202,37 +202,41 @@ export function assignStateTree(tree: ComponentsTreeNode<BasicOrComponent>, stat
 
 
 
-export function printStateTree(stateTree: ComponentStateTree, depth = 0) {
+export function printStateTree(stateTree: ComponentStateTree, depth = 0, index: number[] = [0]) {
     const { state, children } = stateTree
+    let counter = 0
 
     if (children.length) {
-        mylog(`${nspaces(depth)}Comp(${str(state)}) {`);
+        console.log(`${index} ${nspaces(depth)}Comp(${str(state)}) {`);
         for (const kid of children) {
-            printStateTree(kid, depth + 1)
+            printStateTree(kid, depth + 2, [...index, counter])
+            counter += 1
         }
-        mylog(`${nspaces(depth)}}`);
+        console.log(`${nspaces(depth)}}`);
     }
     else {
-        mylog(`${nspaces(depth)}Comp(${str(state)}) { }`);
+        console.log(`${nspaces(depth)}Comp(${str(state)}) { }`);
     }
 }
 
 
 
-export function printTree(tree: ComponentTree, depth = 0) {
+export function printTree(tree: ComponentTree, depth = 0, index: number[] = [0]) {
     const { componentElement, props, state, result: children } = tree
 
-    mylog(`${nspaces(depth)}${componentElement.cons.name}(${str(props)}, ${str(state)})`);
+    console.log(`${index} ${nspaces(depth)}${componentElement.cons.name}(${str(props)}, ${str(state)})`);
+    let counter = 0
 
     for (const item of children) {
         if (isComponentTree(item)) {
-            printTree(item, depth + 1)
+            printTree(item, depth + 2, [...index, counter])
         }
         else {
             // mylog(,);
-            mylog(
-                `${nspaces(depth + 1)}${str(item)}`);
+            console.log(
+                `${[...index, counter]} ${nspaces(depth + 2)}${str(item)}`);
         }
+        counter += 1
     }
 }
 
@@ -295,8 +299,8 @@ export function componentToComponentTree<R>(
                 return {
                     ...cpy,
                     lenses: Object.keys(cpy!)
-                    .map(k => [k, Lens.fromProp<any>()(k)] as const)
-                    .reduce((acc, [k,v]) => ({...acc, [k]: v}), {})
+                        .map(k => [k, Lens.fromProp<any>()(k)] as const)
+                        .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {})
                 }
             })()
 
@@ -324,7 +328,7 @@ export function componentToComponentTree<R>(
                 f: (tree) => {
                     if (!tree.nextStateTree)
                         return tree
-                    
+
                     index = [...index]
                     index.shift()
                     if (index.length == 0) {
@@ -335,7 +339,7 @@ export function componentToComponentTree<R>(
 
                         mylog("updated ", updated)
 
-                        for(const k of Object.keys(updated)) {
+                        for (const k of Object.keys(updated)) {
                             (tree.nextStateTree.state.value as any)[k] = (updated as any)[k]
                         }
 
@@ -355,15 +359,17 @@ export function componentToComponentTree<R>(
                         // })
                     }
                     else {
+                        printTree(tree.tree!)
                         let s = tree.nextStateTree;
-                        for(const idx of index) {
+                        printStateTree(tree.nextStateTree!)
+                        for (const idx of index) {
                             s = s.children[idx]
                         }
                         const updated = ff(s.state.value!) ?? {}
                         mylog("nextStateTree ", updated)
-                        s.state.value =  ({ ...s.state.value, ...updated })
+                        s.state.value = ({ ...s.state.value, ...updated })
 
-                        for(const k of Object.keys(updated)) {
+                        for (const k of Object.keys(updated)) {
                             (s.state.value as any)[k] = (updated as any)[k]
                         }
                         return tree
@@ -382,15 +388,11 @@ export function componentToComponentTree<R>(
         props = componentElement.props
         elements = componentElement.cons(props)
     }
-    else if (componentElement.kind === 'component-with-state-connected') {
+    else {
         props = {
             ...componentElement.props,
             ...componentElement.mapper(context)
         }
-        elements = componentElement.cons(props, getset)
-    }
-    else {
-        props = componentElement.props
         elements = componentElement.cons(props, getset)
     }
 
@@ -400,11 +402,12 @@ export function componentToComponentTree<R>(
             children.push(
                 componentToComponentTree(element, iter.next().value, context, [...index, idx])
             )
+            idx += 1
+
         }
         else {
             children.push(element)
         }
-        idx += 1
     }
 
     return {
@@ -431,13 +434,15 @@ export function rerenderTree<RootState>(
     }
 
     if (component.kind === 'component-with-state-connected') {
+        mylog(`checking ${component.id}`);
+
         const newProps = {
             ...component.props,
             ...component.mapper(rootState)
         }
         if (!equal(newProps, props)) {
             rerender = true
-            mylog(`${componentElement.cons.name} is to updated by props`);
+            mylog(`${componentElement.cons.name} is to updated by props ${JSON.stringify(newProps)} ${JSON.stringify(props)}`);
 
             return componentToComponentTree(component, { state: newState, children: [] }, rootState, index)
         }
@@ -472,11 +477,11 @@ export function rerenderTree<RootState>(
             kids.push(
                 rerenderTree(item, item.componentElement, rootState, [...index, idx])
             )
+            idx += 1
         }
         else {
             kids.push(item)
         }
-        idx += 1
     }
 
     return componentToComponentTree(component,

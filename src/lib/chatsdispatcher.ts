@@ -1,6 +1,7 @@
 import Debug from 'debug'
 import { TelegrafContext } from "telegraf/typings/context"
-import { ChatHandler2 , ChatState } from './chathandler'
+import { ChatHandler2 } from './chathandler'
+import { ChatState } from "./application"
 import { mylog } from './logging'
 
 export type ChatHandlerFactory<T extends ChatHandler2<E>, E> = (ctx: TelegrafContext) => Promise<T | undefined>

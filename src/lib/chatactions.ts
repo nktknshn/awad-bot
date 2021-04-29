@@ -4,17 +4,40 @@ import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
 import { TelegrafContext } from 'telegraf/typings/context';
 import * as CA from './chatactions';
-import { Application, ChatHandler2, ChatState } from './chathandler';
+import { ChatHandler2 } from './chathandler';
+import { Application, ChatState } from "./application";
 import { ChatRenderer } from './chatrenderer';
 import { RenderedElementsAction } from './elements';
-import { contextOpt } from './inputhandler';
+import { contextOpt, modifyRenderedElements } from './inputhandler';
 import { StateAction } from './handlerF';
 import { addRenderedUserMessage as _addRenderedUserMessage, createRendered as createRenderedMessage } from './usermessage';
+import { Effect } from './draft';
+import { mylog } from './logging';
+import { printStateTree } from './tree';
 
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
     return ctx.app.renderFunc(ctx.chatdata).renderFunction(ctx.renderer)
+}
+
+export async function applyEffects<R, H, E>(
+    ctx: ChatActionContext<R, H, E>
+): Promise<ChatState<R, H>> {
+    printStateTree(ctx.chatdata.treeState.nextStateTree!)
+
+    const r = ctx.app.renderFunc(ctx.chatdata)
+    printStateTree(r.chatdata.treeState.nextStateTree!)
+
+    mylog('Applying Effects')
+
+    const cd = await sequence<R, H, E>(
+        ctx.app.actionReducer(r.effects.map(_ => _.element.callback()))
+    )({ ...ctx, chatdata: r.chatdata })
+    
+    printStateTree(cd.treeState.nextStateTree!)
+    
+    return cd
 }
 
 export function scheduleEvent
@@ -57,7 +80,7 @@ export const ifTextEqual = (text: string) => F.flow(
 export const ifStart = ifTextEqual('/start')
 
 
-export function fromList<R, H, E>(
+export function sequence<R, H, E>(
     handlers: AppChatAction<R, H, E>[]
 ): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {
@@ -81,7 +104,7 @@ export function applyInputHandler<R, H, E>
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
             ctx.app.actionReducer,
-            fromList,
+            sequence,
             a => a(ctx),
         )
 }
@@ -97,7 +120,7 @@ export function applyActionHandler<R, H, E>
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
             ctx.app.actionReducer,
-            fromList,
+            sequence,
             a => a(ctx),
         )
 }
@@ -123,6 +146,21 @@ export async function replyCallback<R, H, E>(
     return tctx.answerCbQuery().then(_ => chatdata)
 }
 
+export function log<R, H, E>(
+
+): AppChatAction<R, H, E> {
+    return async (
+        ctx: ChatActionContext<R, H, E>
+    ) => {
+        console.log("LOGGINMG")
+        console.log(
+            JSON.stringify({ ...(ctx.chatdata as any).store })
+        )
+        return ctx.chatdata
+    }
+}
+
+
 export function chatState<R, H, E>(
     pred: (state: ChatState<R, H>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
@@ -145,6 +183,12 @@ export function app<R, H, E>(
     return async (
         ctx
     ) => pred(ctx.app)(ctx)
+}
+
+export function flatMap<R, H, E>(
+    f: (ctx: ChatActionContext<R, H, E>) => AppChatAction<R, H, E>,
+): AppChatAction<R, H, E> {
+    return async (ctx) => f(ctx)(ctx)
 }
 
 export type Branch<R, H, T, E> = [
@@ -202,3 +246,14 @@ export const addRenderedUserMessage = <R, H, E>()
             ]
         })))
 }
+
+export const flushAction = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
+    : Promise<ChatState<R, H>> =>
+    pipe(
+        chatdata,
+        modifyRenderedElements(_ => [])
+    )
+
+export const emptyAction = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
+    : Promise<ChatState<R, H>> =>
+    chatdata

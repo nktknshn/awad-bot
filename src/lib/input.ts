@@ -1,9 +1,11 @@
 import * as O from 'fp-ts/lib/Option';
-import { InputHandlerElement } from "./elements";
-import { InputHandlerData } from "./messages";
 import { flow, identity } from "fp-ts/lib/function";
 import { pipe } from 'fp-ts/lib/pipeable';
 import { Do } from 'fp-ts-contrib/lib/Do';
+
+import { InputHandlerElement } from "./elements";
+import { InputHandlerData } from "./messages";
+
 import { TelegrafContext } from 'telegraf/typings/context';
 
 type Matcher2Ret<R> = O.Option<R | 'done' | 'next'>;

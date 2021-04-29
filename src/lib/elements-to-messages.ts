@@ -14,7 +14,7 @@ type HandlerType<H> = InputHandler<H> | ActionsHandler
 export type RenderDraft<H> = {
     messages: OutcomingMessageType[],
     handlers: HandlerType<H>[],
-    effects: Effect<any>[],
+    effects: Effect<H>[],
     keyboards: KeyboardElement[],
     inputHandlers: InputHandler<H>[]
 }

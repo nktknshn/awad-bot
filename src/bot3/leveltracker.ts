@@ -4,9 +4,9 @@ import levelup, { LevelUp } from 'levelup'
 import leveldown, { LevelDown } from 'leveldown'
 import { getTrackingRenderer, removeMessages, Tracker } from '../lib/chatrenderer';
 
-export const createDatabase = (path: string) => levelup(leveldown(path))
+export const levelDatabase = (path: string) => levelup(leveldown(path))
 
-export const LevelTracker = (trackerDb: LevelUp<LevelDown>): Tracker => ({
+export const levelTracker = (trackerDb: LevelUp<LevelDown>): Tracker => ({
     trackRenderedMessage: async (chatId: number, messageId: number) => {
         let messages: number[] = []
         try {

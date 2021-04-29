@@ -26,7 +26,8 @@ type _GetAllBasics<Gen> =
     : T
     : never
 
-export type GetAllBasics<T> = T extends ComponentElement ? _GetAllBasics<GetCompGenerator<T>> : T extends (P: infer P) => infer A ? GetAllBasics<A> : _GetAllBasics<T>
+export type GetAllBasics<T> = T extends ComponentElement 
+? _GetAllBasics<GetCompGenerator<T>> : T extends (P: infer P) => infer A ? GetAllBasics<A> : _GetAllBasics<T>
 
 type _GetAllComps<Gen> =
     GenReturns<Gen> extends infer T

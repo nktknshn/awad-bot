@@ -3,7 +3,8 @@ import * as O from 'fp-ts/lib/Option';
 import { TelegrafContext } from "telegraf/typings/context";
 import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types";
 import { ChatActionContext } from "./chatactions";
-import { ChatHandler2, ChatState } from "./chathandler";
+import { ChatHandler2 } from "./chathandler";
+import { ChatState } from "./application";
 import { ContextOpt } from "./inputhandler";
 import { mylog } from "./logging";
 import { randomAnimal } from './util';
@@ -173,17 +174,26 @@ export function getTrackingRenderer(t: Tracker) {
             await cleanChat(ctx.tctx.chat?.id!)(ctx.renderer)
             return ctx.chatdata
         },
+        untrackRendererElementsAction: async <R, H, E>({ chatdata, tctx }: ChatActionContext<R, H, E>)
+            : Promise<ChatState<R, H>> => {
+            for (const r of chatdata.renderedElements) {
+                for (const id of r.outputIds()) {
+                    await t.untrackRenderedMessage(tctx.chat?.id!, id)
+                }
+            }
+            return chatdata
+        },
         tracker: t
     }
 }
 
 
 export const saveToTracker =
-    (tracker: Tracker) => 
-        (async <R, H, E>(ctx: ChatActionContext<R, H, E>) => {
-            await tracker.trackRenderedMessage(ctx.tctx.chat?.id!, ctx.tctx.message?.message_id!)
-            return ctx.chatdata
-        })
+    (tracker: Tracker) =>
+    (async <R, H, E>(ctx: ChatActionContext<R, H, E>) => {
+        await tracker.trackRenderedMessage(ctx.tctx.chat?.id!, ctx.tctx.message?.message_id!)
+        return ctx.chatdata
+    })
 
 export function saveMessageHandler<R, H>(registrar: Tracker) {
     return function (

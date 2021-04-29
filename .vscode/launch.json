@@ -72,10 +72,10 @@
             "localRoot": "${workspaceRoot}",
         },
         {
-            "name": "bot3f2.ts",
+            "name": "bot5.ts",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceFolder}/dist/bot3f.js",
+            "program": "${workspaceFolder}/dist/bot5.js",
             "sourceMaps": true,
             // "preLaunchTask": "tsc: build - tsconfig.json",
             // "outFiles": [

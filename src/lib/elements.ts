@@ -39,7 +39,7 @@ export type Element = BasicElement | ComponentElement
 export function isComponentElement(el: Element): el is ComponentElement {
     return el.kind === 'component'
         || el.kind === 'component-with-state-connected'
-        || el.kind === 'component-with-state'
+        // || el.kind === 'component-with-state'
 }
 
 import { Lens } from 'monocle-ts'
@@ -47,6 +47,11 @@ import { Lens } from 'monocle-ts'
 type LensObject<S> = {
     [k in keyof S]-?: Lens<S, S[k]>
 }
+
+type LensObjectWrapped<S> = {
+    [k in keyof S]-?: Lens<S, S[k]>
+}
+
 
 export type GetSetState<S> = {
     getState: (initialState: S) => S & {lenses: LensObject<S>}
