@@ -9,6 +9,7 @@ import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore } from "./store";
 import { updateUser } from "./store/user";
 import { storeToDispatch } from "./storeToDispatch";
+import { clearChat } from '../lib/inputhandler';
 
 export function createAwadApplication(services: AwadServices) {
 
@@ -33,7 +34,7 @@ export function createAwadApplication(services: AwadServices) {
             {
                 isA: (a): a is Promise<any> => a instanceof Promise,
                 f: (a) => async (ctx) => {
-                    await a
+                    // await a
                     return ctx.chatdata
                 }
             },
@@ -60,13 +61,24 @@ export function createAwadApplication(services: AwadServices) {
 
             return ctx.chatdata
         },
-        handleMessage: CA.sequence([
-            CA.addRenderedUserMessage(),
-            saveToTrackerAction,
-            CA.applyInputHandler(),
-            CA.render
-        ]),
-        handleAction: CA.sequence([CA.applyActionHandler(), CA.replyCallback, CA.render]),
+        handleMessage:
+            CA.branchHandler([
+                [
+                    CA.ifTextEqual('/start'),
+                    [
+                        CA.addRenderedUserMessage(),
+                        clearChat,
+                        CA.render
+                    ],
+                    [
+                        CA.addRenderedUserMessage(),
+                        saveToTrackerAction,
+                        CA.applyInputHandler(),
+                        CA.applyEffects,
+                        CA.render
+
+                    ]]]),
+        handleAction: CA.sequence([CA.applyActionHandler(), CA.replyCallback, CA.applyEffects, CA.render]),
         handleEvent: async ({ app, renderer, chatdata }, _) => {
             return await app.renderFunc(chatdata).renderFunction(renderer)
         },

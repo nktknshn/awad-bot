@@ -42,6 +42,16 @@ interface Context {
 
 const caseTextEqual = (text: string) => on(caseText, ifTrue(({ messageText }) => messageText == text))
 
+const parsePathOpt = (path: string) => pipe(
+    parsePath(path),
+    ({ pathname, query }) =>
+        pipe(O.fromNullable(pathname), O.map(
+            path => ({
+                path,
+                query: pipe(O.fromNullable(query), O.fold(() => ({}), q => ({...q}))),
+            })))
+)
+
 const Greeting = connected4(
     ({ userId }: Context) => ({ userId }),
     function* (ctx, {
@@ -154,19 +164,16 @@ const App = connected4(
         ])
 
         yield pipe(
-            parsePath(path),
-            ({ pathname, query }) =>
-                pipe(O.fromNullable(pathname), O.map(
-                    path => ({
-                        path,
-                        query: pipe(O.fromNullable(query), O.fold(() => ({}), q => ({...q}))),
-                    })))
+            parsePathOpt(path)
             , O.fold(
                 () => AppRouter({ path: '/error', query: {}, onDone: () => [] }),
                 props => AppRouter({
                     ...props,
                     onDone:
-                        list => [store.addList(list), setStateF(pathLens.set('/main'))]
+                        list => [
+                            store.addList(list), 
+                            setStateF(pathLens.set('/main'))
+                        ]
                 })
             )
         )
