@@ -128,7 +128,7 @@ interface InitializedApp<R, H, E> {
 function initApplication<R, H, E>(app: Application<R, H, E>) {
     return async (ctx: TelegrafContext): Promise<InitializedApp<R, H, E>> => {
         const renderer = (app.renderer ?? createChatRenderer)(ctx)
-        const { chatdata } = app.renderFunc(app.chatDataFactory(ctx))
+        const { chatdata } = app.renderFunc(app.chatStateFactory(ctx))
 
         return {
             app,

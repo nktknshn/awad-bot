@@ -41,8 +41,8 @@ export async function applyEffects<R, H, E>(
 }
 
 export function scheduleEvent
-    <R extends { deferredRenderTimer?: NodeJS.Timeout }, H, E, EE extends E>
-    (timeout: number, ev: EE): AppChatAction<R, H, E> {
+    <R extends { deferredRenderTimer?: NodeJS.Timeout }, H, E>
+    (timeout: number, ev: E): AppChatAction<R, H, E> {
     {
         return async function
             ({ chatdata, chat, tctx }) {
@@ -217,7 +217,7 @@ export function branchHandler<R, H, E>(
     }
 }
 
-export function pipeState<R, H, E>(
+export function mapState<R, H, E>(
     f: (s: ChatState<R, H>) => ChatState<R, H>
 ): AppChatAction<R, H, E> {
     return async function (ctx) {
@@ -230,7 +230,7 @@ export type PipeChatAction<R, H, E> = AppChatAction<R, H, E>
 export const addRenderedUserMessage = <R, H, E>()
     : CA.PipeChatAction<R, H, E> => {
     return CA.ctx(c =>
-        CA.pipeState(s => ({
+        CA.mapState(s => ({
             ...s,
             renderedElements: [
                 ...s.renderedElements,

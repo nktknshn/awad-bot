@@ -8,6 +8,13 @@ export const setDoFlush = (doFlush: boolean) => ({
         ({ ...s, doFlush })
 })
 
+export const setBufferEnabled = (bufferEnabled: boolean) => ({
+    kind: 'chatstate-action' as 'chatstate-action',
+    f: <R extends { bufferEnabled: boolean }>(s: R) =>
+        ({ ...s, bufferEnabled })
+})
+
+
 export const parsePathOpt = (path: string) => pipe(
     parsePath(path),
     ({ pathname, query }) =>

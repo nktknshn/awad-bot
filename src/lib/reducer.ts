@@ -10,21 +10,21 @@ import { TreeState } from "./tree"
 export function reducer<T1, R>(
     isA: <T2>(a: T1 | T2) => a is T1,
     f: (a: T1) => R,
-): ActionReducer<T1, R> {
+): Reducer<T1, R> {
     return {
         isA, f
     }
 }
 
-export interface ActionReducer<T1, R> {
+export interface Reducer<T1, R> {
     f: (a: T1) => R,
     isA: <T2>(a: T1 | T2) => a is T1,
 }
 
 export function composeMatchers<T1, T2, R>(
-    am: ActionReducer<T1, R>,
-    bm: ActionReducer<T2, R>,
-): ActionReducer<T1 | T2, R> {
+    am: Reducer<T1, R>,
+    bm: Reducer<T2, R>,
+): Reducer<T1 | T2, R> {
     return ({
         f: (a: T1 | T2) => am.isA(a) ? am.f(a) : bm.f(a),
         isA: <T2>(a: T1 | T2): a is T1 => am.isA(a) || bm.isA(a)
@@ -32,31 +32,31 @@ export function composeMatchers<T1, T2, R>(
 }
 
 export function composeMatchers2<T1, R>(
-    m1: ActionReducer<T1, R>,
-): ActionReducer<T1, R>
+    m1: Reducer<T1, R>,
+): Reducer<T1, R>
 export function composeMatchers2<T1, T2, R>(
-    m1: ActionReducer<T1, R>,
-    m2: ActionReducer<T2, R>,
-): ActionReducer<T1 | T2, R>
+    m1: Reducer<T1, R>,
+    m2: Reducer<T2, R>,
+): Reducer<T1 | T2, R>
 export function composeMatchers2<T1, T2, T3, R>(
-    m1: ActionReducer<T1, R>,
-    m2: ActionReducer<T2, R>,
-    m3: ActionReducer<T3, R>,
-): ActionReducer<T1 | T2 | T3, R>
+    m1: Reducer<T1, R>,
+    m2: Reducer<T2, R>,
+    m3: Reducer<T3, R>,
+): Reducer<T1 | T2 | T3, R>
 export function composeMatchers2<T1, T2, T3, T4, R>(
-    m1: ActionReducer<T1, R>,
-    m2: ActionReducer<T2, R>,
-    m3: ActionReducer<T3, R>,
-    m4: ActionReducer<T4, R>,
-): ActionReducer<T1 | T2 | T3 | T4, R>
+    m1: Reducer<T1, R>,
+    m2: Reducer<T2, R>,
+    m3: Reducer<T3, R>,
+    m4: Reducer<T4, R>,
+): Reducer<T1 | T2 | T3 | T4, R>
 export function composeMatchers2<T1, T2, T3, T4, T5, R>(
-    m1: ActionReducer<T1, R>,
-    m2: ActionReducer<T2, R>,
-    m3: ActionReducer<T3, R>,
-    m4: ActionReducer<T4, R>,
-    m5: ActionReducer<T5, R>,
-): ActionReducer<T1 | T2 | T3 | T4 | T5, R>
-export function composeMatchers2<R>(...ms: ActionReducer<any, R>[]) {
+    m1: Reducer<T1, R>,
+    m2: Reducer<T2, R>,
+    m3: Reducer<T3, R>,
+    m4: Reducer<T4, R>,
+    m5: Reducer<T5, R>,
+): Reducer<T1 | T2 | T3 | T4 | T5, R>
+export function composeMatchers2<R>(...ms: Reducer<any, R>[]) {
     return ({
         f: (a: any) => {
             for (const m of ms) {
@@ -82,7 +82,7 @@ export const localStateMatcher =
     <S>() => ({
         f: applyTreeAction,
         isA: (a): a is LocalStateAction => 'kind' in a && a.kind === 'localstate-action',
-    }) as ActionReducer<LocalStateAction, ResultFunc<S>>
+    }) as Reducer<LocalStateAction, ResultFunc<S>>
 
 
 export const storeStateMatcher =
@@ -90,7 +90,7 @@ export const storeStateMatcher =
         ({
             f: (a) => applyStoreAction2<S>(a),
             isA: (a): a is StoreAction<S> => 'kind' in a && a.kind === 'store-action',
-        }) as ActionReducer<StoreAction<S>, ResultFunc<ChatState<R, H>>>
+        }) as Reducer<StoreAction<S>, ResultFunc<ChatState<R, H>>>
 
 
 export type ChatStateAction<R> = {
@@ -101,7 +101,7 @@ export type ChatStateAction<R> = {
 export const chatStateMatcher = <R>() => ({
     f: (a) => applyChatStateAction(a.f),
     isA: (a) => 'kind' in a && a.kind === 'chatstate-action',
-}) as ActionReducer<ChatStateAction<R>, ResultFunc<R>>
+}) as Reducer<ChatStateAction<R>, ResultFunc<R>>
 
 export const defaultActionsHandler = <R, H>() => {
     return composeMatchers2(
@@ -121,21 +121,21 @@ function localstateAction(index: number[], f: (ts: TreeState) => TreeState): Loc
 
 export type ActionToChatActionMapper<R, H, E> = (a: H | H[]) => CA.AppChatAction<R, H, E>[]
 
-export type AppActionMatcher<R, H1, H2, E> = ActionReducer<H1, CA.AppChatAction<R, H2, E>>
-export type ChatActionReducer<T1, R, H, E> = ActionReducer<T1, CA.AppChatAction<R, H, E>>
+export type AppActionMatcher<R, H1, H2, E> = Reducer<H1, CA.AppChatAction<R, H2, E>>
+export type ChatActionReducer<T1, R, H, E> = Reducer<T1, CA.AppChatAction<R, H, E>>
 
 
 type MatcherToChatActionMatcher<R, H, E> = () =>
-    <T1>(m: ActionReducer<T1, ResultFunc<ChatState<R, H>>>) =>
+    <T1>(m: Reducer<T1, ResultFunc<ChatState<R, H>>>) =>
         ChatActionReducer<T1, R, H, E>
 
 export const matcherToChatActionMatcher = <R, H, E>() =>
     function matcherToChatActionMatcher<T1>(
-        m: ActionReducer<T1, ResultFunc<ChatState<R, H>>>,
+        m: Reducer<T1, ResultFunc<ChatState<R, H>>>,
     ): ChatActionReducer<T1, R, H, E> {
         return ({
             isA: m.isA,
-            f: a => CA.pipeState<R, H, E>(
+            f: a => CA.mapState<R, H, E>(
                 m.f(a)
             )
         })

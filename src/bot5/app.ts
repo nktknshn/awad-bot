@@ -1,7 +1,7 @@
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from "fp-ts/lib/pipeable"
 import { ParsedUrlQuery } from "node:querystring"
-import { append } from "../bot3/util"
+import { append, deferRender } from "../bot3/util"
 import { Component, connected } from "Lib/component"
 import { routeMatcher, Router } from "Lib/components/router"
 import { GetSetState, LocalStateAction } from "Lib/elements"
@@ -9,7 +9,7 @@ import { button, effect, message, messagePart, nextMessage } from "Lib/elements-
 import { action, caseText, ifTrue, inputHandler, on } from "Lib/input"
 import { StoreAction } from "Lib/storeF"
 import { userMessage, UserMessageElement } from "Lib/usermessage"
-import { parsePathOpt, setDoFlush } from './util'
+import { parsePathOpt, setBufferEnabled, setDoFlush } from './util'
 import { last, takeRight } from 'fp-ts/lib/Array'
 import { combineSelectors, select } from "Lib/state"
 import { Context, StoreState } from 'bot5/index'
@@ -120,22 +120,25 @@ const Set = connected(
 
         yield inputHandler([
             on(caseText, action(({ messageText }) =>
-                setStateF(lenses.list.modify(append(messageText)))
+                [
+                    setStateF(lenses.list.modify(append(messageText)))
+                    ,...[list.length == 0 ? [setBufferEnabled(true), deferRender(3000)]: []]
+                ]
             ))
         ])
 
-        yield effect(() => setDoFlush(false))
+        yield effect(() => [setDoFlush(false)])
 
         if (list.length) {
             yield message('type your list: ')
 
-            for (const m of pipe(userMessages, takeRight(3))) {
+            for (const m of pipe(userMessages, takeRight(10))) {
                 yield userMessage(m)
             }
 
             yield message(`list: ${list}`)
-            yield button('Done', () => [onDone(list), setDoFlush(true)])
-            yield button('Cancel', () => [onCancel(), setDoFlush(true)])
+            yield button('Done', () => [onDone(list), setDoFlush(true), deferRender(0), setBufferEnabled(false)])
+            yield button('Cancel', () => [onCancel(), setDoFlush(true), deferRender(0), setBufferEnabled(false)])
         }
         else {
             yield message(`start typing:`)

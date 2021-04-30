@@ -217,7 +217,7 @@ function createApp() {
             storeReducer()
         ),
         renderer,
-        chatDataFactory,
+        chatStateFactory: chatDataFactory,
         renderFunc: renderComponent(
             {
                 component: App,

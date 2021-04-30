@@ -65,7 +65,7 @@ export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
 });
 
 export interface Application<R, H, E> {
-    chatDataFactory: (ctx: TelegrafContext) => ChatState<R, H>;
+    chatStateFactory: (ctx: TelegrafContext) => ChatState<R, H>;
     renderer?: (ctx: TelegrafContext) => ChatRenderer;
     renderFunc: (s: ChatState<R, H>) => {
         chatdata: ChatState<R, H>;
