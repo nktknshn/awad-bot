@@ -84,7 +84,6 @@ const AppRouter = Router(
     ),
     Component(function* () {
         yield message('wrong input')
-        // yield effect(onCancel)
     })({})
 )
 
@@ -116,19 +115,19 @@ const Set = connected(
             list: string[]
         }>) {
 
+        yield effect(() => [setDoFlush(false)])
+
         const { list, lenses } = getState({ list: [] })
 
         yield inputHandler([
-            on(caseText, action(({ messageText }) =>
-                [
-                    setStateF(lenses.list.modify(append(messageText)))
-                    ,...[list.length == 0 ? [setBufferEnabled(true), deferRender(1000)]: []]
-                ]
-            ))
+            on(caseText, ifTrue(_ => list.length == 0),
+                action(({ messageText }) => [setStateF(lenses.list.modify(append(messageText))), setBufferEnabled(true)])),
+            on(caseText,
+                action(({ messageText }) => setStateF(lenses.list.modify(append(messageText)))))
         ])
 
-        yield effect(() => [setDoFlush(false)])
-        const reset = [setDoFlush(true), deferRender(0), setBufferEnabled(false)]
+        const reset = [setDoFlush(true), setBufferEnabled(false)]
+        const cancel = () => [onCancel(), ...reset]
 
         if (list.length) {
             yield message('type your list: ')
@@ -139,11 +138,11 @@ const Set = connected(
 
             yield message(`list: ${list}`)
             yield button('Done', () => [onDone(list), ...reset])
-            yield button('Cancel', () => [onCancel(), ...reset])
+            yield button('Cancel', cancel)
         }
         else {
             yield message(`start typing:`)
-            yield button('Cancel', () => [onCancel(), ...reset])
+            yield button('Cancel', cancel)
 
         }
     })

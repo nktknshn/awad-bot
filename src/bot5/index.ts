@@ -1,24 +1,22 @@
-import { combineSelectors, select, Selector } from "Libstate"
+import { select } from "Libstate"
+import { Lens } from "monocle-ts"
 import { append } from "../bot3/util"
 import { ChatState, createChatState, getApp, renderComponent } from "../lib/application"
 import * as CA from '../lib/chatactions'
-import { ChatActionReducer, extendDefaultReducer, flushReducer, reducer, reducerToFunction, storeReducer } from "../lib/reducer"
-import { storeAction, storef, StoreF } from "../lib/storeF"
-import { AppActions, AppActionsFlatten } from "../lib/types-util"
-import { App } from './app'
 import { withUserMessages } from "../lib/context"
-import { Lens } from "monocle-ts"
-import { ChatActionContext } from "../lib/chatactions"
-import { Reducer } from "redux"
+import { applyActionEvent, applyActionEventReducer, ApplyActionsEvent, makeEventReducer } from "../lib/event"
+import { extendDefaultReducer, storeReducer } from "../lib/reducer"
+import { storeAction, storef, StoreF } from "../lib/storeF"
+import { AppActionsFlatten } from "../lib/types-util"
+import { App } from './app'
 
 export type Context = ReturnType<typeof contextCreator>
 export type StoreState = {
     lists: string[][]
 }
 
-
 type AppAction = AppActionsFlatten<typeof App>
-type AppChatState = ChatState<MyState, AppAction>
+type AppChatState = ChatState<AppState, AppAction>
 
 const withStore = ({ store }: { store: StoreF<StoreState> }) => ({
     store: {
@@ -40,49 +38,9 @@ const contextCreator = select(
     ({ userId }: { userId: number }) => ({ userId })
 )
 
-interface ApplyActionsEvent<R, H, E> {
-    kind: 'apply-actions-event',
-    actions: CA.AppChatAction<R, H, E>[]
-}
+type AppEvents = ApplyActionsEvent<AppState, AppAction, AppEvents>
 
-function applyActionEvent<R, H, E>(
-    actions: CA.AppChatAction<R, H, E>[]
-): ApplyActionsEvent<R, H, E> {
-    return {
-        kind: 'apply-actions-event',
-        actions
-    }
-}
-
-type AppEvents = ApplyActionsEvent<MyState, AppAction, AppEvents>
-
-const bufferEnabledLens = Lens.fromProp<AppChatState>()('bufferedInputEnabled')
-
-const applyActionEventReducer = <R, H, E>() => reducer(
-    (event: ApplyActionsEvent<R, H, E> | any): event is ApplyActionsEvent<R, H, E> =>
-        event.kind === 'apply-actions-event',
-    event => async (ctx: CA.ChatActionContext<R, H, E>) => {
-        return ctx.app.renderFunc(
-            await CA.sequence(event.actions)(ctx)
-        ).renderFunction(ctx.renderer)
-    }
-)
-
-function makeEventReducer<R, H, E>(
-    reducer: ChatActionReducer<E, R, H, E>
-): (
-        ctx: ChatActionContext<R, H, E>,
-        event: E
-    ) => Promise<ChatState<R, H>> {
-    return async (ctx, event) => {
-        return await CA.sequence(
-            reducerToFunction(
-                reducer
-            )(event))(ctx)
-    }
-}
-
-type MyState = {
+type AppState = {
     store: StoreF<StoreState>,
     userId: number,
     doFlush: boolean
@@ -91,14 +49,15 @@ type MyState = {
     bufferedInputEnabled: boolean
 }
 
+const bufferEnabledLens = Lens.fromProp<AppChatState>()('bufferedInputEnabled')
 
 export const createApp = () =>
-    getApp<MyState, AppAction, AppEvents>({
+    getApp<AppState, AppAction, AppEvents>({
         chatStateFactory: (ctx) => createChatState({
             store: storef<StoreState>({ lists: [] }),
             userId: ctx.from?.id!,
             doFlush: true,
-            deferRender: 0,
+            deferRender: 1000,
             bufferedInputEnabled: false
         }),
         renderFunc: renderComponent({
@@ -115,10 +74,10 @@ export const createApp = () =>
             CA.applyInputHandler,
             CA.chatState(c => c.doFlush ? CA.nothing : CA.addRenderedUserMessage()),
             CA.applyEffects,
-            CA.chatState(c =>
-                c.bufferedInputEnabled
+            CA.chatState(({ deferRender, bufferedInputEnabled }) =>
+                bufferedInputEnabled
                     ? CA.scheduleEvent(
-                        c.deferRender,
+                        deferRender,
                         applyActionEvent([
                             CA.render,
                             CA.mapState(s => bufferEnabledLens.set(false)(s)),
