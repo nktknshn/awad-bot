@@ -8,10 +8,10 @@ export const setDoFlush = (doFlush: boolean) => ({
         ({ ...s, doFlush })
 })
 
-export const setBufferEnabled = (bufferEnabled: boolean) => ({
+export const setBufferEnabled = (bufferedInputEnabled: boolean) => ({
     kind: 'chatstate-action' as 'chatstate-action',
-    f: <R extends { bufferEnabled: boolean }>(s: R) =>
-        ({ ...s, bufferEnabled })
+    f: <R extends { bufferedInputEnabled: boolean }>(s: R) =>
+        ({ ...s, bufferedInputEnabled })
 })
 
 

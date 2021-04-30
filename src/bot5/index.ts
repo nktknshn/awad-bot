@@ -56,16 +56,7 @@ function applyActionEvent<R, H, E>(
 
 type AppEvents = ApplyActionsEvent<MyState, AppAction, AppEvents>
 
-type MyState = {
-    store: StoreF<StoreState>,
-    userId: number,
-    doFlush: boolean
-    deferredRenderTimer?: NodeJS.Timeout,
-    deferRender: number,
-    bufferEnabled: boolean
-}
-
-const bufferEnabledLens = Lens.fromProp<AppChatState>()('bufferEnabled')
+const bufferEnabledLens = Lens.fromProp<AppChatState>()('bufferedInputEnabled')
 
 const applyActionEventReducer = <R, H, E>() => reducer(
     (event: ApplyActionsEvent<R, H, E> | any): event is ApplyActionsEvent<R, H, E> =>
@@ -90,7 +81,17 @@ function makeEventReducer<R, H, E>(
             )(event))(ctx)
     }
 }
-// eventReducer<R,H,E>()
+
+type MyState = {
+    store: StoreF<StoreState>,
+    userId: number,
+    doFlush: boolean
+    deferredRenderTimer?: NodeJS.Timeout,
+    deferRender: number,
+    bufferedInputEnabled: boolean
+}
+
+
 export const createApp = () =>
     getApp<MyState, AppAction, AppEvents>({
         chatStateFactory: (ctx) => createChatState({
@@ -98,7 +99,7 @@ export const createApp = () =>
             userId: ctx.from?.id!,
             doFlush: true,
             deferRender: 0,
-            bufferEnabled: false
+            bufferedInputEnabled: false
         }),
         renderFunc: renderComponent({
             component: App,
@@ -115,18 +116,18 @@ export const createApp = () =>
             CA.chatState(c => c.doFlush ? CA.nothing : CA.addRenderedUserMessage()),
             CA.applyEffects,
             CA.chatState(c =>
-                c.bufferEnabled == false
-                    ? CA.sequence([
-                        CA.render,
-                        CA.chatState(c => c.doFlush ? CA.flush : CA.nothing)
-                    ])
-                    : CA.scheduleEvent(
+                c.bufferedInputEnabled
+                    ? CA.scheduleEvent(
                         c.deferRender,
                         applyActionEvent([
                             CA.render,
                             CA.mapState(s => bufferEnabledLens.set(false)(s)),
                             CA.chatState(c => c.doFlush ? CA.flush : CA.nothing)
                         ]))
+                    : CA.sequence([
+                        CA.render,
+                        CA.chatState(c => c.doFlush ? CA.flush : CA.nothing)
+                    ])
             ),
         ]),
         handleAction: CA.sequence([

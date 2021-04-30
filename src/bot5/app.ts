@@ -122,27 +122,28 @@ const Set = connected(
             on(caseText, action(({ messageText }) =>
                 [
                     setStateF(lenses.list.modify(append(messageText)))
-                    ,...[list.length == 0 ? [setBufferEnabled(true), deferRender(3000)]: []]
+                    ,...[list.length == 0 ? [setBufferEnabled(true), deferRender(1000)]: []]
                 ]
             ))
         ])
 
         yield effect(() => [setDoFlush(false)])
+        const reset = [setDoFlush(true), deferRender(0), setBufferEnabled(false)]
 
         if (list.length) {
             yield message('type your list: ')
 
-            for (const m of pipe(userMessages, takeRight(10))) {
+            for (const m of pipe(userMessages, takeRight(5))) {
                 yield userMessage(m)
             }
 
             yield message(`list: ${list}`)
-            yield button('Done', () => [onDone(list), setDoFlush(true), deferRender(0), setBufferEnabled(false)])
-            yield button('Cancel', () => [onCancel(), setDoFlush(true), deferRender(0), setBufferEnabled(false)])
+            yield button('Done', () => [onDone(list), ...reset])
+            yield button('Cancel', () => [onCancel(), ...reset])
         }
         else {
             yield message(`start typing:`)
-            yield button('Cancel', () => [onCancel(), setDoFlush(true)])
+            yield button('Cancel', () => [onCancel(), ...reset])
 
         }
     })
