@@ -5,7 +5,7 @@ import { append, flush } from "./bot3/util"
 import * as CA from './lib/chatactions'
 import { ChatState, createChatState, getApp, getUserMessages, renderComponent } from "./lib/application"
 import { getTrackingRenderer } from "./lib/chatrenderer"
-import { connected4 } from "./lib/component"
+import { connected } from "./lib/component"
 import { GetSetState } from "./lib/elements"
 import { button, message, messagePart, nextMessage } from "./lib/elements-constructors"
 import { action, caseText, inputHandler, on } from "./lib/input"
@@ -31,7 +31,7 @@ interface Context {
     };
 }
 
-const App = connected4(
+const App = connected(
     (s: Context) => s,
     function* App(
         ctx, props,

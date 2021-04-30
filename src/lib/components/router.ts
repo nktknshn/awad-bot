@@ -1,5 +1,5 @@
 import { isSome, none, Option, some } from "fp-ts/lib/Option";
-import { Component, ComponentConnected, ComponentWithState, connected4 } from "../component";
+import { Component, ComponentConnected, ComponentWithState, connected } from "../component";
 
 interface RouteMatcher<PP, P extends M, S, M, RS, R> {
     (path: PP): Option<ComponentConnected<P, S, M, RS, R>>;
@@ -79,7 +79,7 @@ export function Router<P,
             , void, void>>;
 
 export function Router(...matchers: any[]) {
-    return connected4(
+    return connected(
         (c: any) => ({}),
         function* (
             props: any

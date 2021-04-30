@@ -83,7 +83,7 @@ export function connected2<P extends M, S, M, State, PP, R extends ComponentGene
     );
 }
 
-export function connected4<P extends M, S, M, State, PP, R extends ComponentGenerator>(
+export function connected<P extends M, S, M, State, PP, R extends ComponentGenerator>(
     mapper: (state: State) => M,
     cons: (reqs: P, props: PP, getset: GetSetState<S>) => R
 ): (props: PP) => ComponentConnected<P & PP, S, M, State, R> {

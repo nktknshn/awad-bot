@@ -97,3 +97,4 @@ export const caseText = O.chain((d: InputHandlerData) =>
 export const nextHandlerAction = action(nextHandler)
 // export const ifTrue = (pred: () => boolean) => <T>(m: O.Option<T>) => pred() ? m : O.none
 export const ifTrue = O.filter
+export const caseTextEqual = (text: string) => on(caseText, ifTrue(({ messageText }) => messageText == text))

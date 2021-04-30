@@ -14,7 +14,7 @@ import { createChatHandlerFactory } from "./lib/chathandler";
 import { ChatState, createChatState, getApp, renderComponent } from "./lib/application";
 import { getTrackingRenderer } from './lib/chatrenderer';
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
-import { connected4 } from "./lib/component";
+import { connected } from "./lib/component";
 import { GetSetState } from "./lib/elements";
 import { button, message } from "./lib/elements-constructors";
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
@@ -33,7 +33,7 @@ type AppContext = StoreState & {
 export const casePassword =
     (password: string) => on(caseText, ifTrue(({ messageText }) => messageText == password))
 
-const VisibleSecrets = connected4(
+const VisibleSecrets = connected(
     (ctx: AppContext) => ctx,
     function* (
         { items, secondsLeft, dispatcher: { onDeleteItem, onSetVisible, onSetSecondsLeft } }
@@ -71,7 +71,7 @@ const VisibleSecrets = connected4(
 )
 
 
-export const App = connected4(
+export const App = connected(
     (ctx: AppContext) => ctx,
     function* (
         { isVisible, dispatcher: { onSetVisible, onAddItem } },

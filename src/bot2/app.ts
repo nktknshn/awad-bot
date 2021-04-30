@@ -1,6 +1,6 @@
 import { pipe } from "fp-ts/lib/function";
 import { map as mapOpt, toUndefined } from "fp-ts/lib/Option";
-import { connected1 as connected1, connected4 } from "../lib/component";
+import { connected1 as connected1, connected } from "../lib/component";
 import { button, buttonsRow, effect, message } from "../lib/elements-constructors";
 import { action, inputHandler, on, otherwise } from "../lib/input";
 import { select } from "../lib/state";
@@ -69,7 +69,7 @@ const App = connected1(
     }
 )
 
-const MainMenu = connected4(
+const MainMenu = connected(
     select(getDispatcher, getUser),
     function* (
         { user, dispatcher: { onRedirect } },
