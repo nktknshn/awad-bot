@@ -242,7 +242,7 @@ function createApp() {
                 [
                     CA.addRenderedUserMessage(),
                     saveToTracker,
-                    CA.applyInputHandler(),
+                    CA.applyInputHandler,
                     CA.chatState(c =>
                         c.deferRender == 0
                             ? CA.render
@@ -253,7 +253,7 @@ function createApp() {
             ],
         ]),
         handleAction: CA.sequence(
-            [CA.applyActionHandler(), CA.replyCallback, CA.render]
+            [CA.applyActionHandler, CA.replyCallback, CA.render]
         ),
         handleEvent: async (ctx, event) => {
             if (event.kind === 'StateActionEvent') {

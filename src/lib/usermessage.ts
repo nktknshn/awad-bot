@@ -4,6 +4,10 @@ import { wrapR } from "./elements";
 import { OutcomingMessageType, RenderDraft } from "./elements-to-messages";
 import { RenderedElement } from "./rendered-messages";
 
+export function userMessage(messageId: number) {
+    return new UserMessageElement(messageId)
+}
+
 export class UserMessageElement {
     kind: 'UserMessageElement' = 'UserMessageElement'
     constructor(

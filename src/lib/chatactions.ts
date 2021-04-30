@@ -34,9 +34,9 @@ export async function applyEffects<R, H, E>(
     const cd = await sequence<R, H, E>(
         ctx.app.actionReducer(r.effects.map(_ => _.element.callback()))
     )({ ...ctx, chatdata: r.chatdata })
-    
+
     printStateTree(cd.treeState.nextStateTree!)
-    
+
     return cd
 }
 
@@ -93,11 +93,8 @@ export function sequence<R, H, E>(
     }
 }
 
-export function applyInputHandler<R, H, E>
-    (): AppChatAction<R, H, E> {
-    return async (
-        ctx
-    ): Promise<ChatState<R, H>> =>
+export const applyInputHandler =
+    async <R, H, E>(ctx: ChatActionContext<R, H, E>): Promise<ChatState<R, H>> =>
         pipe(
             O.fromNullable(ctx.chatdata.inputHandler),
             O.map(f => f(ctx.tctx)),
@@ -107,13 +104,9 @@ export function applyInputHandler<R, H, E>
             sequence,
             a => a(ctx),
         )
-}
 
-export function applyActionHandler<R, H, E>
-    (): AppChatAction<R, H, E> {
-    return async (
-        ctx
-    ): Promise<ChatState<R, H>> =>
+export const applyActionHandler =
+    async <R, H, E>(ctx: ChatActionContext<R, H, E>): Promise<ChatState<R, H>> =>
         pipe(
             O.fromNullable(ctx.chatdata.actionHandler),
             O.map(f => f(ctx.tctx)),
@@ -123,7 +116,6 @@ export function applyActionHandler<R, H, E>
             sequence,
             a => a(ctx),
         )
-}
 
 
 export type AppChatAction<R, H, E> = ChatAction<R, H, ChatState<R, H>, E>
@@ -185,10 +177,10 @@ export function app<R, H, E>(
     ) => pred(ctx.app)(ctx)
 }
 
-export function flatMap<R, H, E>(
+export function chain<R, H, E>(
     f: (ctx: ChatActionContext<R, H, E>) => AppChatAction<R, H, E>,
-): AppChatAction<R, H, E> {
-    return async (ctx) => f(ctx)(ctx)
+): (ctx: ChatActionContext<R, H, E>) => AppChatAction<R, H, E> {
+    return (ctx) => f(ctx)
 }
 
 export type Branch<R, H, T, E> = [
@@ -247,13 +239,13 @@ export const addRenderedUserMessage = <R, H, E>()
         })))
 }
 
-export const flushAction = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
+export const flush = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
     : Promise<ChatState<R, H>> =>
     pipe(
         chatdata,
         modifyRenderedElements(_ => [])
     )
 
-export const emptyAction = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
+export const nothing = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
     : Promise<ChatState<R, H>> =>
     chatdata

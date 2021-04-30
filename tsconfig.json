@@ -60,7 +60,7 @@
     // "constraintDepth": 100
   },
   "files": [
-    "./src/bot5.ts",
+    "./src/bot5.ts"
   ],
   "exclude": [
     "./node_modules/**", "**/*.spec.ts"

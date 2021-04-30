@@ -1,12 +1,15 @@
+import { combineSelectors, select, Selector } from "Libstate"
 import { append } from "../bot3/util"
-import { ChatState, createChatState, getApp, getUserMessages, renderComponent } from "../lib/application"
+import { ChatState, createChatState, getApp, renderComponent } from "../lib/application"
 import * as CA from '../lib/chatactions'
 import { extendDefaultReducer, flushReducer, storeReducer } from "../lib/reducer"
 import { storeAction, storef, StoreF } from "../lib/storeF"
 import { AppActionsFlatten } from "../lib/types-util"
-import { App, AppContext } from './app'
+import { App } from './app'
+import { withUserMessages } from "../lib/context"
 
-type StoreState = {
+export type Context = ReturnType<typeof contextCreator>
+export type StoreState = {
     lists: string[][]
 }
 
@@ -19,18 +22,28 @@ type MyState = {
 type AppAction = AppActionsFlatten<typeof App>
 type AppChatState = ChatState<MyState, AppAction>
 
-export function createApp() {
-    const createAppContext = (c: AppChatState): AppContext => ({
-        userMessages: getUserMessages(c),
-        store: {
-            addList: storeAction((list: string[]) => c.store.lens().lists.modify(append(list))),
-            reset: storeAction(() => c.store.lens().lists.set([])),
-            lists: c.store.state.lists,
+const withStore = ({ store: { state, lens } }: { store: StoreF<StoreState> }) => ({
+    store: {
+        actions: {
+            addList: storeAction(
+                (list: string[]) => lens().lists.modify(append(list))
+            ),
+            reset: storeAction(
+                () => lens().lists.set([])
+            ),
         },
-        userId: c.userId
-    })
+        state
+    }
+})
 
-    return getApp<MyState, AppAction>({
+const contextCreator = select(
+    withUserMessages,
+    withStore,
+    ({ userId }: { userId: number }) => ({ userId })
+)
+
+export const createApp = () =>
+    getApp<MyState, AppAction>({
         chatDataFactory: (ctx) => createChatState({
             store: storef<StoreState>({ lists: [] }),
             userId: ctx.from?.id!,
@@ -38,31 +51,27 @@ export function createApp() {
         }),
         renderFunc: renderComponent({
             component: App,
-            contextCreator: createAppContext,
+            contextCreator,
             props: {}
         }),
         init: CA.sequence([]),
         actionReducer:
             extendDefaultReducer(
-                flushReducer(
-                    CA.sequence([
-                        CA.flushAction,
-                    ])),
                 storeReducer()
             ),
         handleMessage: CA.sequence([
-            CA.applyInputHandler(),
-            CA.chatState(c => c.doFlush ? CA.emptyAction : CA.addRenderedUserMessage()),
+            CA.applyInputHandler,
+            CA.chatState(c => c.doFlush ? CA.nothing : CA.addRenderedUserMessage()),
             CA.applyEffects,
             CA.render,
-            CA.chatState(c => c.doFlush ? CA.flushAction : CA.emptyAction),
+            CA.chatState(c => c.doFlush ? CA.flush : CA.nothing),
         ]),
         handleAction: CA.sequence([
-            CA.applyActionHandler(),
+            CA.applyActionHandler,
             CA.replyCallback,
             CA.applyEffects,
             CA.render,
-            CA.chatState(c => c.doFlush ? CA.flushAction : CA.emptyAction),
+            CA.chatState(c => c.doFlush ? CA.flush : CA.nothing),
         ])
     })
-}
+

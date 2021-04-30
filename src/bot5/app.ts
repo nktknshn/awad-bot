@@ -8,26 +8,62 @@ import { GetSetState, LocalStateAction } from "Lib/elements"
 import { button, effect, message, messagePart, nextMessage } from "Lib/elements-constructors"
 import { action, caseText, ifTrue, inputHandler, on } from "Lib/input"
 import { StoreAction } from "Lib/storeF"
-import { UserMessageElement } from "Lib/usermessage"
+import { userMessage, UserMessageElement } from "Lib/usermessage"
 import { parsePathOpt, setDoFlush } from './util'
 import { last, takeRight } from 'fp-ts/lib/Array'
+import { combineSelectors, select } from "Lib/state"
+import { Context, StoreState } from 'bot5/index'
+import { flow } from 'fp-ts/lib/function'
 
-export type StoreState = {
-    lists: string[][]
-}
+const getUserMessages = ({ userMessages }: { userMessages: number[] }) => ({ userMessages })
+const getStore = ({ store }: { store: Context['store'] }) => ({ store })
+const getAddList = flow(getStore, ({ store }) => ({ addList: store.actions.addList }))
+const getLists = flow(getStore, ({ store }) => ({ lists: store.state.lists }))
+const getUserId = ({ userId }: { userId: number }) => ({ userId })
 
-export interface AppContext {
-    userMessages: number[],
-    store: {
-        lists: string[][],
-        addList: (list: string[]) => StoreAction<StoreState>;
-        reset: () => StoreAction<StoreState>
-    };
-    userId: number
-}
+export const App = connected(
+    select(getAddList),
+    function* (
+        { addList }, _,
+        { getState, setStateF }: GetSetState<{ path: string, query: ParsedUrlQuery }>
+    ) {
+        const {
+            path, lenses: { path: pathLens, query: queryLens }
+        } = getState({ path: '/main', query: {} })
+
+        yield inputHandler([
+            on(caseText,
+                ifTrue(({ messageText }) => messageText.startsWith('/start')),
+                action(_ => [
+                    setStateF(pathLens.set('/main?from_start=1')),
+                ])),
+            on(caseText,
+                action(({ messageText }) => [
+                    setStateF(pathLens.set(messageText)),
+                ])),
+        ])
+
+        const onDone = (list: string[]) => [
+            addList(list),
+            setStateF(pathLens.set('/get'))
+        ]
+
+        const onCancel = () => [setStateF(pathLens.set('/main'))]
+
+        yield pipe(
+            path,
+            parsePathOpt,
+            O.fold(
+                () => AppRouter({ path: '/error', query: {}, onDone, onCancel }),
+                props => AppRouter({ ...props, onDone, onCancel })
+            )
+        )
+    }
+)
+
 
 type RouterProps = {
-    path: string, 
+    path: string,
     query: ParsedUrlQuery,
     onDone: (list: string[]) => (StoreAction<StoreState> | LocalStateAction)[]
     onCancel: () => (StoreAction<StoreState> | LocalStateAction)[],
@@ -48,57 +84,18 @@ const AppRouter = Router(
     ),
     Component(function* () {
         yield message('wrong input')
+        // yield effect(onCancel)
     })({})
 )
 
-export const App = connected(
-    ({ store }: { store: AppContext['store'] }) => ({ store }),
-    function* (
-        { store }, _,
-        { getState, setStateF }: GetSetState<{ path: string, query: ParsedUrlQuery }>
-    ) {
-        const {
-            path, lenses: { path: pathLens, query: queryLens }
-        } = getState({ path: '/main', query: {} })
-
-        yield inputHandler([
-            on(caseText,
-                ifTrue(({ messageText }) => messageText.startsWith('/start')),
-                action(_ => [
-                    setStateF(pathLens.set('/main?from_start=1')),
-                ])),
-            on(caseText,
-                action(({ messageText }) => [
-                    setStateF(pathLens.set(messageText)),
-                ])),
-        ])
-
-        const onDone = (list: string[]) => [
-            store.addList(list),
-            setStateF(pathLens.set('/get'))
-        ]
-
-        const onCancel = () => [setStateF(pathLens.set('/main'))]
-
-        yield pipe(
-            path,
-            parsePathOpt,
-            O.fold(
-                () => AppRouter({ path: '/error', query: {}, onDone, onCancel }),
-                props => AppRouter({ ...props, onDone, onCancel })
-            )
-        )
-    }
-)
-
-
 const Greeting = connected(
-    ({ userId }: { userId: number }) => ({ userId }),
-    function* (ctx, {
-        fromStart
-    }: { fromStart: boolean }) {
+    select(getUserId),
+    function* (
+        { userId },
+        { fromStart }: { fromStart: boolean }) {
+
         if (fromStart)
-            yield messagePart(`Привет ${ctx.userId}`)
+            yield messagePart(`Привет ${userId}`)
 
         yield messagePart('Комманды:')
         yield messagePart('/get')
@@ -108,7 +105,7 @@ const Greeting = connected(
 )
 
 const Set = connected(
-    ({ userMessages }: { userMessages: number[] }) => ({ userMessages }),
+    select(getUserMessages),
     function* (
         { userMessages },
         { onDone, onCancel }: {
@@ -129,19 +126,26 @@ const Set = connected(
 
         yield effect(() => setDoFlush(false))
 
-        yield message('set here: ')
+        if (list.length) {
+            yield message('type your list: ')
 
-        for (const m of pipe(userMessages, takeRight(3))) {
-            yield new UserMessageElement(m)
+            for (const m of pipe(userMessages, takeRight(3))) {
+                yield userMessage(m)
+            }
+
+            yield message(`list: ${list}`)
+            yield button('Done', () => [onDone(list), setDoFlush(true)])
+            yield button('Cancel', () => [onCancel(), setDoFlush(true)])
         }
+        else {
+            yield message(`start typing:`)
+            yield button('Cancel', () => [onCancel(), setDoFlush(true)])
 
-        yield message(`list: ${list}`)
-        yield button('Done', () => [onDone(list), setDoFlush(true)])
-        yield button('Cancel', () => [onCancel(), setDoFlush(true)])
+        }
     })
 
 const Get = connected(
-    ({ store }: { store: AppContext['store'] }) => ({ lists: store.lists }),
+    select(getLists),
     function* ({ lists }) {
         yield message('Your lists:')
         yield nextMessage()
@@ -153,5 +157,8 @@ const Get = connected(
             yield nextMessage()
         }
 
-        yield message('Go /main')
+        yield message([
+            'Go /main',
+            'Or /set more'
+        ])
     })

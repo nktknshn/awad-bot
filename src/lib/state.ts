@@ -30,7 +30,7 @@ export const createState = <S>(initialState: S): State<S> =>
     new State(initialState)
 
 
-export function combine<S1, S2, R1, R2>(
+export function combineSelectors<S1, S2, R1, R2>(
     sel1: Selector<S1, R1>,
     sel2: Selector<S2, R2>,
 ): Selector<S1 & S2, R1 & R2> {
