@@ -15,6 +15,14 @@ export function effect<R>(callback: () => R, type: 'OnCreated' | 'OnRemoved' = '
     return new EffectElement(callback, type)
 }
 
+export function onCreated<R>(callback: () => R) {
+    return new EffectElement(callback, 'OnCreated')
+}
+
+export function onRemoved<R>(callback: () => R) {
+    return new EffectElement(callback, 'OnRemoved')
+}
+
 export function actionHandler(callback: (data: string) => Promise<void>) {
     return new ActionsHandlerElement(callback)
 }
@@ -63,7 +71,7 @@ export function radioRow<R>(
     const rowsData =
         options.map(v => Array.isArray(v) ? v : [v, v] as [string, string])
 
-    return buttonsRow(
+    return buttonsRow<R>(
         rowsData.map(([opt, data], idx) => data == checked ? [`✅ ${opt}`, data] : [opt, data]),
         callback
     )
@@ -77,7 +85,7 @@ export function buttonsRow<R>(
     const rowsData =
         texts.map(v => Array.isArray(v) ? v : [v, v] as [string, string])
 
-    return new ButtonsRowElement(
+    return new ButtonsRowElement<R>(
         [
             ...rowsData.map(([text, data], idx) =>
                 button(text, () => callback(idx, data)))

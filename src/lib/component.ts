@@ -15,12 +15,6 @@ export interface ComponentStateless<P, R = ComponentGenerator> {
     kind: 'component';
 }
 
-// export interface ComponentWithState<P, S = never, R = ComponentGenerator> {
-//     cons: CompConstructorWithState<P, S, R>;
-//     props: P;
-//     kind: 'component-with-state';
-// }
-
 export type ComponentWithState<P, S = never, R = ComponentGenerator> = ComponentConnected<P, S, {}, {}, R>
 
 export interface ComponentConnected<P extends M, S, M, RootState, R = ComponentGenerator> {
@@ -32,9 +26,6 @@ export interface ComponentConnected<P extends M, S, M, RootState, R = ComponentG
 }
 
 export type ComponentElement =
-    // ComponentStateless<any> |
-    // ComponentWithState<any, any> |
-    // ComponentWithState<any, any, any> |
     ComponentConnected<any, any, any, any> |
     ComponentConnected<any, any, any, any, any>;
 

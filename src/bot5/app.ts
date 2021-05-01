@@ -14,7 +14,8 @@ import { last, takeRight } from 'fp-ts/lib/Array'
 import { combineSelectors, select } from "Lib/state"
 import { Context, StoreState } from 'bot5/index'
 import { flow } from 'fp-ts/lib/function'
-import { GetSetState, LocalStateAction } from 'Libtree2'
+import { GetSetState, LocalStateAction } from 'Lib/tree2'
+import { Form1 } from './components/form'
 
 const getUserMessages = ({ userMessages }: { userMessages: number[] }) => ({ userMessages })
 const getStore = ({ store }: { store: Context['store'] }) => ({ store })
@@ -62,16 +63,16 @@ export const App = connected(
     }
 )
 
-type RouterProps = {
+type RouterProps<R> = {
     path: string,
     query: ParsedUrlQuery,
-    onDone: (list: string[]) => (StoreAction<StoreState> | LocalStateAction)[]
-    onCancel: () => (StoreAction<StoreState> | LocalStateAction)[],
+    onDone: (list: string[]) => R
+    onCancel: () => R,
 }
 
 const AppRouter = Router(
     routeMatcher(
-        (c: RouterProps) => c.path == '/main',
+        <R>(c: RouterProps<R>) => c.path == '/main',
         ({ query }) => Greeting({ fromStart: 'from_start' in query })
     ),
     routeMatcher(
@@ -81,6 +82,10 @@ const AppRouter = Router(
     routeMatcher(
         c => c.path == '/get',
         () => Get({})
+    ),
+    routeMatcher(
+        c => c.path == '/form',
+        ({ onCancel }) => Form1({ onCancel })
     ),
     Component(function* () {
         yield message('wrong input')
@@ -99,17 +104,18 @@ const Greeting = connected(
         yield messagePart('Комманды:')
         yield messagePart('/get')
         yield messagePart('/set')
+        yield messagePart('/form')
         yield nextMessage()
     }
 )
 
 const Set = connected(
     select(getUserMessages),
-    function* (
-        { userMessages },
+    function* <R>(
+        { userMessages }: { userMessages: number[] },
         { onDone, onCancel }: {
-            onDone: (list: string[]) => (StoreAction<StoreState> | LocalStateAction)[],
-            onCancel: () => (StoreAction<StoreState> | LocalStateAction)[],
+            onDone: (list: string[]) => R,
+            onCancel: () => R,
         },
         { getState, setState }: GetSetState<{
             list: string[]

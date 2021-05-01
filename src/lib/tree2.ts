@@ -1,5 +1,9 @@
 import * as A from 'fp-ts/lib/Array';
 import { pipe } from "fp-ts/lib/function";
+import * as O from 'fp-ts/lib/Option';
+import { AppReqs, GetAllBasics } from 'Libtypes-util';
+import { equal } from 'Libutil3dparty';
+import { Lens } from 'monocle-ts';
 import { ComponentElement, ComponentGenerator } from "./component";
 import { BasicElement, isComponentElement } from "./elements";
 
@@ -75,7 +79,7 @@ export function createElements<
         )
         // printRunResultComponent2(runResult)
         // printLocalStateTree(extractLocalStateTree(runResult))
-        const elements = extractElementsFromRun(runResult.result.output) as Els[]
+        const elements = extractElementsFromOutput(runResult.result.output) as Els[]
         return {
             treeState: {
                 runResult,
@@ -180,22 +184,22 @@ export function extractElementsFromRerun<Els extends BasicElement>(res: RerunRes
     let removedElements: Els[] = []
 
     if (res.rerunkind === 'updated') {
-        removedElements = extractElementsFromRun(res.oldChildren) as Els[]
-        newElements = extractElementsFromRun(res.result.output.filter(_ => _.kind === 'component')) as Els[]
+        removedElements = extractElementsFromOutput(res.oldChildren) as Els[]
+        newElements = extractElementsFromOutput(res.result.output.filter(_ => _.kind === 'component')) as Els[]
     }
 
     return {
-        elements: extractElementsFromRun(res.result.output) as Els[]
+        elements: extractElementsFromOutput(res.result.output) as Els[]
         , newElements, removedElements
     }
 }
 
-export function extractElementsFromRun(output: RunResult[]): BasicElement[] {
+export function extractElementsFromOutput(output: RunResult[]): BasicElement[] {
     return pipe(
         output,
         A.map(_ =>
             _.kind === 'component'
-                ? extractElementsFromRun(_.result.output)
+                ? extractElementsFromOutput(_.result.output)
                 : [_.element]
         ),
         A.flatten
@@ -344,7 +348,6 @@ function runComponent<C, S>(
     props: any,
     generator: () => ComponentGenerator<BasicElement | ComponentElement>
 } {
-    // if (comp.kind === 'component-with-state-connected') {
     const props = { ...comp.props, ...comp.mapper(context) }
     return {
         compId: comp.id ?? comp.cons.toString(),
@@ -363,7 +366,6 @@ export interface LocalStateAction<S = any> {
     index: number[],
     f: (s: S) => S
 }
-import { Lens } from 'monocle-ts'
 
 
 type LensObject<S> = {
@@ -425,23 +427,18 @@ export function applyLocalStateAction(
     tree: LocalStateTree,
     action: LocalStateAction<any>
 ): LocalStateTree {
-    const res = applyFunctionAtIndex(
+    return applyFunctionAtIndex(
         tree,
         action,
         action.index.slice(
             1
         )
     )
-    console.log('applyLocalStateAction');
+    // console.log('applyLocalStateAction');
+    // console.log(res);
 
-    console.log(res);
-
-    return res
+    // return res
 }
-
-import * as O from 'fp-ts/lib/Option'
-import { equal } from 'Libutil3dparty';
-import { AppReqs, GetAllBasics } from 'Libtypes-util';
 
 export function applyFunctionAtIndex(
     tree: LocalStateTree,

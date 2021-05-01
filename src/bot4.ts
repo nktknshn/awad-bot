@@ -6,7 +6,6 @@ import * as CA from './lib/chatactions'
 import { ChatState, createChatState, getApp, getUserMessages, renderComponent } from "./lib/application"
 import { getTrackingRenderer } from "./lib/chatrenderer"
 import { connected } from "./lib/component"
-import { GetSetState } from "./lib/elements"
 import { button, message, messagePart, nextMessage } from "./lib/elements-constructors"
 import { action, caseText, inputHandler, on } from "./lib/input"
 import { modifyRenderedElements } from "./lib/inputhandler"
@@ -17,6 +16,9 @@ import { AppActionsFlatten } from "./lib/types-util"
 import { UserMessageElement } from "./lib/usermessage"
 import { attachAppToBot } from "./lib/util"
 import { token } from "./telegram-token.json"
+import { GetSetState } from "Libtree2"
+import { select } from "Libstate"
+import { identity } from "fp-ts/lib/function"
 
 type StoreState = {
     lists: string[][]
@@ -32,10 +34,10 @@ interface Context {
 }
 
 const App = connected(
-    (s: Context) => s,
+    select(({ store, userMessages }: Context) => ({ store, userMessages })),
     function* App(
         ctx, props,
-        { getState, setStateF }: GetSetState<{
+        { getState, setState }: GetSetState<{
             isCreatingList: boolean,
             list: string[]
         }>
@@ -43,11 +45,11 @@ const App = connected(
 
         const { isCreatingList, list, lenses } = getState({ isCreatingList: false, list: [] })
 
-        const addItem = (item: string) => setStateF(lenses.list.modify(append(item)))
+        const addItem = (item: string) => setState(lenses.list.modify(append(item)))
         const addList = () => [
-            setStateF(lenses.isCreatingList.set(false)),
+            setState(lenses.isCreatingList.set(false)),
             ctx.store.addList(list),
-            setStateF(lenses.list.set([])),
+            setState(lenses.list.set([])),
         ]
 
         if (isCreatingList) {
@@ -82,7 +84,7 @@ const App = connected(
                     ctx.store.reset()
                 ])
 
-            yield button('create a list', () => setStateF(lenses.isCreatingList.set(true)))
+            yield button('create a list', () => setState(lenses.isCreatingList.set(true)))
         }
     }
 )
@@ -111,7 +113,7 @@ function createApp() {
 
     return getApp<MyState, AppAction>({
         renderer,
-        chatDataFactory: () => createChatState({
+        chatStateFactory: () => createChatState({
             store: storef<StoreState>({ lists: [] })
         }),
         init: CA.sequence([cleanChatAction]),
@@ -129,8 +131,8 @@ function createApp() {
             }),
             storeReducer()
         ),
-        handleMessage: CA.sequence([CA.addRenderedUserMessage(), saveToTracker, CA.applyInputHandler(), CA.render]),
-        handleAction: CA.sequence([CA.applyActionHandler(), CA.replyCallback, CA.render])
+        handleMessage: CA.sequence([CA.addRenderedUserMessage(), saveToTracker, CA.applyInputHandler, CA.render]),
+        handleAction: CA.sequence([CA.applyActionHandler, CA.replyCallback, CA.render])
     })
 }
 
