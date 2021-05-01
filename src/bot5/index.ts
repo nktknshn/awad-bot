@@ -61,7 +61,7 @@ export const createApp = () =>
             store: storef<StoreState>({ lists: [] }),
             userId: ctx.from?.id!,
             doFlush: true,
-            deferRender: 300,
+            deferRender: 1500,
             bufferedInputEnabled: false,
             bufferedOnce: false
         }),

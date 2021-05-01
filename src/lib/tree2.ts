@@ -181,7 +181,7 @@ export function extractElementsFromRerun<Els extends BasicElement>(res: RerunRes
 
     if (res.rerunkind === 'updated') {
         removedElements = extractElementsFromRun(res.oldChildren) as Els[]
-        newElements = extractElementsFromRun(res.result.output) as Els[]
+        newElements = extractElementsFromRun(res.result.output.filter(_ => _.kind === 'component')) as Els[]
     }
 
     return {
@@ -191,25 +191,15 @@ export function extractElementsFromRerun<Els extends BasicElement>(res: RerunRes
 }
 
 export function extractElementsFromRun(output: RunResult[]): BasicElement[] {
-    const as = pipe(
+    return pipe(
         output,
         A.map(_ =>
             _.kind === 'component'
                 ? extractElementsFromRun(_.result.output)
                 : [_.element]
         ),
-        // A.flatten
+        A.flatten
     )
-
-    let res: BasicElement[] = []
-    for (const a of as) {
-        res = [...res, ...a]
-    }
-
-    console.log(res);
-
-
-    return res
 }
 
 export interface RerunResultUpdated extends RunResultComponent<RunResult> {

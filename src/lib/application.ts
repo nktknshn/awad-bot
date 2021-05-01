@@ -157,9 +157,9 @@ export const genericRenderComponent = <Els>(scheme: RenderScheme<Els>) => {
 
             const renderActions = createRenderActions(chatState.renderedElements, draft.messages);
 
-            const effects = scheme.createDraft<HandlerReturn>(
-                scheme.getEffects<HandlerReturn>(removedElements, newElements)
-            ).effects
+            const { effects } = scheme.createDraft<HandlerReturn>(
+                scheme.getEffects(removedElements, newElements)
+            )
 
             return {
                 effects,

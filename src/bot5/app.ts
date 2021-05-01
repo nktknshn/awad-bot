@@ -141,9 +141,6 @@ const Set = connected(
                     lenses.list.modify(append(messageText)))))
         ])
 
-        // const reset = []
-        const cancel = () => [onCancel()]
-
         if (list.length) {
             yield message('type your list: ')
 
@@ -153,11 +150,11 @@ const Set = connected(
 
             yield message(`list: ${list}`)
             yield button('Done', () => [onDone(list)])
-            yield button('Cancel', cancel)
+            yield button('Cancel', onCancel)
         }
         else {
             yield message(`start typing:`)
-            yield button('Cancel', cancel)
+            yield button('Cancel', onCancel)
 
         }
     })
