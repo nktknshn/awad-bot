@@ -1,11 +1,11 @@
 import { button, input, message, messagePart } from "../elements-constructors"
-import { GetSetState } from "../elements"
 import { Component } from "../component"
 import { enumerate, partitate, textColumns, toggleItem } from "../util"
 import { action, caseText, inputHandler, nextHandler, on } from "../input"
+import { GetSetState } from "Libtree2"
 
-type OnClick<T> = { onClick: (arg: T) => Promise<void> }
-type OnUpdate<T> = { onUpdate: (arg: T) => Promise<void> }
+type OnClick<T,R> = { onClick: (arg: T) => R }
+type OnUpdate<T,R> = { onUpdate: (arg: T) => R }
 
 
 export type CheckListProps = {
@@ -13,12 +13,12 @@ export type CheckListProps = {
 }
 
 export const CheckListStateless =
-    Component(function* CheckListStateless({
+    Component(function* CheckListStateless<R>({
         items, selectedIds, onClick
     }: {
         items: string[],
         selectedIds: number[]
-    } & OnClick<number>) {
+    } & OnClick<number, R>) {
         yield Component(CheckListInput)({ items, selectedIds, onClick })
         yield Component(CheckListBody)({ items, selectedIds })
     })
@@ -26,18 +26,16 @@ export const CheckListStateless =
 export function* CheckList(
     {
         items, onClick, onUpdate
-    }: CheckListProps & OnClick<number[]> & OnUpdate<number[]>,
+    }: CheckListProps & OnClick<number[], any> & OnUpdate<number[], any>,
     { getState, setState }: GetSetState<{
         selectedIds: number[]
     }>
 ) {
-    const { selectedIds } = getState({ selectedIds: [] })
+    const { selectedIds , lenses} = getState({ selectedIds: [] })
 
     yield Component(CheckListInput)({
         items, selectedIds, onClick: async (id) => {
-            setState({
-                selectedIds: toggleItem(selectedIds, id)
-            })
+            setState(lenses.selectedIds.set(toggleItem(selectedIds, id)))
         }
     })
     yield Component(CheckListBody)({ items, selectedIds })
@@ -45,10 +43,10 @@ export function* CheckList(
 }
 
 
-export function* CheckListInput({
+export function* CheckListInput<R>({
     items,
     onClick
-}: CheckListProps & OnClick<number> & { selectedIds: number[] }) {
+}: CheckListProps & OnClick<number, R> & { selectedIds: number[] }) {
     yield inputHandler([
         on(caseText, action(({ messageText }) => {
             const p = parseCommandAndId(messageText) 

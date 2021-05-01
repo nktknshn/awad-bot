@@ -1,20 +1,18 @@
 import { Markup } from "telegraf"
 import { InputFile } from "telegraf/typings/telegram-types"
-import { InputHandlerData } from "./messages"
+import { InputHandlerData } from "./textmessage"
 import { ButtonElement, ButtonsRowElement, TextElement, RequestLocationButtonElement, FileElement, TextPartElement, NextMessageElement, EffectElement, ActionsHandlerElement, InputHandlerElement } from "./elements"
-
 
 export function file(f: InputFile) {
     return new FileElement(f)
 }
 
-
 export function photo(f: InputFile) {
     return new FileElement(f, true)
 }
 
-export function effect<R>(callback: () => R) {
-    return new EffectElement(callback)
+export function effect<R>(callback: () => R, type: 'OnCreated' | 'OnRemoved' = 'OnCreated') {
+    return new EffectElement(callback, type)
 }
 
 export function actionHandler(callback: (data: string) => Promise<void>) {
@@ -57,9 +55,9 @@ export function button<R>(
     return new ButtonElement(buttonText, data, callback)
 }
 
-export function radioRow(
+export function radioRow<R>(
     options: (string | [string, string])[],
-    callback: (idx: number, data: string) => Promise<void>,
+    callback: (idx: number, data: string) => R,
     checked?: string) {
 
     const rowsData =
@@ -71,9 +69,9 @@ export function radioRow(
     )
 }
 
-export function buttonsRow(
+export function buttonsRow<R>(
     texts: (string | [string, string])[],
-    callback: (idx: number, data: string) => Promise<void>
+    callback: (idx: number, data: string) => R
 ) {
 
     const rowsData =

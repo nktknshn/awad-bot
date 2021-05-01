@@ -4,9 +4,7 @@ import { pipe } from 'fp-ts/lib/pipeable';
 import { Do } from 'fp-ts-contrib/lib/Do';
 
 import { InputHandlerElement } from "./elements";
-import { InputHandlerData } from "./messages";
-
-import { TelegrafContext } from 'telegraf/typings/context';
+import { InputHandlerData } from "./textmessage";
 
 type Matcher2Ret<R> = O.Option<R | 'done' | 'next'>;
 

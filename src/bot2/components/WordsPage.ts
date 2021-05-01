@@ -3,11 +3,9 @@ import { eqString } from "fp-ts/lib/Eq"
 import { pipe } from "fp-ts/lib/function"
 import { ordString } from "fp-ts/lib/Ord"
 import { CheckListStateless } from "../../lib/components/checklist"
-import { GetSetState } from "../../lib/elements"
 import { Component, connected2 } from "../../lib/component"
 import { button, buttonsRow, input, message, nextMessage, radioRow } from "../../lib/elements-constructors"
 import { action, caseText, inputHandler, nextHandler, nextHandlerAction, on, otherwise } from "../../lib/input"
-import { InputHandlerData } from "../../lib/messages"
 import { select } from "../../lib/state"
 import { toggleItem } from "../../lib/util"
 import { caseWordId } from "../input"
@@ -17,6 +15,8 @@ import { Card } from "./Card"
 import { CardPageInput } from "./CardPage"
 import { WordsList } from "./WordsList"
 import { WithDispatcher } from "../storeToDispatch"
+import { GetSetState } from "Libtree2"
+import { InputHandlerData } from "Libtextmessage"
 
 type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
 
@@ -28,7 +28,7 @@ interface WordsPageState {
   wordId?: number
 }
 
-function WordsPageInput({ onWordId }: { onWordId: (wordId: number) => Promise<void> }) {
+function WordsPageInput<R>({ onWordId }: { onWordId: (wordId: number) => R }) {
   return inputHandler(
     [
       on(caseWordId, action(a => [onWordId(a.example)])),
@@ -47,7 +47,7 @@ const WordsPage = connected2(
       if (!user)
         return
 
-      const { currentFilter, filteredTags, showTagsPicker, wordId: openWordId } = getState({
+      const { currentFilter, filteredTags, showTagsPicker, wordId: openWordId, lenses } = getState({
         currentFilter: 'All',
         filteredTags: [],
         showTagsPicker: false,
@@ -68,23 +68,22 @@ const WordsPage = connected2(
       }
 
       yield WordsPageInput({
-        onWordId: async (wordId) => {
-          setState({ wordId })
-        }
+        onWordId: (wordId) =>
+          setState(lenses.wordId.set(wordId))
+
       })
 
       yield Component(WordsList)({ words, columns: settings.columns })
 
       yield radioRow(
         ['All', 'No meanings', 'By tag'],
-        async (idx, data) => {
-          setState({
-            currentFilter: data as WordListFiltersType,
-            showTagsPicker: data == 'By tag'
-          })
-        },
-        currentFilter
-      )
+        (idx, data) =>
+          [
+            setState(lenses.currentFilter.set(data as WordListFiltersType)),
+            setState(lenses.showTagsPicker.set(data == 'By tag')),
+          ],
+        currentFilter)
+
 
       yield button('Main', () => dispatcher.onRedirect('main'))
 
@@ -94,12 +93,13 @@ const WordsPage = connected2(
         yield CheckListStateless({
           items: allTags.map(_ => _.slice(1)),
           selectedIds: pipe(filteredTags, map(_ => allTags.indexOf(_))),
-          onClick: (idx) => setState({
-            filteredTags: toggleItem(filteredTags, allTags[idx])
-          })
+          onClick: (idx) => setState(
+            lenses.filteredTags.set(toggleItem(filteredTags, allTags[idx]))
+            // filteredTags: toggleItem(filteredTags, allTags[idx])
+          )
         })
 
-        yield button('Ok', () => setState({ showTagsPicker: false }))
+        yield button('Ok', () => setState(lenses.showTagsPicker.set(false)))
       }
 
       const word = user.words.find(_ => _.id == openWordId)
@@ -109,12 +109,12 @@ const WordsPage = connected2(
         const isPinned = user.pinnedWordsIds.indexOf(word.id) > -1
 
         yield nextMessage()
-        yield CardPage({ word, isPinned, onClose: () => setState({ wordId: undefined }), dispatcher })
+        yield CardPage({ word, isPinned, onClose: () => setState(lenses.wordId.set(undefined)), dispatcher })
       }
     }
 )
 
-type Callback<K extends keyof any, T = never> = Record<K, (arg?: T) => Promise<void>>
+// type Callback<K extends keyof any, T = never> = Record<K, <R>(arg?: T) => R>
 
 type LocalState = {
   rename: boolean,
@@ -123,12 +123,12 @@ type LocalState = {
 }
 
 const CardPage = Component(
-  function* ({
+  function*  <R>({
     word, isPinned, dispatcher, onClose
-  }: { word: WordEntityState, isPinned: boolean } & Callback<'onClose'> & WithDispatcher,
+  }: { word: WordEntityState, isPinned: boolean } & { onClose: () => R } & WithDispatcher,
     { getState, setState }: GetSetState<LocalState>
   ) {
-    const { rename, deleteConfirmation, showMenu } = getState({
+    const { rename, deleteConfirmation, showMenu, lenses } = getState({
       rename: false,
       deleteConfirmation: false,
       showMenu: false
@@ -148,26 +148,26 @@ const CardPage = Component(
           deleteConfirmation ? '❗ Yes, delete!' : 'Delete',
           'Close'
         ],
-        async (idx, data) => {
+        (idx, data) => {
 
-          data == 'Close' && setState({ showMenu: false });
+          if (data == 'Close') return setState(lenses.showMenu.set(false));
 
-          (data == 'Unpin' || data == 'Pin') &&
-            await dispatcher.onTogglePinnedWord(word.id)
+          if (data == 'Unpin' || data == 'Pin')
+            return dispatcher.onTogglePinnedWord(word.id)
 
-          data == 'Rename' &&
-            setState({ rename: true })
+          if (data == 'Rename')
+            return setState(lenses.rename.set(true))
 
-          data == 'Delete' &&
-            setState({ deleteConfirmation: true })
+          if (data == 'Delete')
+            return setState(lenses.deleteConfirmation.set(true))
 
-          data == '❗ Yes, delete!' &&
-            await dispatcher.onRedirect('words?message=word_removed')
+          if (data == '❗ Yes, delete!')
+            return dispatcher.onRedirect('words?message=word_removed')
               .then(() => dispatcher.onDeleteWord(word))
         }
       )
     else {
-      yield button('Menu', () => setState({ showMenu: true }))
+      yield button('Menu', () => setState(lenses.showMenu.set(true)))
       yield button('Close', onClose)
     }
 
@@ -176,8 +176,8 @@ const CardPage = Component(
       yield Component(InputBox)({
         title: 'Enter new word:',
         onSuccess: wordText => dispatcher.onUpdateWord(word, { word: wordText }),
-        onCancel: () => setState({ rename: false }),
-        onWrongInput: (data) => setState({ rename: false })
+        onCancel: () => setState(lenses.rename.set(false)),
+        onWrongInput: (data) => setState(lenses.rename.set(false))
       })
     }
 
@@ -202,16 +202,16 @@ function getAllTags(words: WordEntityState[]) {
 }
 
 
-function* InputBox({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Cancel' }: {
+function* InputBox<R1, R2, R3>({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Cancel' }: {
   title: string,
   cancelTitle?: string,
-  onCancel: () => Promise<void>,
-  onSuccess: (text: string) => Promise<void>,
-  onWrongInput: (ctx: InputHandlerData) => Promise<void>,
+  onCancel: () => R1,
+  onSuccess: (text: string) => R2,
+  onWrongInput: (ctx: InputHandlerData) => R3,
 }) {
 
   yield inputHandler([
-    on(caseText, action(({messageText}) => onSuccess(messageText))),
+    on(caseText, action(({ messageText }) => onSuccess(messageText))),
     on(otherwise, action(a => onWrongInput(a.data))),
     action(nextHandler)
   ])

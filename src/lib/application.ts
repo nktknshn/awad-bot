@@ -1,6 +1,7 @@
 import * as A from 'fp-ts/lib/Array';
 import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
+import { createElements, TreeState } from 'Libtree2';
 import { Store } from "redux";
 import { TelegrafContext } from "telegraf/typings/context";
 import { PhotoGroupElement } from "../bot3/mediagroup";
@@ -9,19 +10,19 @@ import { AppChatAction, ChatActionContext } from "./chatactions";
 import { ChatRenderer } from "./chatrenderer";
 import { ComponentElement } from "./component";
 import { createDraftWithImages, Effect } from "./draft";
-import { BasicElement } from "./elements";
+import { BasicElement, EffectElement } from "./elements";
 import { RenderDraft } from "./elements-to-messages";
 import { chainInputHandlers, contextOpt, findRepliedTo } from './inputhandler';
 import { mylog } from "./logging";
 import { createRenderActions } from "./render-actions";
 import { BotMessage, RenderedElement } from "./rendered-messages";
-import { ElementsTree, TreeState } from "./tree";
-import { AppActionsFlatten, AppReqs, GetAllBasics } from "./types-util";
+// import { ElementsTree, TreeState } from "./tree";
+import { AppActionsFlatten, AppReqs, GetAllBasics, If } from "./types-util";
 import { renderActions as applyRenderActions } from "./ui";
 import { RenderedUserMessage, UserMessageElement } from "./usermessage";
 
 export type ChatState<R, H> = {
-    treeState: TreeState;
+    treeState?: TreeState;
     renderedElements: RenderedElement[];
     inputHandler?: (ctx: TelegrafContext) => (H | undefined);
     actionHandler?: (ctx: TelegrafContext) => H;
@@ -59,7 +60,7 @@ export const getUserMessages = <R, H>(c: ChatState<R, H>): number[] => {
 };
 
 export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
-    treeState: {},
+    treeState: undefined,
     renderedElements: [],
     ...r
 });
@@ -89,40 +90,28 @@ export function getApp<R = {}, H = never, E = {}>(
     return app;
 }
 
-export interface InputHandlerF<R> {
-    (ctx: TelegrafContext): R;
-}
-/**
- * Conditional: if `T` extends `U`, then returns `True` type, otherwise `False` type
- */
-export type If<T, U, True, False> = [T] extends [U] ? True : False;
-/**
- * If `T` is defined (not `never`), then resulting type is equivalent to `True`, otherwise to `False`.
- */
-
-export type IfDef<T, True, False> = If<T, never, False, True>;
-/**
- * If `MaybeNever` type is `never`, then a `Fallback` is returned. Otherwise `MaybeNever` type is returned as is.
- */
-
-export type OrElse<MaybeNever, Fallback> = IfDef<MaybeNever, MaybeNever, Fallback>;
-type DefaultEls = BasicElement | PhotoGroupElement | UserMessageElement;
 interface RenderSource<Props, RootComponent extends ComponentElement, ContextReqs extends AppReqs<RootComponent>, R, H> {
     component: (props: Props) => RootComponent;
     props: Props;
     contextCreator: (c: ChatState<R, H>) => ContextReqs;
 }
 
-export function fromSource<Props, RootComponent extends ComponentElement, ContextReqs extends AppReqs<RootComponent>, R, H>(src: RenderSource<Props, RootComponent, ContextReqs, R, H>) {
+export function fromSource<
+    Props,
+    RootComponent extends ComponentElement,
+    ContextReqs extends AppReqs<RootComponent>,
+    R, H
+>(src: RenderSource<Props, RootComponent, ContextReqs, R, H>) {
     return src;
 }
-interface RenderScheme<
-    Els
-    > {
+
+interface RenderScheme<Els> {
     createDraft: <H>(els: Els[]) => RenderDraft<H>;
     getInputHandler: <H>(draft: RenderDraft<H>) => (ctx: TelegrafContext) => H | undefined;
     getActionHandler: <A>(rs: RenderedElement[]) => (ctx: TelegrafContext) => A | undefined;
+    getEffects: <H>(removedElements: Els[], newElements: Els[]) => Els[]
 }
+
 function getScheme<Els>(s: RenderScheme<Els>) {
     return s;
 }
@@ -130,9 +119,14 @@ function getScheme<Els>(s: RenderScheme<Els>) {
 export const defaultRenderScheme = getScheme({
     createDraft: createDraftWithImages,
     getInputHandler,
-    getActionHandler
+    getActionHandler,
+    getEffects: (removedElements, newElements) => [
+        ...removedElements.filter((_): _ is EffectElement<any> =>
+            _.kind === 'EffectElement' && _.type === 'OnRemoved'),
+        ...newElements.filter((_): _ is EffectElement<any> =>
+            _.kind === 'EffectElement' && _.type === 'OnCreated'),
+    ]
 });
-
 
 export const genericRenderComponent = <Els>(scheme: RenderScheme<Els>) => {
     return <
@@ -143,21 +137,29 @@ export const genericRenderComponent = <Els>(scheme: RenderScheme<Els>) => {
         Ctx,
         HandlerReturn extends AppActionsFlatten<RootComponent>,
         TypeAssert extends If<CompEls, Els, {}, never> = If<CompEls, Els, {}, never>
-    >(source: RenderSource<Props, RootComponent, ContextReqs, Ctx, HandlerReturn> & TypeAssert) => {
-        console.log(scheme);
+    >(source: RenderSource<
+        Props,
+        RootComponent,
+        ContextReqs, Ctx, HandlerReturn> & TypeAssert) => {
 
         return (chatState: ChatState<Ctx, HandlerReturn>) => {
 
-                ElementsTree.createElements(source.component, source.contextCreator(chatState), source.props, chatState.treeState);
+            const { elements, treeState, removedElements, newElements } = createElements(
+                source.component,
+                source.contextCreator(chatState),
+                source.props,
+                chatState.treeState
+            );
 
-            const [els, treeState] = ElementsTree.createElements(source.component, source.contextCreator(chatState), source.props, chatState.treeState);
-
-            const draft = scheme.createDraft<HandlerReturn>(els);
+            const draft = scheme.createDraft<HandlerReturn>(elements);
 
             const inputHandler = scheme.getInputHandler(draft);
+
             const renderActions = createRenderActions(chatState.renderedElements, draft.messages);
-            
-            const effects = draft.effects
+
+            const effects = scheme.createDraft<HandlerReturn>(
+                scheme.getEffects<HandlerReturn>(removedElements, newElements)
+            ).effects
 
             return {
                 effects,

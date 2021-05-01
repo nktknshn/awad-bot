@@ -1,10 +1,14 @@
 import { select } from "Libstate"
 import { Lens } from "monocle-ts"
 import { append } from "../bot3/util"
-import { ChatState, createChatState, getApp, renderComponent } from "../lib/application"
+import { ChatState, createChatState, getApp, renderComponent }
+    from "../lib/application"
 import * as CA from '../lib/chatactions'
 import { withUserMessages } from "../lib/context"
-import { applyActionEvent, applyActionEventReducer, ApplyActionsEvent, makeEventReducer } from "../lib/event"
+import {
+    applyActionEvent, applyActionEventReducer, ApplyActionsEvent,
+    makeEventReducer
+} from "../lib/event"
 import { extendDefaultReducer, storeReducer } from "../lib/reducer"
 import { storeAction, storef, StoreF } from "../lib/storeF"
 import { AppActionsFlatten } from "../lib/types-util"
@@ -17,6 +21,7 @@ export type StoreState = {
 
 type AppAction = AppActionsFlatten<typeof App>
 type AppChatState = ChatState<AppState, AppAction>
+type AppEvents = ApplyActionsEvent<AppState, AppAction, AppEvents>
 
 const withStore = ({ store }: { store: StoreF<StoreState> }) => ({
     store: {
@@ -38,15 +43,14 @@ const contextCreator = select(
     ({ userId }: { userId: number }) => ({ userId })
 )
 
-type AppEvents = ApplyActionsEvent<AppState, AppAction, AppEvents>
-
 type AppState = {
     store: StoreF<StoreState>,
     userId: number,
     doFlush: boolean
     deferredRenderTimer?: NodeJS.Timeout,
     deferRender: number,
-    bufferedInputEnabled: boolean
+    bufferedInputEnabled: boolean,
+    bufferedOnce: boolean
 }
 
 const bufferEnabledLens = Lens.fromProp<AppChatState>()('bufferedInputEnabled')
@@ -57,8 +61,9 @@ export const createApp = () =>
             store: storef<StoreState>({ lists: [] }),
             userId: ctx.from?.id!,
             doFlush: true,
-            deferRender: 1000,
-            bufferedInputEnabled: false
+            deferRender: 300,
+            bufferedInputEnabled: false,
+            bufferedOnce: false
         }),
         renderFunc: renderComponent({
             component: App,
@@ -72,7 +77,9 @@ export const createApp = () =>
             ),
         handleMessage: CA.sequence([
             CA.applyInputHandler,
-            CA.chatState(c => c.doFlush ? CA.nothing : CA.addRenderedUserMessage()),
+            CA.chatState(c => c.doFlush
+                ? CA.doNothing
+                : CA.addRenderedUserMessage()),
             CA.applyEffects,
             CA.chatState(({ deferRender, bufferedInputEnabled }) =>
                 bufferedInputEnabled
@@ -80,12 +87,15 @@ export const createApp = () =>
                         deferRender,
                         applyActionEvent([
                             CA.render,
-                            CA.mapState(s => bufferEnabledLens.set(false)(s)),
-                            CA.chatState(c => c.doFlush ? CA.flush : CA.nothing)
+                            CA.mapState(s => bufferEnabledLens.set(
+                                !s.bufferedOnce
+                            )(s)),
+                            CA.chatState(
+                                c => c.doFlush ? CA.flush : CA.doNothing)
                         ]))
                     : CA.sequence([
                         CA.render,
-                        CA.chatState(c => c.doFlush ? CA.flush : CA.nothing)
+                        CA.chatState(c => c.doFlush ? CA.flush : CA.doNothing)
                     ])
             ),
         ]),
@@ -94,7 +104,7 @@ export const createApp = () =>
             CA.replyCallback,
             CA.applyEffects,
             CA.render,
-            CA.chatState(c => c.doFlush ? CA.flush : CA.nothing),
+            CA.chatState(c => c.doFlush ? CA.flush : CA.doNothing),
         ]),
         handleEvent: makeEventReducer(applyActionEventReducer())
     })

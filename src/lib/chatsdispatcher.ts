@@ -1,19 +1,12 @@
 import Debug from 'debug'
 import { TelegrafContext } from "telegraf/typings/context"
 import { ChatHandler2 } from './chathandler'
-import { ChatState } from "./application"
 import { mylog } from './logging'
 
 export type ChatHandlerFactory<T extends ChatHandler2<E>, E> = (ctx: TelegrafContext) => Promise<T | undefined>
 
-// export interface ChatHandler {
-//     handleMessage(ctx: TelegrafContext): Promise<void>
-//     handleAction(ctx: TelegrafContext): Promise<void>
-// }
-
 type Dict<V> = { [key: string]: V }
 type DictNumber<V> = { [key: number]: V }
-
 
 export class ChatsDispatcher<T extends ChatHandler2<E>, E> {
 

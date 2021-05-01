@@ -4,16 +4,17 @@ import { ParsedUrlQuery } from "node:querystring"
 import { append, deferRender } from "../bot3/util"
 import { Component, connected } from "Lib/component"
 import { routeMatcher, Router } from "Lib/components/router"
-import { GetSetState, LocalStateAction } from "Lib/elements"
 import { button, effect, message, messagePart, nextMessage } from "Lib/elements-constructors"
-import { action, caseText, ifTrue, inputHandler, on } from "Lib/input"
+import { action, caseText, ifTrue, inputHandler, nextHandler, on } from "Lib/input"
 import { StoreAction } from "Lib/storeF"
 import { userMessage, UserMessageElement } from "Lib/usermessage"
-import { parsePathOpt, setBufferEnabled, setDoFlush } from './util'
+import { parsePathOpt } from './util'
+import { setBufferedInputEnabled, setDoFlush } from "./actions"
 import { last, takeRight } from 'fp-ts/lib/Array'
 import { combineSelectors, select } from "Lib/state"
 import { Context, StoreState } from 'bot5/index'
 import { flow } from 'fp-ts/lib/function'
+import { GetSetState, LocalStateAction } from 'Libtree2'
 
 const getUserMessages = ({ userMessages }: { userMessages: number[] }) => ({ userMessages })
 const getStore = ({ store }: { store: Context['store'] }) => ({ store })
@@ -25,7 +26,7 @@ export const App = connected(
     select(getAddList),
     function* (
         { addList }, _,
-        { getState, setStateF }: GetSetState<{ path: string, query: ParsedUrlQuery }>
+        { getState, setState }: GetSetState<{ path: string, query: ParsedUrlQuery }>
     ) {
         const {
             path, lenses: { path: pathLens, query: queryLens }
@@ -35,20 +36,20 @@ export const App = connected(
             on(caseText,
                 ifTrue(({ messageText }) => messageText.startsWith('/start')),
                 action(_ => [
-                    setStateF(pathLens.set('/main?from_start=1')),
+                    setState(pathLens.set('/main?from_start=1')),
                 ])),
             on(caseText,
                 action(({ messageText }) => [
-                    setStateF(pathLens.set(messageText)),
+                    setState(pathLens.set(messageText)),
                 ])),
         ])
 
         const onDone = (list: string[]) => [
             addList(list),
-            setStateF(pathLens.set('/get'))
+            setState(pathLens.set('/get'))
         ]
 
-        const onCancel = () => [setStateF(pathLens.set('/main'))]
+        const onCancel = () => [setState(pathLens.set('/main'))]
 
         yield pipe(
             path,
@@ -60,7 +61,6 @@ export const App = connected(
         )
     }
 )
-
 
 type RouterProps = {
     path: string,
@@ -111,23 +111,38 @@ const Set = connected(
             onDone: (list: string[]) => (StoreAction<StoreState> | LocalStateAction)[],
             onCancel: () => (StoreAction<StoreState> | LocalStateAction)[],
         },
-        { getState, setStateF }: GetSetState<{
+        { getState, setState }: GetSetState<{
             list: string[]
         }>) {
 
-        yield effect(() => [setDoFlush(false)])
+        yield effect(() => [setDoFlush(false)], 'OnCreated')
+        yield effect(() => [setDoFlush(true), setBufferedInputEnabled(false)], 'OnRemoved')
 
         const { list, lenses } = getState({ list: [] })
 
+        // yield inputHandler([
+        //     on(caseText,
+        //         action(({ messageText }) => setStateF(lenses.list.modify(append(messageText)))))
+        // ])
+
+        // yield inputHandler([
+        //     on(caseText, ifTrue(_ => list.length == 0),
+        //         action(() => [setBufferedInputEnabled(true)])),
+        // ])
+
         yield inputHandler([
             on(caseText, ifTrue(_ => list.length == 0),
-                action(({ messageText }) => [setStateF(lenses.list.modify(append(messageText))), setBufferEnabled(true)])),
+                action(({ messageText }) => [
+                    setState(lenses.list.modify(append(messageText))),
+                    setBufferedInputEnabled(true)
+                ])),
             on(caseText,
-                action(({ messageText }) => setStateF(lenses.list.modify(append(messageText)))))
+                action(({ messageText }) => setState(
+                    lenses.list.modify(append(messageText)))))
         ])
 
-        const reset = [setDoFlush(true), setBufferEnabled(false)]
-        const cancel = () => [onCancel(), ...reset]
+        // const reset = []
+        const cancel = () => [onCancel()]
 
         if (list.length) {
             yield message('type your list: ')
@@ -137,7 +152,7 @@ const Set = connected(
             }
 
             yield message(`list: ${list}`)
-            yield button('Done', () => [onDone(list), ...reset])
+            yield button('Done', () => [onDone(list)])
             yield button('Cancel', cancel)
         }
         else {

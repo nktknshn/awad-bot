@@ -1,9 +1,8 @@
 import * as CA from '../lib/chatactions';
 import { ChatState, createChatState, getApp, renderComponent, storeWithDispatcher } from "../lib/application";
 import { getTrackingRenderer, removeMessages } from "../lib/chatrenderer";
-import { StateAction } from "../lib/handlerF";
 import { extendDefaultReducer } from '../lib/reducer';
-import { AppActionsFlatten } from "../lib/types-util";
+import { AppActions, AppActionsFlatten, GetAllInputHandlers, GetAllInputHandlersTypes } from "../lib/types-util";
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
 import { createAwadStore } from "./store";
@@ -20,7 +19,7 @@ export function createAwadApplication(services: AwadServices) {
     type MyState = { store: ReturnType<typeof createAwadStore> }
     type AppChatState = ChatState<MyState, HandlerActions>
     type AppAction = HandlerActions
-    type AppStateAction = StateAction<AppChatState>
+    // type AppStateAction = StateAction<AppChatState>
 
     const chatState = (): AppChatState => {
         const store = createAwadStore(services)
@@ -29,7 +28,7 @@ export function createAwadApplication(services: AwadServices) {
 
     return getApp<MyState, AppAction, "updated">({
         renderer,
-        chatDataFactory: chatState,
+        chatStateFactory: chatState,
         actionReducer: extendDefaultReducer(
             {
                 isA: (a): a is Promise<any> => a instanceof Promise,
@@ -73,12 +72,12 @@ export function createAwadApplication(services: AwadServices) {
                     [
                         CA.addRenderedUserMessage(),
                         saveToTrackerAction,
-                        CA.applyInputHandler(),
+                        CA.applyInputHandler,
                         CA.applyEffects,
                         CA.render
 
                     ]]]),
-        handleAction: CA.sequence([CA.applyActionHandler(), CA.replyCallback, CA.applyEffects, CA.render]),
+        handleAction: CA.sequence([CA.applyActionHandler, CA.replyCallback, CA.applyEffects, CA.render]),
         handleEvent: async ({ app, renderer, chatdata }, _) => {
             return await app.renderFunc(chatdata).renderFunction(renderer)
         },

@@ -9,8 +9,6 @@ import { BotDocumentMessage, BotMessage, RenderedElement } from "./rendered-mess
 import { usermessage } from "./usermessage";
 import { callHandlersChain, emptyMessage, isFalse, lastItem } from './util';
 
-type RenderQueueElement<E> = E[]
-
 
 function isEmpty<T>(items: T[]) {
     return !items.length

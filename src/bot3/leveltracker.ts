@@ -1,5 +1,3 @@
-
-
 import levelup, { LevelUp } from 'levelup'
 import leveldown, { LevelDown } from 'leveldown'
 import { getTrackingRenderer, removeMessages, Tracker } from '../lib/chatrenderer';

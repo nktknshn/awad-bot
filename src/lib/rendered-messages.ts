@@ -1,10 +1,9 @@
-import { IncomingMessage, Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types";
-import { FileElement } from "./elements";
-import { OutcomingTextMessage } from "./messages";
+import { Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types";
+import { RenderedMediaGroup } from "../bot3/mediagroup";
 import { OutcomingFileMessage } from "./draft";
-import { OutcomingPhotoGroupMessage, RenderedMediaGroup } from "../bot3/mediagroup";
 import { OutcomingMessageType } from "./elements-to-messages";
-import {UserMessageElement, RenderedUserMessage} from './usermessage'
+import { OutcomingTextMessage } from "./textmessage";
+import { RenderedUserMessage } from './usermessage';
 
 export type RenderedElement = RenderedUserMessage | BotMessage | BotDocumentMessage | RenderedMediaGroup
 

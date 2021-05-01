@@ -85,7 +85,3 @@ export const storeAction = <T extends any[], S>(
         kind: 'store-action' as 'store-action',
         f: f(...args)
     })
-
-export const wrapO = () => {
-
-}

@@ -2,10 +2,10 @@ import * as A from 'fp-ts/lib/Array'
 import { Flush } from '../bot3/util'
 import * as CA from './chatactions'
 import { ChatState } from "./application"
-import { LocalStateAction } from "./elements"
 import { applyChatStateAction, applyStoreAction2, applyTreeAction, modifyRenderedElements } from "./inputhandler"
 import { StoreAction, StoreF } from "./storeF"
 import { TreeState } from "./tree"
+import { LocalStateAction } from 'Libtree2'
 
 export function reducer<T1, R>(
     isA: <T2>(a: T1 | T2) => a is T1,

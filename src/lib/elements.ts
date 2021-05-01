@@ -2,7 +2,7 @@
 import { InputFile } from "telegraf/typings/telegram-types"
 import { ComponentGenerator, ComponentElement } from "./component"
 import { RenderDraft } from "./elements-to-messages"
-import { InputHandlerData } from "./messages"
+import { InputHandlerData } from "./textmessage"
 import { RenderedElement } from "./rendered-messages"
 import { TreeState } from "./tree"
 
@@ -26,7 +26,7 @@ export type BasicElement =
     | TextPartElement 
     | NextMessageElement 
     | ButtonElement<any>
-    | ButtonsRowElement 
+    | ButtonsRowElement <any>
     | InputHandlerElement<any>
     | RequestLocationButtonElement 
     | ActionsHandlerElement 
@@ -37,8 +37,7 @@ export type BasicElement =
 export type Element = BasicElement | ComponentElement
 
 export function isComponentElement(el: Element): el is ComponentElement {
-    return el.kind === 'component'
-        || el.kind === 'component-with-state-connected'
+    return el.kind === 'component-with-state-connected'
         // || el.kind === 'component-with-state'
 }
 
@@ -52,19 +51,28 @@ type LensObjectWrapped<S> = {
     [k in keyof S]-?: Lens<S, S[k]>
 }
 
+// export type GetSetState<S> = {
+//     getState: (initialState: S) => S & {lenses: LensObject<S>}
+//     setState: (state: Partial<S>) => Promise<void>
+//     setStateF: (f: (s: S) => S) => LocalStateAction
+//     setStateFU: (state: Partial<S>) => LocalStateAction
+// }
 
-export type GetSetState<S> = {
-    getState: (initialState: S) => S & {lenses: LensObject<S>}
-    setState: (state: Partial<S>) => Promise<void>
-    setStateF: (f: (s: S) => S) => LocalStateAction
-    setStateFU: (state: Partial<S>) => LocalStateAction
-}
-
-export interface LocalStateAction {
+// export type GetSetState<S> = {
+//     getState: (initialState: S) => S & {lenses: LensObject<S>}
+//     setState: (f: (s: S) => S) => LocalStateAction<S>
+// }
+interface LocalStateAction<S> {
     kind: 'localstate-action',
     index: number[],
-    f: (s: TreeState) => TreeState
+    f: (s: S) => S
 }
+
+// export interface LocalStateAction {
+//     kind: 'localstate-action',
+//     index: number[],
+//     f: (s: TreeState) => TreeState
+// }
 
 export interface RenderedElementsAction {
     kind: 'rendered-elements-action',
@@ -123,10 +131,10 @@ export class ButtonElement<R = any> {
     ) { }
 }
 
-export class ButtonsRowElement {
+export class ButtonsRowElement<R> {
     kind: 'ButtonsRowElement' = 'ButtonsRowElement'
     constructor(
-        readonly buttons: ButtonElement[] = []
+        readonly buttons: ButtonElement<R>[] = []
     ) { }
 }
 
@@ -140,7 +148,8 @@ export class FileElement {
 export class EffectElement<R> {
     kind: 'EffectElement' = 'EffectElement'
     constructor(
-        readonly callback: () => R
+        readonly callback: () => R,
+        readonly type: 'OnCreated' | 'OnRemoved' = 'OnCreated'
     ) { }
 }
 

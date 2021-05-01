@@ -15,7 +15,6 @@ import { ChatState, createChatState, getApp, renderComponent } from "./lib/appli
 import { getTrackingRenderer } from './lib/chatrenderer';
 import { ChatsDispatcher } from "./lib/chatsdispatcher";
 import { connected } from "./lib/component";
-import { GetSetState } from "./lib/elements";
 import { button, message } from "./lib/elements-constructors";
 import { action, casePhoto, caseText, ifTrue, inputHandler, on } from "./lib/input";
 import { clearChat, modifyRenderedElements } from "./lib/inputhandler";
@@ -24,6 +23,7 @@ import { extendDefaultReducer, flushReducer, runBefore, storeReducer } from './l
 import { AppActionsFlatten } from './lib/types-util';
 import { UserMessageElement } from './lib/usermessage';
 import { token } from "./telegram-token.json";
+import { GetSetState } from 'Libtree2';
 
 type AppContext = StoreState & {
     dispatcher: ReturnType<typeof createBotStoreF>['dispatcher']
@@ -76,7 +76,7 @@ export const App = connected(
     function* (
         { isVisible, dispatcher: { onSetVisible, onAddItem } },
         { password }: { password: string },
-        { getState, setStateF: setState }: GetSetState<{
+        { getState, setState }: GetSetState<{
             photoCandidates: PhotoSize[],
             userMessages: number[],
             stringCandidate?: string

@@ -2,12 +2,12 @@
 import { filter } from "fp-ts/lib/Array"
 import { pipe, flow } from "fp-ts/lib/function"
 import { button, nextMessage } from "../../lib/elements-constructors"
-import { GetSetState } from "../../lib/elements"
 import { Component, ConnectedComp } from "../../lib/component"
 import { Card } from "../components/Card"
 import { RootState } from "../store"
 import { WordEntityState } from "../store/user"
 import { getUser } from "../store/selectors"
+import { GetSetState } from "Libtree2"
 
 export const getPinnedCards = flow(getUser, ({ user }) => ({
     pinnedCards: user
@@ -26,7 +26,7 @@ export function* PinnedCards(
     { getState, setState }: GetSetState<{ showMenu: boolean }>
 ) {
 
-    const { showMenu } = getState({ showMenu: false })
+    const { showMenu, lenses } = getState({ showMenu: false })
 
     if (!pinnedCards.length)
         return
@@ -38,7 +38,7 @@ export function* PinnedCards(
 
     if (!showMenu)
         yield button('Unpin', async () => {
-            setState({ showMenu: true })
+            setState(lenses.showMenu.set(true))
         })
     else {
         for (const item of pinnedCards) {
@@ -50,7 +50,7 @@ export function* PinnedCards(
         }
 
         yield button('Cancel', async () => {
-            setState({ showMenu: false })
+            setState(lenses.showMenu.set(false))
         })
     }
 

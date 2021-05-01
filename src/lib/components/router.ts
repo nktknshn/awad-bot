@@ -10,7 +10,6 @@ export function routeMatcher<PP, P extends M, S, M, RS, R>(
     return (props: PP) => f(props) ? some(c(props)) : none;
 }
 
-
 export function Router<P,
     P1 extends M1, S1, M1, RS1, R1,
     P2 extends M2, S2, M2, RS2, R2,

@@ -1,6 +1,6 @@
 import { filterMapWithIndex } from 'fp-ts/Array'
 import { none, some } from 'fp-ts/Option'
-import { OutcomingTextMessage } from "./messages"
+import { OutcomingTextMessage } from "./textmessage"
 import { KeyboardElement, BasicElement, isAppliable } from "./elements"
 import { OutcomingFileMessage, InputHandler, ActionsHandler, Effect } from './draft'
 import { OutcomingPhotoGroupMessage } from '../bot3/mediagroup'
@@ -18,8 +18,6 @@ export type RenderDraft<H> = {
     keyboards: KeyboardElement[],
     inputHandlers: InputHandler<H>[]
 }
-
-// export type RenderDraft = MessagesAndHandlers
 
 export const emptyDraft = <H>(): RenderDraft<H> => ({
     messages: [],
@@ -53,10 +51,9 @@ export function elementsToMessagesAndHandlers<H>(
     mylog(`elementsToMessagesAndHandlers: ${compel.kind}`);
 
     let messages: OutcomingMessageType[] = draft.messages
-    let handlers: HandlerType<H>[] = draft.handlers
-    let effects: Effect<any>[] = draft.effects
+    let effects: Effect<H>[] = draft.effects
     let keyboards: KeyboardElement[] = draft.keyboards
-    let inputHandlers: InputHandler<any>[] = draft.inputHandlers
+    let inputHandlers: InputHandler<H>[] = draft.inputHandlers
 
     const lastMessage = (): {
         idx: number,
@@ -89,7 +86,6 @@ export function elementsToMessagesAndHandlers<H>(
         compel.apply(draft as any)
     } 
     else if (compel.kind === 'InputHandlerElement') {
-        // handlers.push(compel)
         inputHandlers.push(
             new InputHandler(compel)
         )
@@ -145,15 +141,12 @@ export function elementsToMessagesAndHandlers<H>(
         return compel
     }
 
-
-    // return { messages, handlers, effects, keyboards, inputHandlers }
     return draft
 }
 
 export function filterTextMessages(messages: OutcomingMessageType[]) {
     return messages.filter((_): _ is OutcomingTextMessage => _.kind === 'TextMessage')
 }
-
 
 export function filterMapTextMessages(messages: OutcomingMessageType[]) {
     return filterMapWithIndex((idx, message: OutcomingMessageType) =>

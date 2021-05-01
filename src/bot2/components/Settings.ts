@@ -1,6 +1,6 @@
 import { ConnectedComp } from "../../lib/component";
 import { message, radioRow } from "../../lib/elements-constructors";
-import { combine, select } from "../../lib/state";
+import { select } from "../../lib/state";
 import { Getter } from "../../lib/util";
 import { RootState } from "../store";
 import { getDispatcher, getSettings } from "../store/selectors";

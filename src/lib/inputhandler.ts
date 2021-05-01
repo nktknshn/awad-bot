@@ -11,10 +11,11 @@ import { ChatRenderer } from "./chatrenderer";
 import { deleteAll } from "./ui";
 import { parseFromContext } from './bot-util';
 import { ChatAction, ChatActionContext } from './chatactions';
-import { LocalStateAction, RenderedElementsAction } from './elements';
+import { RenderedElementsAction } from './elements';
 import { RenderDraft } from './elements-to-messages';
 import { BotMessage, RenderedElement } from './rendered-messages';
 import { StoreAction, StoreF } from './storeF';
+import { applyLocalStateAction, LocalStateAction } from 'Libtree2';
 
 export const findRepliedTo = (r: RenderedElement[]) => (repliedTo: number) =>
     r.filter((_): _ is BotMessage => _.kind === 'BotMessage').find(_ => Array.isArray(_.output)
@@ -60,15 +61,6 @@ export function startHandler<R, H, E>(c: ContextOpt):
     )
 }
 
-export type FuncF<R, H, E> = (
-    app: Application<ChatState<R, H>, H, E>,
-    ctx: TelegrafContext,
-    renderer: ChatRenderer,
-    chat: ChatHandler2<E>,
-    chatdata: ChatState<R, H>
-) => Promise<ChatState<R, H>>
-
-
 export function applyRenderedElementsAction(a: RenderedElementsAction) {
     return function <R, H, C extends ChatState<R, H>>(cs: C): C {
         return {
@@ -87,11 +79,15 @@ export const modifyRenderedElements = (f: (rs: RenderedElement[]) => RenderedEle
 export const renderedElementsLens = <R, H>() =>
     Lens.fromProp<ChatState<R, H>>()('renderedElements')
 
-export function applyTreeAction(a: LocalStateAction) {
+export function applyTreeAction(a: LocalStateAction<any>) {
     return function <R, H>(cs: ChatState<R, H>): ChatState<R, H> {
         return {
             ...cs,
-            treeState: a.f(cs.treeState)
+            treeState: {
+                ...cs.treeState,
+                localStateTree:
+                    applyLocalStateAction(cs.treeState?.localStateTree!, a)
+            }
         }
     }
 }
@@ -120,7 +116,6 @@ export function applyStoreAction2<S>(a: StoreAction<S>) {
         }
     }
 }
-
 
 export const chainInputHandlers = <D, R>
     (hs: ((d: D, n: () => R | undefined) => R | undefined)[], d: D): R | undefined =>

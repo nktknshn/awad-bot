@@ -1,11 +1,5 @@
 import * as O from 'fp-ts/lib/Option';
-import { TelegrafContext } from 'telegraf/typings/context';
-import { ChatAction } from './chatactions';
-import { ChatHandler2 } from './chathandler';
-import { ChatState } from "./application";
-import { ChatRenderer } from './chatrenderer';
-import { InputHandlerData } from "./messages";
-
+import { InputHandlerData } from "./textmessage";
 
 export class InputHandlerElementF<S> {
     kind: 'InputHandlerElementF' = 'InputHandlerElementF'
@@ -40,53 +34,3 @@ export function inputHandlerF<S>(
         }
     );
 }
-
-
-export class ButtonElementF<S> {
-    kind: 'ButtonElementF' = 'ButtonElementF'
-    constructor(
-        readonly text: string,
-        readonly data?: string,
-        readonly callback?: () => S | undefined,
-    ) { }
-
-}
-
-export function buttonF<S>(
-    text: (string | [string, string]),
-    callback: () => (S | undefined)
-) {
-
-    let [buttonText, data] = Array.isArray(text) ? text : [text, text]
-
-    return new ButtonElementF(buttonText, data, callback)
-}
-
-export class InputHandlerF<S> {
-    kind: 'InputHandlerF' = 'InputHandlerF'
-    constructor(public readonly element: InputHandlerElementF<S>) { }
-}
-
-export const defaultHF = <R extends
-    { inputHandlerF?: (ctx: TelegrafContext) => O.Option<(s: T) => T> }, T, H>(messageId: number) => {
-    return async function def(
-        ctx: TelegrafContext,
-        renderer: ChatRenderer,
-        chat: ChatHandler2<ChatState<R, H>>,
-        chatdata: ChatState<R, H>,
-    ) {
-        // if (chatdata.inputHandler(ctx))
-        //     await renderer.delete(messageId)
-
-        if (chatdata.inputHandlerF)
-            return chatdata.inputHandlerF(ctx)
-        // mylog("defaultH");
-
-        // await chat.handleEvent(ctx, "updated")
-    }
-}
-
-
-export type HandlerAction<R, H, E, A, T> = (a: A) => ChatAction<R, H, T, E>
-
-export type StateAction<S> = (s: S) => S

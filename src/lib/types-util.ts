@@ -57,14 +57,35 @@ export type AddLastArgument<F extends (...args: any) => any, C> =
 
 export type GetAllButtons<T> = GetAllBasics<T> extends infer B ? B extends ButtonElement<infer R> ? R : never : never
 
-export type GetAllInputHandlers<T> = Flatten<GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R : never : never> extends infer R ? R extends Matcher2<infer G> ? G : never : never
+export type GetAllInputHandlers<T> = Flatten<GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? B : never : never>
+
+export type GetAllInputHandlersTypes<T> = Flatten<GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R : never : never> extends infer R ? R extends Matcher2<infer G> ? G : never : never
 
 export type _GetAllInputHandlers<T> = GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? R  extends Matcher2<infer G> ? G : never : never : never
 
 export type GetAllEffects<T> = GetAllBasics<T> extends infer B ? B extends EffectElement<infer R> ? R : never : never
 
-export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlers<T> | GetAllEffects<T>
+export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlersTypes<T> | GetAllEffects<T>
 
 export type Flatten<T> = T extends Array<infer Z> ? Flatten<Z> : T
 
 export type AppActionsFlatten<T> = AppActions<T> extends infer B ? Flatten<B> : never
+
+
+/**
+ * https://github.com/YBogomolov/talk-typelevel-ts
+ * 
+ * Conditional: if `T` extends `U`, then returns `True` type, otherwise `False` type
+ */
+ export type If<T, U, True, False> = [T] extends [U] ? True : False;
+ /**
+  * If `T` is defined (not `never`), then resulting type is equivalent to `True`, otherwise to `False`.
+  */
+ 
+ export type IfDef<T, True, False> = If<T, never, False, True>;
+ /**
+  * If `MaybeNever` type is `never`, then a `Fallback` is returned. Otherwise `MaybeNever` type is returned as is.
+  */
+ 
+ export type OrElse<MaybeNever, Fallback> = IfDef<MaybeNever, MaybeNever, Fallback>;
+ 

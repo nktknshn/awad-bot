@@ -9,7 +9,6 @@ import { Application, ChatState } from "./application";
 import { ChatRenderer } from './chatrenderer';
 import { RenderedElementsAction } from './elements';
 import { contextOpt, modifyRenderedElements } from './inputhandler';
-import { StateAction } from './handlerF';
 import { addRenderedUserMessage as _addRenderedUserMessage, createRendered as createRenderedMessage } from './usermessage';
 import { Effect } from './draft';
 import { mylog } from './logging';
@@ -24,10 +23,8 @@ export async function render<R, H, E>(
 export async function applyEffects<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
-    printStateTree(ctx.chatdata.treeState.nextStateTree!)
 
     const r = ctx.app.renderFunc(ctx.chatdata)
-    printStateTree(r.chatdata.treeState.nextStateTree!)
 
     mylog('Applying Effects')
 
@@ -35,7 +32,6 @@ export async function applyEffects<R, H, E>(
         ctx.app.actionReducer(r.effects.map(_ => _.element.callback()))
     )({ ...ctx, chatdata: r.chatdata })
 
-    printStateTree(cd.treeState.nextStateTree!)
 
     return cd
 }
@@ -135,6 +131,7 @@ export interface ChatActionContext<R, H, E> {
 export async function replyCallback<R, H, E>(
     { tctx, chatdata }: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
+    
     return tctx.answerCbQuery().then(_ => chatdata)
 }
 
@@ -246,6 +243,6 @@ export const flush = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>
         modifyRenderedElements(_ => [])
     )
 
-export const nothing = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
+export const doNothing = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
     : Promise<ChatState<R, H>> =>
     chatdata

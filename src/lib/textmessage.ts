@@ -101,7 +101,7 @@ export class OutcomingTextMessage {
         )
 
     }
-    addButtonsRow(btns: ButtonsRowElement) {
+    addButtonsRow<R>(btns: ButtonsRowElement<R>) {
         let buttons = [...this.buttons.map(_ => [..._])]
         buttons.push(btns.buttons)
 

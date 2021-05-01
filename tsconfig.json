@@ -59,9 +59,6 @@
     "noErrorTruncation": true,
     // "constraintDepth": 100
   },
-  "files": [
-    "./src/bot5.ts", "./src/bot5/ApplyActionsEvent.ts"
-  ],
   "exclude": [
     "./node_modules/**", "**/*.spec.ts"
   ]

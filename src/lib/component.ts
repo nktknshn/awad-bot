@@ -1,10 +1,13 @@
-import { GetSetState, Subtract } from "./elements";
+import { GetSetState } from "Libtree2";
+import { Subtract } from "./elements";
 
 
-export type ComponentGenerator = Generator<any, void, void>;
+export type ComponentGenerator<E = any> = Generator<E, void, void>;
+
 type CompConstructor<P, R> = ((props: P) => R);
 
-export type CompConstructorWithState<P, S = never, R = ComponentGenerator> = (props: P, getset: GetSetState<S>) => R;
+export type CompConstructorWithState<P, S = never, R = ComponentGenerator> =
+    (props: P, getset: GetSetState<S>) => R;
 
 export interface ComponentStateless<P, R = ComponentGenerator> {
     cons: CompConstructor<P, R>;
@@ -25,11 +28,11 @@ export interface ComponentConnected<P extends M, S, M, RootState, R = ComponentG
     mapper: (state: RootState) => M;
     props: Subtract<P, M>;
     kind: 'component-with-state-connected';
-    id?: string;
+    id: string;
 }
 
 export type ComponentElement =
-    ComponentStateless<any> |
+    // ComponentStateless<any> |
     // ComponentWithState<any, any> |
     // ComponentWithState<any, any, any> |
     ComponentConnected<any, any, any, any> |
@@ -53,6 +56,7 @@ export function ConnectedComp<P extends M, S, M, State, R extends ComponentGener
 ): (props: Subtract<P, M>) => ComponentConnected<P, S, M, State, R> {
     return function (props: Subtract<P, M>): ComponentConnected<P, S, M, State, R> {
         return {
+            id: cons.toString(),
             cons,
             props,
             mapper,
