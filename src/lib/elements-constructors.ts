@@ -11,7 +11,7 @@ export function photo(f: InputFile) {
     return new FileElement(f, true)
 }
 
-export function effect<R>(callback: () => R, type: 'OnCreated' | 'OnRemoved' = 'OnCreated') {
+export function effect<R>(callback: () => R, type: 'OnCreated' | 'OnRemoved' | 'onRendered' = 'onRendered') {
     return new EffectElement(callback, type)
 }
 

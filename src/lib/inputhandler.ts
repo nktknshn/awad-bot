@@ -79,7 +79,7 @@ export const modifyRenderedElements = (f: (rs: RenderedElement[]) => RenderedEle
 export const renderedElementsLens = <R, H>() =>
     Lens.fromProp<ChatState<R, H>>()('renderedElements')
 
-export function applyTreeAction(a: LocalStateAction<any>) {
+export function applyTreeAction<S>(a: LocalStateAction<S>) {
     return function <R, H>(cs: ChatState<R, H>): ChatState<R, H> {
         return {
             ...cs,

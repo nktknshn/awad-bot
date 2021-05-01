@@ -123,7 +123,8 @@ export function elementsToMessagesAndHandlers<H>(
         setLastMessage(message.complete())
     }
     else if (compel.kind === 'EffectElement') {
-        effects.push(new Effect(compel))
+        if(compel.type === 'onRendered')
+            effects.push(new Effect(compel))
     }
     else if (compel.kind === 'FileElement') {
         messages.push(new OutcomingFileMessage(compel))

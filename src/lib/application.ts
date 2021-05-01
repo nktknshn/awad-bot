@@ -17,16 +17,16 @@ import { mylog } from "./logging";
 import { createRenderActions } from "./render-actions";
 import { BotMessage, RenderedElement } from "./rendered-messages";
 // import { ElementsTree, TreeState } from "./tree";
-import { AppActionsFlatten, AppReqs, GetAllBasics, If } from "./types-util";
+import { AppActionsFlatten, AppReqs, GetAllBasics, If, IfDef } from "./types-util";
 import { renderActions as applyRenderActions } from "./ui";
 import { RenderedUserMessage, UserMessageElement } from "./usermessage";
 
 export type ChatState<R, H> = {
-    treeState?: TreeState;
-    renderedElements: RenderedElement[];
-    inputHandler?: (ctx: TelegrafContext) => (H | undefined);
-    actionHandler?: (ctx: TelegrafContext) => H;
-} & R;
+    readonly renderedElements: RenderedElement[];
+    readonly treeState?: TreeState;
+    readonly inputHandler?: (ctx: TelegrafContext) => (H | undefined);
+    readonly actionHandler?: (ctx: TelegrafContext) => H;
+} & Readonly<R>;
 
 
 export function getInputHandler<Draft extends RenderDraft<H>, H>(draft: Draft): ((ctx: TelegrafContext) => H | undefined) {
@@ -63,12 +63,12 @@ export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
     treeState: undefined,
     renderedElements: [],
     ...r
-});
+}) as ChatState<R, H>;
 
 export interface Application<R, H, E> {
     chatStateFactory: (ctx: TelegrafContext) => ChatState<R, H>;
     renderer?: (ctx: TelegrafContext) => ChatRenderer;
-    renderFunc: (s: ChatState<R, H>) => {
+    renderFunc: (state: ChatState<R, H>) => {
         chatdata: ChatState<R, H>;
         renderFunction: (renderer: ChatRenderer) => Promise<ChatState<R, H>>;
         effects: Effect<H>[]
@@ -84,9 +84,10 @@ export interface Application<R, H, E> {
     actionReducer: (a: H | H[]) => AppChatAction<R, H, E>[];
 }
 
-export function getApp<R = {}, H = never, E = {}>(
-    app: Application<R, H, E>
-): Application<R, H, E> {
+export function getApp<R = {}, H = never, E = {},
+    NeverNever extends IfDef<H, {}, never> = IfDef<H, {}, never>>(
+        app: Application<R, H, E> & NeverNever
+    ): Application<R, H, E> {
     return app;
 }
 
@@ -109,7 +110,7 @@ interface RenderScheme<Els> {
     createDraft: <H>(els: Els[]) => RenderDraft<H>;
     getInputHandler: <H>(draft: RenderDraft<H>) => (ctx: TelegrafContext) => H | undefined;
     getActionHandler: <A>(rs: RenderedElement[]) => (ctx: TelegrafContext) => A | undefined;
-    getEffects: <H>(removedElements: Els[], newElements: Els[]) => Els[]
+    getEffects: (removedElements: Els[], newElements: Els[]) => Els[]
 }
 
 function getScheme<Els>(s: RenderScheme<Els>) {
@@ -153,16 +154,16 @@ export const genericRenderComponent = <Els>(scheme: RenderScheme<Els>) => {
 
             const draft = scheme.createDraft<HandlerReturn>(elements);
 
-            const inputHandler = scheme.getInputHandler(draft);
-
-            const renderActions = createRenderActions(chatState.renderedElements, draft.messages);
-
             const { effects } = scheme.createDraft<HandlerReturn>(
                 scheme.getEffects(removedElements, newElements)
             )
 
+            const inputHandler = scheme.getInputHandler(draft);
+
+            const renderActions = createRenderActions(chatState.renderedElements, draft.messages);
+
             return {
-                effects,
+                effects: [...effects, ...draft.effects],
                 chatdata: {
                     ...chatState,
                     treeState,

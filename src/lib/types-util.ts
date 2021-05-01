@@ -70,8 +70,8 @@ export type AppActions<T> = GetAllButtons<T> | GetAllInputHandlersTypes<T> | Get
 
 export type Flatten<T> = T extends Array<infer Z> ? Flatten<Z> : T
 
-export type AppActionsFlatten<T> = AppActions<T> extends infer B ? Flatten<B> : never
-
+export type _AppActionsFlatten<T> = AppActions<T> extends infer B ? Flatten<B> : never
+export type AppActionsFlatten<T> = If<void, _AppActionsFlatten<T>, never, _AppActionsFlatten<T>>
 
 /**
  * https://github.com/YBogomolov/talk-typelevel-ts
@@ -90,3 +90,13 @@ export type AppActionsFlatten<T> = AppActions<T> extends infer B ? Flatten<B> : 
  
  export type OrElse<MaybeNever, Fallback> = IfDef<MaybeNever, MaybeNever, Fallback>;
  
+ export type DeepReadonly<T> =
+    T extends any[] ? DeepReadonlyArray<T[number]> :
+    T extends object ? DeepReadonlyObject<T> :
+    T;
+
+export interface DeepReadonlyArray<T> extends ReadonlyArray<DeepReadonly<T>> {}
+
+export type DeepReadonlyObject<T> = {
+    [K in keyof T]: DeepReadonly<T[K]>
+}

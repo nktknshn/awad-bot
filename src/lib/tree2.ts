@@ -374,8 +374,9 @@ type LensObject<S> = {
 
 
 export type GetSetState<S> = {
-    getState: (initialState: S) => S & { lenses: LensObject<S> }
+    getState: (initialState: S) => S 
     setState: (f: (s: S) => S) => LocalStateAction<S>
+    lenses: <K extends keyof S>(k: K) => Lens<S, S[K]>
 }
 
 function createGetSet<S>(index: number[], localState: LocalState<S>): GetSetState<S> {
@@ -385,16 +386,16 @@ function createGetSet<S>(index: number[], localState: LocalState<S>): GetSetStat
                 localState.value = initial
             }
             return {
-                ...localState.value, lenses: Object.keys(initial)
-                    .map(k => [k, Lens.fromProp<any>()(k)] as const)
-                    .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {}) as any
+                ...localState.value, 
             }
         },
         setState: (f: (s: S) => S) => ({
             index,
             kind: 'localstate-action',
             f
-        })
+        }),
+        lenses: (k) => Lens.fromProp<S>()(k)
+
     }
 }
 

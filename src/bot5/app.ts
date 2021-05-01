@@ -4,7 +4,7 @@ import { ParsedUrlQuery } from "node:querystring"
 import { append, deferRender } from "../bot3/util"
 import { Component, connected } from "Lib/component"
 import { routeMatcher, Router } from "Lib/components/router"
-import { button, effect, message, messagePart, nextMessage } from "Lib/elements-constructors"
+import { button, effect, message, messagePart, nextMessage, onCreated, onRemoved } from "Lib/elements-constructors"
 import { action, caseText, ifTrue, inputHandler, nextHandler, on } from "Lib/input"
 import { StoreAction } from "Lib/storeF"
 import { userMessage, UserMessageElement } from "Lib/usermessage"
@@ -27,11 +27,13 @@ export const App = connected(
     select(getAddList),
     function* (
         { addList }, _,
-        { getState, setState }: GetSetState<{ path: string, query: ParsedUrlQuery }>
+        { getState, setState, lenses }: GetSetState<{ path: string, query: ParsedUrlQuery }>
     ) {
         const {
-            path, lenses: { path: pathLens, query: queryLens }
+            path
         } = getState({ path: '/main', query: {} })
+        
+        const pathLens = lenses('path')
 
         yield inputHandler([
             on(caseText,
@@ -117,14 +119,14 @@ const Set = connected(
             onDone: (list: string[]) => R,
             onCancel: () => R,
         },
-        { getState, setState }: GetSetState<{
+        { getState, setState, lenses }: GetSetState<{
             list: string[]
         }>) {
 
-        yield effect(() => [setDoFlush(false)], 'OnCreated')
-        yield effect(() => [setDoFlush(true), setBufferedInputEnabled(false)], 'OnRemoved')
+        yield onCreated(() => [setDoFlush(false)])
+        yield onRemoved(() => [setDoFlush(true), setBufferedInputEnabled(false)])
 
-        const { list, lenses } = getState({ list: [] })
+        const { list } = getState({ list: [] })
 
         // yield inputHandler([
         //     on(caseText,
@@ -139,12 +141,12 @@ const Set = connected(
         yield inputHandler([
             on(caseText, ifTrue(_ => list.length == 0),
                 action(({ messageText }) => [
-                    setState(lenses.list.modify(append(messageText))),
+                    setState(lenses('list').modify(append(messageText))),
                     setBufferedInputEnabled(true)
                 ])),
             on(caseText,
                 action(({ messageText }) => setState(
-                    lenses.list.modify(append(messageText)))))
+                    lenses('list').modify(append(messageText)))))
         ])
 
         if (list.length) {

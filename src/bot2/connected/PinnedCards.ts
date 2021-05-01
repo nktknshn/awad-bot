@@ -23,10 +23,10 @@ export function* PinnedCards(
         pinnedCards: WordEntityState[],
         onUnpin: (wordId: number) => void
     },
-    { getState, setState }: GetSetState<{ showMenu: boolean }>
+    { getState, setState, lenses }: GetSetState<{ showMenu: boolean }>
 ) {
 
-    const { showMenu, lenses } = getState({ showMenu: false })
+    const { showMenu, } = getState({ showMenu: false })
 
     if (!pinnedCards.length)
         return
@@ -38,7 +38,7 @@ export function* PinnedCards(
 
     if (!showMenu)
         yield button('Unpin', async () => {
-            setState(lenses.showMenu.set(true))
+            setState(lenses('showMenu').set(true))
         })
     else {
         for (const item of pinnedCards) {
@@ -50,7 +50,7 @@ export function* PinnedCards(
         }
 
         yield button('Cancel', async () => {
-            setState(lenses.showMenu.set(false))
+            setState(lenses('showMenu').set(false))
         })
     }
 

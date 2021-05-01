@@ -28,7 +28,7 @@ export function storeToDispatch(store: ReturnType<typeof createAwadStore>) {
         onUpdateWord: async (word: WordEntityState, update: CardUpdate) => { store.dispatch(updateWord({ word, update })) },
         onReplaceWord: async (word: WordEntityState, card: CardType) => { store.dispatch(saveWord({ word, card })) },
         onAddExample: async (word: WordEntityState, example: string) => { store.dispatch(addExample({ word, example })) },
-        onDeleteWord: (word: WordEntityState) => { store.dispatch(deleteWord(word)) },
+        onDeleteWord: async (word: WordEntityState) => {store.dispatch(deleteWord(word))},
         onUpdateSettings: async (settings: Partial<AppSettings>) => { store.dispatch(updateSettings(settings)) },
 
         onToggleOption: async (idx: number) => { store.dispatch(toggleIndex(idx)) },

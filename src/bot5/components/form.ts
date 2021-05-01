@@ -8,6 +8,7 @@ import { action, caseText, inputHandler, on } from "Libinput"
 import { select } from "Libstate"
 import { StoreAction } from "LibstoreF"
 import { GetSetState, LocalStateAction } from "Libtree2"
+import * as O from 'fp-ts/lib/Option'
 
 export interface FormData {
     fname?: string,
@@ -16,33 +17,26 @@ export interface FormData {
     dob?: string
 }
 
-const Input = Component(
-    function* ({ }: { title: string }) {
-
-    }
-)
-
 const withText = on(caseText, action(({ messageText }) => messageText))
+const setS = <S>(setState: ((f: (s: S) => S) => LocalStateAction<S>)) =>
+    <F>(f: (s: F) => (s: S) => S) => O.map(flow(f, setState))
 
 export const Form1 = connected(
     select(),
     function* <R>(
-        _: unknown, 
+        _: unknown,
         { onCancel }: { onCancel: () => R },
-        { getState, setState }: GetSetState<FormData>
+        { getState, setState, lenses }: GetSetState<FormData>
     ) {
 
         const {
-            dob, lname, fname, sex, lenses
-        } = getState({
-            dob: undefined,
-            fname: undefined,
-            lname: undefined,
-            sex: undefined
-        })
+            dob, lname, fname, sex
+        } = getState({})
+        
+        const set = setS(setState)
 
-        yield onCreated(() => [setDoFlush(false)])
-        yield onRemoved(() => [setDoFlush(true)])
+        yield onCreated(() => setDoFlush(false))
+        yield onRemoved(() => setDoFlush(true))
 
         yield message([
             `Имя: ${fname ?? '?'}`,
@@ -50,24 +44,24 @@ export const Form1 = connected(
             `sex: ${sex ?? '?'}`,
         ])
 
-        const set = <S>(f: (s: S) => (s: FormData) => FormData) => action(flow(f, setState))
 
         if (!fname) {
             yield inputHandler([
-                on(withText, set(lenses.fname.set))
+                on(withText, set(lenses('fname').set))
             ])
             yield message('Ваше имя: ')
         }
         else if (!lname) {
             yield inputHandler([
-                on(withText, set(lenses.lname.set))
+                on(withText, set(lenses('lname').set))
             ])
             yield message('Фамилия: ')
         }
         else if (!sex) {
-            yield radioRow(['Муж', 'Жен'], (idx) => setState(lenses.sex.set(
-                ['male', 'female'][idx] as 'male' | 'female'
-            )), sex == 'male' ? 'Муж' : 'Жен')
+            yield radioRow(['Муж', 'Жен'], (idx) =>
+                setState(lenses('sex')
+                    .set(['male', 'female'][idx] as 'male' | 'female'))
+                , sex == 'male' ? 'Муж' : 'Жен')
         }
         else {
             yield button('done', onCancel)

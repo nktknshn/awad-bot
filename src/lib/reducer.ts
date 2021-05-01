@@ -8,7 +8,7 @@ import { TreeState } from "./tree"
 import { LocalStateAction } from 'Libtree2'
 
 export function reducer<T1, R>(
-    isA: <T2>(a: T1 | T2) => a is T1,
+    isA: (a: T1 | unknown) => a is T1,
     f: (a: T1) => R,
 ): Reducer<T1, R> {
     return {
@@ -79,10 +79,11 @@ export function composeMatchers2<R>(...ms: Reducer<any, R>[]) {
 export type ResultFunc<S> = (s: S) => S
 
 export const localStateMatcher =
-    <S>() => ({
-        f: applyTreeAction,
-        isA: (a): a is LocalStateAction => 'kind' in a && a.kind === 'localstate-action',
-    }) as Reducer<LocalStateAction, ResultFunc<S>>
+    <C extends unknown>() => ({
+        f: a => applyTreeAction(a),
+        isA: (a: LocalStateAction): a is LocalStateAction =>
+            a.kind === 'localstate-action',
+    }) as Reducer<LocalStateAction, ResultFunc<C>>
 
 
 export const storeStateMatcher =
@@ -212,11 +213,17 @@ export function reducerToFunction<R, H1, H2, E>(
     }
 }
 
-export function defaultReducer<R, H, E>() {
+export function defaultReducer<R, H, E>()
+    : ChatActionReducer<LocalStateAction<unknown> | ChatStateAction<ChatState<R, H>> 
+    | undefined, R, H, E> {
     const m = matcherToChatActionMatcher<R, H, E>()
     return composeReducers(
         m(localStateMatcher<ChatState<R, H>>()),
         m(chatStateMatcher<ChatState<R, H>>()),
+        m(reducer(
+            (a: undefined | any): a is undefined  => a === undefined,
+            _ => chatdata => chatdata as ChatState<R, H>
+        ))
     )
 }
 
@@ -234,10 +241,10 @@ export function defaultActionReducer<R, H, E>() {
     return defaultActionToChatAction
 }
 
-type DefaultActions<R, H> = LocalStateAction | ChatStateAction<ChatState<R, H>>
+type DefaultActions<R, H> = LocalStateAction | ChatStateAction<ChatState<R, H>> | undefined
 
 export function extendDefaultReducer<R, H, E>(
-): () => CA.AppChatAction<R, H, E>[]
+): (a: DefaultActions<R, H>) => CA.AppChatAction<R, H, E>[]
 export function extendDefaultReducer<R, H, E, T1>(
     m1: ChatActionReducer<T1, R, H, E>,
 ): (a: (T1 | DefaultActions<R, H>) | (T1 | DefaultActions<R, H>)[]) => CA.AppChatAction<R, H, E>[]
@@ -248,7 +255,7 @@ export function extendDefaultReducer<R, H, E, T1, T2>(
 export function extendDefaultReducer<R, H, E>(
     m1?: any, m2?: any
 ) {
-    if(!m1 && !m2) {
+    if (!m1 && !m2) {
         return reducerToFunction(defaultReducer<R, H, E>())
     }
     const c = m2 ? composeReducers(

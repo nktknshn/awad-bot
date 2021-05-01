@@ -149,7 +149,7 @@ export class EffectElement<R> {
     kind: 'EffectElement' = 'EffectElement'
     constructor(
         readonly callback: () => R,
-        readonly type: 'OnCreated' | 'OnRemoved' = 'OnCreated'
+        readonly type: 'OnCreated' | 'OnRemoved' | 'onRendered' = 'OnCreated'
     ) { }
 }
 

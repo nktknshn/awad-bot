@@ -42,12 +42,12 @@ const WordsPage = connected2(
   ({ user, settings, dispatcher }) =>
     function* WordsPage(
       { wordId, }: { wordId?: number, },
-      { getState, setState }: GetSetState<WordsPageState>
+      { getState, setState, lenses }: GetSetState<WordsPageState>
     ) {
       if (!user)
         return
 
-      const { currentFilter, filteredTags, showTagsPicker, wordId: openWordId, lenses } = getState({
+      const { currentFilter, filteredTags, showTagsPicker, wordId: openWordId } = getState({
         currentFilter: 'All',
         filteredTags: [],
         showTagsPicker: false,
@@ -69,7 +69,7 @@ const WordsPage = connected2(
 
       yield WordsPageInput({
         onWordId: (wordId) =>
-          setState(lenses.wordId.set(wordId))
+          setState(lenses('wordId').set(wordId))
 
       })
 
@@ -79,8 +79,8 @@ const WordsPage = connected2(
         ['All', 'No meanings', 'By tag'],
         (idx, data) =>
           [
-            setState(lenses.currentFilter.set(data as WordListFiltersType)),
-            setState(lenses.showTagsPicker.set(data == 'By tag')),
+            setState(lenses('currentFilter').set(data as WordListFiltersType)),
+            setState(lenses('showTagsPicker').set(data == 'By tag')),
           ],
         currentFilter)
 
@@ -94,12 +94,12 @@ const WordsPage = connected2(
           items: allTags.map(_ => _.slice(1)),
           selectedIds: pipe(filteredTags, map(_ => allTags.indexOf(_))),
           onClick: (idx) => setState(
-            lenses.filteredTags.set(toggleItem(filteredTags, allTags[idx]))
+            lenses('filteredTags').set(toggleItem(filteredTags, allTags[idx]))
             // filteredTags: toggleItem(filteredTags, allTags[idx])
           )
         })
 
-        yield button('Ok', () => setState(lenses.showTagsPicker.set(false)))
+        yield button('Ok', () => setState(lenses('showTagsPicker').set(false)))
       }
 
       const word = user.words.find(_ => _.id == openWordId)
@@ -109,7 +109,7 @@ const WordsPage = connected2(
         const isPinned = user.pinnedWordsIds.indexOf(word.id) > -1
 
         yield nextMessage()
-        yield CardPage({ word, isPinned, onClose: () => setState(lenses.wordId.set(undefined)), dispatcher })
+        yield CardPage({ word, isPinned, onClose: () => setState(lenses('wordId').set(undefined)), dispatcher })
       }
     }
 )
@@ -126,9 +126,9 @@ const CardPage = Component(
   function*  <R>({
     word, isPinned, dispatcher, onClose
   }: { word: WordEntityState, isPinned: boolean } & { onClose: () => R } & WithDispatcher,
-    { getState, setState }: GetSetState<LocalState>
+    { getState, setState, lenses }: GetSetState<LocalState>
   ) {
-    const { rename, deleteConfirmation, showMenu, lenses } = getState({
+    const { rename, deleteConfirmation, showMenu, } = getState({
       rename: false,
       deleteConfirmation: false,
       showMenu: false
@@ -150,24 +150,24 @@ const CardPage = Component(
         ],
         (idx, data) => {
 
-          if (data == 'Close') return setState(lenses.showMenu.set(false));
+          if (data == 'Close') return setState(lenses('showMenu').set(false));
 
           if (data == 'Unpin' || data == 'Pin')
             return dispatcher.onTogglePinnedWord(word.id)
 
           if (data == 'Rename')
-            return setState(lenses.rename.set(true))
+            return setState(lenses('rename').set(true))
 
           if (data == 'Delete')
-            return setState(lenses.deleteConfirmation.set(true))
+            return setState(lenses('deleteConfirmation').set(true))
 
           if (data == '❗ Yes, delete!')
-            return dispatcher.onRedirect('words?message=word_removed')
+            return dispatcher.onDeleteWord(word)
               .then(() => dispatcher.onDeleteWord(word))
         }
       )
     else {
-      yield button('Menu', () => setState(lenses.showMenu.set(true)))
+      yield button('Menu', () => setState(lenses('showMenu').set(true)))
       yield button('Close', onClose)
     }
 
@@ -176,8 +176,8 @@ const CardPage = Component(
       yield Component(InputBox)({
         title: 'Enter new word:',
         onSuccess: wordText => dispatcher.onUpdateWord(word, { word: wordText }),
-        onCancel: () => setState(lenses.rename.set(false)),
-        onWrongInput: (data) => setState(lenses.rename.set(false))
+        onCancel: () => setState(lenses('rename').set(false)),
+        onWrongInput: (data) => setState(lenses('rename').set(false))
       })
     }
 

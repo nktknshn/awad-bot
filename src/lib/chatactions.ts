@@ -41,9 +41,10 @@ export function scheduleEvent
     (timeout: number, ev: E): AppChatAction<R, H, E> {
     {
         return async function
-            ({ chatdata, chat, tctx }) {
+            ({ chatdata, queue: chat, tctx }) {
 
-            chatdata.deferredRenderTimer && clearTimeout(chatdata.deferredRenderTimer)
+            chatdata.deferredRenderTimer &&
+                clearTimeout(chatdata.deferredRenderTimer as NodeJS.Timeout)
 
             return pipe(
                 chatdata,
@@ -124,14 +125,14 @@ export interface ChatActionContext<R, H, E> {
     app: Application<R, H, E>,
     tctx: TelegrafContext,
     renderer: ChatRenderer,
-    chat: ChatHandler2<E>,
-    chatdata: ChatState<R, H>
+    queue: ChatHandler2<E>,
+    readonly chatdata: ChatState<R, H>
 }
 
 export async function replyCallback<R, H, E>(
     { tctx, chatdata }: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
-    
+
     return tctx.answerCbQuery().then(_ => chatdata)
 }
 

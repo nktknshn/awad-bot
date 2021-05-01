@@ -147,7 +147,7 @@ function createChatHandler<R, H, E>(
             self.setChatData(
                 self,
                 await app.handleAction!(
-                    { app, tctx: ctx, renderer, chat, chatdata: self.chatdata }
+                    { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata }
                 ))
         },
         handleMessage: async (self, ctx) => {
@@ -156,7 +156,7 @@ function createChatHandler<R, H, E>(
             self.setChatData(
                 self,
                 await app.handleMessage!(
-                    { app, tctx: ctx, renderer, chat, chatdata: self.chatdata }
+                    { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata }
                 ))
             mylog(`QueuedChatHandler.chat done ${ctx.message?.message_id}}`)
 
@@ -168,7 +168,7 @@ function createChatHandler<R, H, E>(
                 self.setChatData(
                     self,
                     await app.handleEvent(
-                        { app, tctx: ctx, renderer, chat, chatdata: self.chatdata },
+                        { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata },
                         event
                     )
                 )
@@ -193,7 +193,7 @@ export const createChatHandlerFactory = <R, H, E>(app: Application<R, H, E>)
         if (app.init) {
             chat._chat.setChatData(
                 chat._chat,
-                await app.init({ app, tctx: ctx, renderer: a.renderer, chat, chatdata: a.chatdata })
+                await app.init({ app, tctx: ctx, renderer: a.renderer, queue: chat, chatdata: a.chatdata })
             )
         }
 

@@ -27,15 +27,15 @@ export function* CheckList(
     {
         items, onClick, onUpdate
     }: CheckListProps & OnClick<number[], any> & OnUpdate<number[], any>,
-    { getState, setState }: GetSetState<{
+    { getState, setState, lenses }: GetSetState<{
         selectedIds: number[]
     }>
 ) {
-    const { selectedIds , lenses} = getState({ selectedIds: [] })
+    const { selectedIds , } = getState({ selectedIds: [] })
 
     yield Component(CheckListInput)({
         items, selectedIds, onClick: async (id) => {
-            setState(lenses.selectedIds.set(toggleItem(selectedIds, id)))
+            setState(lenses('selectedIds').set(toggleItem(selectedIds, id)))
         }
     })
     yield Component(CheckListBody)({ items, selectedIds })

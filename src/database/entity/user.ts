@@ -29,17 +29,18 @@ export class UserRepository extends Repository<UserEntity> {
             `UPDATE "user" SET "renderedMessagesIds" = array_append("user"."renderedMessagesIds",$1) WHERE id = $2`, [messageId, userId]
         )
     }
-    
+
     untrackRenderedMessage(userId: number, messageId: number) {
         return this.query(
-            `UPDATE "user" SET "renderedMessagesIds" = array_remove("user"."renderedMessagesIds",$1) WHERE id = $2`, [messageId, userId]
+            `UPDATE "user" SET "renderedMessagesIds" = array_remove("user"."renderedMessagesIds",$1) WHERE id = $2`,
+            [messageId, userId]
         )
     }
 
     getRenderedMessage(chatId: number): Promise<number[]> {
         return this.query(
-            `SELECT "renderedMessagesIds" FROM "user WHERE id = $1`, [chatId]
-        )
+            `SELECT "renderedMessagesIds" FROM "user" WHERE id = $1`, [chatId]
+        ).then(_ => _[0].renderedMessagesIds)
     }
 
 }

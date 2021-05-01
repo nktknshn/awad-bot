@@ -43,7 +43,7 @@ export function storef<S extends {}>(initial: S): StoreF<S> {
 }
 
 export class StoreF<S extends {}> {
-    state: S
+    state: Readonly<S>
     constructor(initial: S) {
         this.state = { ...initial }
     }
