@@ -8,6 +8,17 @@ export interface ApplyActionsEvent<R, H, E> {
     actions: CA.AppChatAction<R, H, E>[];
 }
 
+
+export function createActionEvent2<R, H, E>(
+    actions: CA.AppChatAction<R, H, E>[]
+): ApplyActionsEvent<R, H, E> {
+    return {
+        kind: 'apply-actions-event',
+        actions
+    };
+}
+
+
 export const renderEvent = <R, H, E>() => createActionEvent<R, H, E>([])
 
 export function createActionEvent<R, H, E>(
@@ -26,7 +37,7 @@ export const applyActionEventReducer = <R, H, E>() =>
         event => async (ctx: CA.ChatActionContext<R, H, E>) => {
             return ctx.app.renderFunc(
                 await CA.sequence(event.actions)(ctx)
-            ).renderFunction(ctx.renderer);
+            ).renderFunction(ctx.chatdata.renderer);
         }
     )
 

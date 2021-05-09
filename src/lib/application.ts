@@ -10,7 +10,7 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { parseFromContext } from './bot-util';
 import * as CA from './chatactions';
 import { AppChatAction, ChatActionContext } from "./chatactions";
-import { ChatRenderer, ChatRendererError, createChatRendererE as createChatRenderer } from "./chatrenderer";
+import { ChatRenderer, ChatRendererError, createChatRendererE as createChatRenderer, createChatRendererE } from "./chatrenderer";
 import { ComponentElement } from "./component";
 import { createDraftWithImages, Effect } from "./draft";
 import { BasicElement, EffectElement } from "./elements";
@@ -25,16 +25,18 @@ import { RenderedUserMessage, UserMessageElement } from "./usermessage";
 import { identity } from 'fp-ts/lib/function';
 import { PhotoGroupElement } from 'bot3/mediagroup';
 import Telegraf from 'telegraf';
-
+type Optional<T, K extends keyof T> = Pick<Partial<T>, K> & Omit<T, K>;
 
 export type ChatState<R, H> = {
     readonly renderedElements: RenderedElement[];
     readonly treeState?: TreeState;
     readonly inputHandler?: (ctx: TelegrafContext) => (H | undefined);
     readonly actionHandler?: (ctx: TelegrafContext) => H;
-    readonly error?: string
+    readonly error?: string,
+    renderer: ChatRenderer
 } & Readonly<R>;
 
+// export type ChatStatePartial<R, H> = Optional<ChatState<R, H>, 'renderer'>
 
 export function getInputHandler<Draft extends RenderDraft<H>, H>(draft: Draft): ((ctx: TelegrafContext) => H | undefined) {
     return ctx => chainInputHandlers(
@@ -66,46 +68,77 @@ export const getUserMessages = <R, H>(c: ChatState<R, H>): number[] => {
         .map(_ => _.outputIds()));
 };
 
-export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
-    treeState: undefined,
-    renderedElements: [],
-    ...r
-}) as ChatState<R, H>;
+// export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
+//     treeState: undefined,
+//     renderedElements: [],
+//     ...r,
+//     renderer: ({
 
-export function createChatState2<R0, R1, R, H>(
+//     }) as any
+// });
+
+export function createChatState<R1>(
     fs: [((tctx: TelegrafContext) => Promise<R1>)],
-    r: R0
-): (tctx: TelegrafContext) =>  Promise<ChatState<R0 & R1, H>> 
-export function createChatState2<R0, R1, R2, R, H>(
+): <H>(tctx: TelegrafContext) => Promise<ChatState<R1, H>>
+export function createChatState<R1, R2>(
     fs: [
         ((tctx: TelegrafContext) => Promise<R1>),
         ((tctx: TelegrafContext) => Promise<R2>),
     ],
-    r: R0
-): (tctx: TelegrafContext) =>  Promise<ChatState<R0 & R1 & R2, H>> 
-export function createChatState2<R0, R1, R2, R3, R, H>(
+): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2, H>>
+export function createChatState<R1, R2, R3>(
     fs: [
         ((tctx: TelegrafContext) => Promise<R1>),
         ((tctx: TelegrafContext) => Promise<R2>),
         ((tctx: TelegrafContext) => Promise<R3>),
-    ],
-    r: R0
-): (tctx: TelegrafContext) =>  Promise<ChatState<R0 & R1 & R2 & R3, H>> 
 
-export function createChatState2(fs: any[], r: any)
-{
-    return  async (tctx: TelegrafContext) => ({
+    ],
+): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3, H>>
+export function createChatState<R1, R2, R3, R4>(
+    fs: [
+        ((tctx: TelegrafContext) => Promise<R1>),
+        ((tctx: TelegrafContext) => Promise<R2>),
+        ((tctx: TelegrafContext) => Promise<R3>),
+        ((tctx: TelegrafContext) => Promise<R4>),
+
+    ],
+): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3 & R4, H>>
+
+export function createChatState<R1, R2, R3, R4, R5>(
+    fs: [
+        ((tctx: TelegrafContext) => Promise<R1>),
+        ((tctx: TelegrafContext) => Promise<R2>),
+        ((tctx: TelegrafContext) => Promise<R3>),
+        ((tctx: TelegrafContext) => Promise<R4>),
+        ((tctx: TelegrafContext) => Promise<R5>),
+    ],
+): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3 & R4 & R5, H>>
+
+export function createChatState<R1, R2, R3, R4, R5, R6>(
+    fs: [
+        ((tctx: TelegrafContext) => Promise<R1>),
+        ((tctx: TelegrafContext) => Promise<R2>),
+        ((tctx: TelegrafContext) => Promise<R3>),
+        ((tctx: TelegrafContext) => Promise<R4>),
+        ((tctx: TelegrafContext) => Promise<R5>),
+        ((tctx: TelegrafContext) => Promise<R6>),
+    ],
+): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3 & R4 & R5 & R6, H>>
+
+export function createChatState(fs: any[]) {
+    return async (tctx: TelegrafContext) => ({
         treeState: undefined,
         renderedElements: [],
-        ...(await Promise.all(fs.map(_ => _(tctx)))),
-        ...r
+        renderer: createChatRendererE(tctx),
+        ...((await Promise.all(fs.map(_ => _(tctx))))
+            .reduce((acc, cur) => ({ ...acc, ...cur }), {}))
     })
 }
 
 
 export interface Application<R, H, E> {
-    chatStateFactory: (ctx: TelegrafContext) => Promise<ChatState<R, H>>;
-    renderer?: (ctx: TelegrafContext) => ChatRenderer;
+    state: (ctx: TelegrafContext) => Promise<ChatState<R, H>>;
+    // renderer?: (ctx: TelegrafContext) => ChatRenderer;
     renderFunc: (state: ChatState<R, H>) => {
         chatdata: ChatState<R, H>;
         renderFunction: (renderer: ChatRenderer) => Promise<ChatState<R, H>>;
@@ -126,12 +159,28 @@ export const defaultHandleAction = () => CA.sequence(
     [CA.applyActionHandler, CA.replyCallback, CA.render]
 )
 
-export function application<R = {}, H = never, E = {},
+export function application<R, H, E,
     NeverNever extends IfDef<H, {}, never> = IfDef<H, {}, never>>(
         app: Application<R, H, E> & NeverNever
     ): Application<R, H, E> {
     return app;
 }
+
+type Application2<R, H, E> = {
+    state: R,
+    action: H,
+    event: E
+    chatContext: CA.ChatActionContext<R, H, E>,
+    chatState: ChatState<R, H>
+}
+
+export function application2<A extends Application2<R, H, E>, R = {}, H = never, E = {},
+    NeverNever extends IfDef<H, {}, never> = IfDef<H, {}, never>>(
+        app: Application<R, H, E> & NeverNever
+    ): Application<R, H, E> {
+    return app;
+}
+
 
 interface RenderSource<
     Props,
@@ -279,7 +328,7 @@ export const genericRenderComponent = <
 export interface InitializedApp<R, H, E> {
     app: Required<Application<R, H, E>>,
     chatdata: ChatState<R, H>,
-    renderer: ChatRenderer
+    // renderer: ChatRenderer
 }
 
 export type InitializedAppFor<C> =
@@ -306,25 +355,25 @@ export type AppEventsOf<C> =
 // <TypeAssert extends If<{}, E, never, {}> = If<{}, E, never, {}>>
 export function initApplication<R, H, E>(app: Application<R, H, E>) {
     return async (ctx: TelegrafContext): Promise<InitializedApp<R, H, E>> => {
-        const { chatdata } = app.renderFunc(await app.chatStateFactory(ctx))
+        const { chatdata } = app.renderFunc(await app.state(ctx))
 
         return {
             app: {
                 ...app,
                 handleAction: app.handleAction ?? defaultHandleAction(),
-                renderer: (app.renderer ?? createChatRenderer),
+                // renderer: (app.renderer ?? createChatRenderer),
                 init: app.init ?? CA.doNothing,
                 // handleEvent: app.handleEvent ?? (async (ctx, e: {}) => ctx.chatdata),
                 queueStrategy: app.queueStrategy ?? (() => { })
             },
-            renderer: (app.renderer ?? createChatRenderer)(ctx),
+            // renderer: (app.renderer ?? createChatRenderer)(ctx),
             chatdata,
         }
     }
 }
 
 export function createQueuedChatHandler<R, H, E>(
-    { app, chatdata, renderer }: InitializedApp<R, H, E>
+    { app, chatdata }: InitializedApp<R, H, E>
 ): QueuedChatHandler<ChatState<R, H>, E> {
     return new QueuedChatHandler<ChatState<R, H>, E>(chat => ({
         chatdata,
@@ -332,7 +381,7 @@ export function createQueuedChatHandler<R, H, E>(
             self.setChatData(
                 self,
                 await app.handleAction(
-                    { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata }
+                    { app, tctx: ctx, queue: chat, chatdata: self.chatdata }
                 ))
         },
         handleMessage: async (self, ctx) => {
@@ -341,7 +390,7 @@ export function createQueuedChatHandler<R, H, E>(
             self.setChatData(
                 self,
                 await app.handleMessage!(
-                    { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata }
+                    { app, tctx: ctx, queue: chat, chatdata: self.chatdata }
                 ))
             mylog(`QueuedChatHandler.chat done ${ctx.message?.message_id}}`)
 
@@ -353,7 +402,7 @@ export function createQueuedChatHandler<R, H, E>(
                 self.setChatData(
                     self,
                     await app.handleEvent(
-                        { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata },
+                        { app, tctx: ctx, queue: chat, chatdata: self.chatdata },
                         event
                     )
                 )
@@ -377,7 +426,6 @@ export const createOpaqueChatHandler = <R, H, E>(app: Application<R, H, E>) =>
                 await app.init({
                     app,
                     tctx: ctx,
-                    renderer: a.renderer,
                     queue: chat,
                     chatdata: a.chatdata
                 })

@@ -19,7 +19,7 @@ export const casePassword =
 
 type AppContext = Bot3StoreState & {
     dispatcher: ReturnType<typeof getDispatcher>,
-    error?: string
+    // error?: string
 }
 
 const VisibleSecrets = connected(

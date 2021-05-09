@@ -210,7 +210,7 @@ export function getTrackingRendererE(t: Tracker) {
         cleanChatTask,
         cleanChatAction: async <R, H, E>(ctx: ChatActionContext<R, H, E>): Promise<ChatState<R, H>> => {
 
-            const res = await cleanChatTask(ctx.tctx.chat?.id!)(ctx.renderer)()
+            const res = await cleanChatTask(ctx.tctx.chat?.id!)(ctx.chatdata.renderer!)()
             console.log(res);
 
             return ctx.chatdata

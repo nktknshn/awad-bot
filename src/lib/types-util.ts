@@ -1,9 +1,10 @@
 import { ButtonElement, ButtonsRowElement, EffectElement, InputHandlerElement, WithContext } from "../lib/elements";
+import { ChatState } from "./application";
 import { Component, ComponentConnected, ComponentElement, ComponentGenerator, ComponentStateless, ComponentWithState, ConnectedComp } from "./component";
 import { InputHandler } from "./draft";
 import { Matcher2 } from "./input";
 
-export type GetProps<T> =  T extends (props: infer P) => infer R ? P : never
+export type GetProps<T> = T extends (props: infer P) => infer R ? P : never
 
 export type GetComponent<T> = T extends (props: infer P) => infer R ?
     R extends ComponentConnected<infer P, infer S, infer M, infer RootState, infer E, infer E2> ? R
@@ -35,7 +36,7 @@ export type _GetAllComps<T> =
 
 export type GetRootState<T> =
     T extends ComponentConnected<infer P, infer S, infer M, infer RootState, infer E, infer E2>
-    ? RootState : never 
+    ? RootState : never
 
 export type StatesKeys<A> = GetRootState<A> extends infer T
     ? T extends { [K in keyof T]: T[K] }
@@ -57,11 +58,11 @@ export type GetButtonsRowElement<T> = GetAllBasics<T> extends infer B ? B extend
 
 export type GetAllInputHandlers<T> = Flatten<GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> ? B : never : never>
 
-export type GetAllInputHandlersTypes<T> = Flatten<GetAllBasics<T> extends infer B 
-? B extends InputHandlerElement<infer R> ? R : never : never> extends infer R ? R extends Matcher2<infer G> ? G : never : never
+export type GetAllInputHandlersTypes<T> = Flatten<GetAllBasics<T> extends infer B
+    ? B extends InputHandlerElement<infer R> ? R : never : never> extends infer R ? R extends Matcher2<infer G> ? G : never : never
 
-export type _GetAllInputHandlers<T> = GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R> 
-? R extends Matcher2<infer G> ? G : never : never : never
+export type _GetAllInputHandlers<T> = GetAllBasics<T> extends infer B ? B extends InputHandlerElement<infer R>
+    ? R extends Matcher2<infer G> ? G : never : never : never
 
 export type GetAllEffects<T> = GetAllBasics<T> extends infer B ? B extends EffectElement<infer R> ? R : never : never
 
@@ -85,9 +86,9 @@ export interface ComponentTypes<T> {
     context: ComponentReqs<T>
     rootState: GetRootState<GetComponent<T>>
     actionsByElement: {
-        buttons: GetAllButtons<T> 
-        input: GetAllInputHandlersTypes<T> 
-        effects: GetAllEffects<T> 
+        buttons: GetAllButtons<T>
+        input: GetAllInputHandlersTypes<T>
+        effects: GetAllEffects<T>
     }
 }
 
@@ -117,4 +118,137 @@ export interface DeepReadonlyArray<T> extends ReadonlyArray<DeepReadonly<T>> { }
 
 export type DeepReadonlyObject<T> = {
     [K in keyof T]: DeepReadonly<T[K]>
+}
+
+import * as CA from 'Lib/chatactions'
+import * as F from 'fp-ts/lib/function'
+import { ApplyActionsEvent } from "./event";
+
+export type ApplicationUtil<R, H, E> = {
+    state: R,
+    action: H,
+    event: E
+    ChatContext: CA.ChatActionContext<R, H, E>,
+    ChatState: ChatState<R, H>
+    ChatAction: CA.AppChatAction<R, H, E>;
+}
+
+// export function typeutils<R, H, E>(): Utils<R, H, E> {
+//     return {
+//         action: F.identity,
+//         mapState: F.identity,
+//         mapState2: () => f => f,
+//         handleEvent: F.identity,
+//         pick: f => f,
+//         actions: CA.sequence,
+//         withAdditions<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
+//             return {
+//                 ...this,
+//                 ...adds(this)
+//             }
+//         },
+//         actionF: f => f()
+//         , actionFF: (f) => (...args) => f(...args)
+//     }
+// }
+
+export type BasicAppEvent<R, H> = ApplyActionsEvent<R, H, BasicAppEvent<R, H>>
+
+// export const withState = <
+//     R,
+//     RootComponent extends (props: unknown) => ComponentElement,
+//     H extends AppActionsFlatten<RootComponent> = AppActionsFlatten<RootComponent>,
+//     E = BasicAppEvent<R, H>,
+//     >(): Utils<R, H, E> => {
+//     return {
+//         action: F.identity,
+//         mapState: F.identity,
+//         mapState2: () => f => f,
+//         handleEvent: F.identity,
+//         pick: f => f,
+//         actions: CA.sequence,
+//         withAdditions<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
+//             return {
+//                 ...this,
+//                 ...adds(this)
+//             }
+//         },
+//         actionF: f => f()
+//         , actionFF: (f) => (...args) => f(...args)
+//     }
+// }
+
+export const addState = <
+    RootComponent extends ComponentElement,
+    H extends AppActionsFlatten<RootComponent>,
+    P
+>(f: (props: P) => RootComponent) =>
+    <R, E = BasicAppEvent<R, H>>(): Utils<R, H, E> => {
+        return {
+            action: F.identity,
+            mapState: F.identity,
+            mapState2: () => f => f,
+            eventFunc: F.identity,
+            pick: f => f,
+            actions: CA.sequence,
+            extend<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
+                return {
+                    ...this,
+                    ...adds(this)
+                }
+            },
+            actionF: f => f()
+            , actionFF: (f) => (...args) => f(...args)
+        }
+    }
+
+
+type GetState<T> = T extends (a: any) => (a: any) => Promise<ChatState<infer R, infer H>> ? R : never
+// Promise<ChatState<infer R, infer H>> ? R : never
+
+export const withState = <
+    RootComponent extends ComponentElement,
+    H extends AppActionsFlatten<RootComponent>,
+    P
+>(f: (props: P) => RootComponent) =>
+    <T, R = GetState<T>, E = BasicAppEvent<R, H>>(
+        a: T
+    )=> {
+        return ({
+            action: F.identity,
+            mapState: F.identity,
+            mapState2: () => f => f,
+            eventFunc: F.identity,
+            pick: f => f,
+            actions: CA.sequence,
+            extend<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
+                return {
+                    ...this,
+                    ...adds({ ...this, ...adds(this) })
+                }
+            },
+            actionF: f => f()
+            , actionFF: (f) => (...args) => f(...args)
+        } as Utils<R, H, E>)
+        // .extend(
+        //     u => ({ construct: a })
+        // )
+    }
+
+
+export type Utils<R, H, E, A extends ApplicationUtil<R, H, E> = ApplicationUtil<R, H, E>> = {
+    action: (f: A['ChatAction']) => A['ChatAction'],
+    actionF: (f: () => A['ChatAction']) => A['ChatAction'],
+    actionFF: <T extends any[]>(f: (...args: T) => A['ChatAction']) => (...args: T) => A['ChatAction'],
+    actions: (fs: A['ChatAction'][]) => A['ChatAction'],
+    mapState: <R>(f: (s: A['ChatState']) => R) => (s: A['ChatState']) => R,
+    mapState2: <S>() => <R>(f: (s: S) => R) => (s: S) => R,
+    eventFunc: (handleEvent: (
+        ctx: A['ChatContext'],
+        event: E
+    ) => Promise<ChatState<R, H>>) => typeof handleEvent,
+    pick:
+    <R, K extends keyof A['ChatState'] = keyof A['ChatState']>(
+        f: (cs: Pick<A['ChatState'], K>) => R) => typeof f
+    extend<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR
 }

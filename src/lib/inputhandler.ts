@@ -47,7 +47,7 @@ export const byMessageId = <R, H, E>
 export async function clearChat<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
-    await deleteAll(ctx.renderer, ctx.chatdata.renderedElements)
+    await deleteAll(ctx.chatdata.renderer, ctx.chatdata.renderedElements)
     return { ...ctx.chatdata, renderedElements: [] }
 }
 

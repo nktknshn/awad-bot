@@ -303,7 +303,7 @@ export const createApp = () =>
                 }),
                 props: {}
             }),
-        chatStateFactory: async (tctx) =>
+        state: async (tctx) =>
             createChatState({
                 apps: {
                     app5: await initApplication(apps.app5)(tctx),

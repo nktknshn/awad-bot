@@ -113,7 +113,7 @@ function createApp() {
 
     return application<MyState, AppAction>({
         renderer,
-        chatStateFactory: () => createChatState({
+        state: () => createChatState({
             store: storef<StoreState>({ lists: [] })
         }),
         init: CA.sequence([cleanChatAction]),

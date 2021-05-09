@@ -1,14 +1,16 @@
-import { application, ChatState, createChatState, createChatState2, defaultRenderScheme, genericRenderComponent } from "Lib/application"
+import { application, ChatState, createChatState, defaultRenderScheme, genericRenderComponent } from "Lib/application"
 import * as CA from 'Lib/chatactions'
-import { flushState, FlushState } from "Lib/components/actions/flush"
+import { withFlush, FlushState, deferredRender, addUserMessageIfNeeded, flushIfNeeded } from "Lib/components/actions/flush"
+import { UseTrackingRenderer } from "Lib/components/actions/tracker"
 import {
     applyActionEventReducer, ApplyActionsEvent, createActionEvent,
     makeEventReducer
 } from "Lib/event"
 import { extendDefaultReducer, storeReducer } from "Lib/reducer"
+import { RenderedElement } from "Lib/rendered-messages"
 import { select } from "Lib/state"
 import { lens, StoreAction, storeAction, storef, StoreF2 } from "Lib/storeF"
-import { AppActionsFlatten } from "Lib/types-util"
+import { AppActionsFlatten, BasicAppEvent, withState } from "Lib/types-util"
 import { Lens } from "monocle-ts"
 import { TelegrafContext } from "telegraf/typings/context"
 import { append } from "../bot3/util"
@@ -19,12 +21,6 @@ export type Context = ReturnType<typeof contextCreatorBot5>
 export type Bot5StoreState = {
     lists: string[][]
 }
-
-type AppType = typeof App
-
-type AppAction = AppActionsFlatten<AppType>
-type AppChatState = ChatState<Bot5AppState, AppAction>
-type AppEvents = ApplyActionsEvent<Bot5AppState, AppAction, AppEvents>
 
 type Store = StoreF2<Bot5StoreState, StoreAction<Bot5StoreState>>
 
@@ -45,6 +41,7 @@ const withStore = <K extends keyof any>(
         }
     })
 
+
 export const contextCreatorBot5 = select(
     withUserMessages,
     withStore('store'),
@@ -53,20 +50,34 @@ export const contextCreatorBot5 = select(
 
 export const store = storef<Bot5StoreState>({ lists: [] })
 
-export type Bot5AppState = {
-    store: Store,
-    userId: number,
-} & FlushState
-
-export const bufferEnabledLens = Lens.fromProp<AppChatState>()('bufferedInputEnabled')
 const userId = async (tctx: TelegrafContext) => ({
     userId: tctx.from?.id!,
 })
 
+const handleMessage = <R extends FlushState, H>() =>
+    CA.sequence<R, H, BasicAppEvent<R, H>>([
+        CA.applyInputHandler,
+        addUserMessageIfNeeded(),
+        CA.applyEffects,
+        deferredRender()
+    ])
+
+const constructState = createChatState(
+    [
+        withFlush({ deferRender: 1500 }),
+        userId,
+        async () => ({ store })
+    ])
+
+const app = withState(App)(() => constructState)
+    .extend(
+        a => ({
+            handleMessage: a.actionF(handleMessage)
+        }))
+
 export const createApp = () =>
-    application<Bot5AppState, AppAction, AppEvents>({
-        chatStateFactory: createChatState2(
-            [flushState({ deferRender: 1500 }), userId], { store }),
+    application({
+        state: constructState,
         renderFunc: genericRenderComponent(
             defaultRenderScheme(),
             {
@@ -79,36 +90,13 @@ export const createApp = () =>
             extendDefaultReducer(
                 storeReducer('store')
             ),
-        handleMessage: CA.sequence([
-            CA.applyInputHandler,
-            CA.chatState(c => c.doFlush
-                ? CA.doNothing
-                : CA.addRenderedUserMessage()),
-            CA.applyEffects,
-            CA.chatState(({ deferRender, bufferedInputEnabled }) =>
-                bufferedInputEnabled
-                    ? CA.scheduleEvent(
-                        deferRender,
-                        createActionEvent([
-                            CA.render,
-                            CA.mapState(s => bufferEnabledLens.set(
-                                !s.bufferedOnce
-                            )(s)),
-                            CA.chatState(
-                                c => c.doFlush ? CA.flush : CA.doNothing)
-                        ]))
-                    : CA.sequence([
-                        CA.render,
-                        CA.chatState(c => c.doFlush ? CA.flush : CA.doNothing)
-                    ])
-            ),
-        ]),
+        handleMessage: app.handleMessage,
         handleAction: CA.sequence([
             CA.applyActionHandler,
             CA.replyCallback,
             CA.applyEffects,
             CA.render,
-            CA.chatState(c => c.doFlush ? CA.flush : CA.doNothing),
+            flushIfNeeded(),
         ]),
         handleEvent: makeEventReducer(applyActionEventReducer())
     })

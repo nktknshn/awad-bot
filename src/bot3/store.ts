@@ -25,7 +25,7 @@ const updF = (
     f: (s: Bot3StoreState) => ActionStoreState
 ) => (s: Bot3StoreState) => f
 
-export const getDispatcher = (store: StoreF2<Bot3StoreState, StoreAction<Bot3StoreState>>) => {
+export const getDispatcher = (store: StoreF2<Bot3StoreState>) => {
 
     const onSetSecondsLeft = (secondsLeft: number): ActionStoreState => (s: Bot3StoreState) => {
         return upd({ secondsLeft })(s)

@@ -17,7 +17,7 @@ import * as E from "fp-ts/lib/Either";
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
-    return ctx.app.renderFunc(ctx.chatdata).renderFunction(ctx.renderer)
+    return ctx.app.renderFunc(ctx.chatdata).renderFunction(ctx.chatdata.renderer)
 }
 
 export async function applyEffects<R, H, E>(
@@ -122,7 +122,7 @@ export interface ChatAction<R, H, Returns, E> {
 export interface ChatActionContext<R, H, E> {
     app: Application<R, H, E>,
     tctx: TelegrafContext,
-    renderer: ChatRenderer,
+    // renderer: ChatRenderer,
     queue: OpaqueChatHandler<E>,
     readonly chatdata: ChatState<R, H>
 }
@@ -165,7 +165,7 @@ export function chatState<R, H, E>(
     ) => pred(ctx.chatdata)(ctx)
 }
 
-export function ctx<R, H, E>(
+export function tctx<R, H, E>(
     pred: (ctx: TelegrafContext) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (
@@ -183,8 +183,8 @@ export function app<R, H, E>(
 
 export function chain<R, H, E>(
     f: (ctx: ChatActionContext<R, H, E>) => AppChatAction<R, H, E>,
-): (ctx: ChatActionContext<R, H, E>) => AppChatAction<R, H, E> {
-    return (ctx) => f(ctx)
+): AppChatAction<R, H, E> {
+    return async (ctx) => f(ctx)(ctx)
 }
 
 export type Branch<R, H, T, E> = [
@@ -233,7 +233,7 @@ export type PipeChatAction<R, H, E> = AppChatAction<R, H, E>
 
 export const addRenderedUserMessage = <R, H, E>()
     : CA.PipeChatAction<R, H, E> => {
-    return CA.ctx(c =>
+    return CA.tctx(c =>
         CA.mapState(s => ({
             ...s,
             renderedElements: [

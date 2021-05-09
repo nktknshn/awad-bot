@@ -1,16 +1,24 @@
 import * as F from 'fp-ts/lib/function';
-import { createChatState, defaultRenderScheme, genericRenderComponent, application } from "Lib/application";
+import { defaultRenderScheme, genericRenderComponent, application, createChatState } from "Lib/application";
 import * as CA from 'Lib/chatactions';
 import { getTrackingRendererE } from 'Lib/chatrenderer';
+import { connectFStore } from 'Lib/components/actions/store';
+import { withUserMessages } from 'Lib/context';
 import { applyActionEventReducer, ApplyActionsEvent, createActionEvent, makeEventReducer, renderEvent } from 'Lib/event';
 import { clearChat } from "Lib/inputhandler";
 import { extendDefaultReducer, flushReducer, storeReducer } from 'Lib/reducer';
+import { select } from 'Lib/state';
 import { StoreAction, storef, StoreF2 } from 'Lib/storeF';
-import { AppActionsFlatten } from 'Lib/types-util';
+import { AppActionsFlatten,  addState } from 'Lib/types-util';
 import { PhotoSize } from 'telegraf/typings/telegram-types';
 import { App } from './app';
 import { levelDatabase, levelTracker } from './leveltracker';
 import { getDispatcher } from './store';
+
+const { renderer, saveToTrackerAction, cleanChatAction,
+    untrackRendererElementsAction } = getTrackingRendererE(
+        levelTracker(levelDatabase('./mydb'))
+    )
 
 export type Bot3StoreState = {
     isVisible: boolean,
@@ -28,8 +36,6 @@ export const store = storef<Bot3StoreState>({
     stringCandidate: undefined,
 })
 
-export type Bot3Dispatcher = ReturnType<typeof getDispatcher>
-
 export type Bot3AppState =
     {
         store: typeof store,
@@ -38,16 +44,56 @@ export type Bot3AppState =
         bufferedInputEnabled: boolean,
     }
 
-type AppAction = AppActionsFlatten<typeof App>
-type AppEvent = ApplyActionsEvent<Bot3AppState, AppAction, AppEvent>
-
-const { renderer, saveToTrackerAction, cleanChatAction,
-    untrackRendererElementsAction } = getTrackingRendererE(
-        levelTracker(levelDatabase('./mydb'))
+const util = addState(App)<Bot3AppState>()
+    .extend(
+        u => ({
+            attachStore: connectFStore(u)
+        })
     )
 
-export const app = application<Bot3AppState, AppAction, AppEvent>({
-    renderer,
+export const contextCreatorBot3 = select(
+    ((cs: Record<'store', StoreF2<Bot3StoreState>>) => ({
+        dispatcher: getDispatcher(cs.store),
+        ...cs.store.state
+    })),
+    withUserMessages,
+)
+
+const handleStart = util.actions([
+    CA.addRenderedUserMessage(), clearChat, CA.render
+])
+
+const handleMessage = 
+    CA.tctx(tctx =>
+        CA.ifTextEqual('/start')(tctx)
+            ? handleStart
+            : defaultMessageHandler)
+
+const defaultMessageHandler = util.actions(
+    [
+        CA.addRenderedUserMessage(),
+        saveToTrackerAction,
+        CA.applyInputHandler,
+        CA.chatState(({ deferRender, bufferedInputEnabled }) =>
+            bufferedInputEnabled
+                ? CA.render
+                : CA.scheduleEvent(deferRender, renderEvent())
+        )
+    ]
+)
+
+const handleAction = [
+    CA.applyActionHandler,
+    CA.replyCallback,
+    CA.applyEffects,
+    CA.render,
+]
+
+const handleEvent = util.eventFunc(
+    makeEventReducer(applyActionEventReducer()))
+
+export const app = application({
+    // renderer,
     actionReducer: extendDefaultReducer(
         flushReducer(
             CA.sequence([
@@ -57,60 +103,26 @@ export const app = application<Bot3AppState, AppAction, AppEvent>({
         ),
         storeReducer('store')
     ),
-    chatStateFactory: async () =>
-        createChatState({
-            store,
-            // dispatcher: getDispatcher(store),
-            deferRender: 0,
-            bufferedInputEnabled: false
-        }),
+    state:
+        createChatState([
+            async () => ({
+                store,
+                deferRender: 0,
+                bufferedInputEnabled: false
+            })]),
     renderFunc: genericRenderComponent(
         defaultRenderScheme(),
         {
             component: App,
             props: { password: 'a' },
-            contextCreator: chatstate => ({
-                dispatcher: getDispatcher(chatstate.store),
-                error: chatstate.error,
-                ...chatstate.store.state
-            }),
+            contextCreator: contextCreatorBot3,
         }
     ),
-    init: CA.sequence([
+    init: util.actions([
         cleanChatAction,
-        async ({ app, queue, chatdata }) => {
-            console.log('init');
-
-            return {
-                ...chatdata,
-                store: chatdata.store.withDispatch(
-                    F.flow(
-                        app.actionReducer,
-                        createActionEvent,
-                        queue.handleEvent()
-                    )
-                )
-            }
-        }
+        util.attachStore
     ]),
-    handleMessage: CA.branchHandler([
-        [
-            CA.ifTextEqual('/start'),
-            [CA.addRenderedUserMessage(), clearChat, CA.render],
-            [
-                CA.addRenderedUserMessage(),
-                saveToTrackerAction,
-                CA.applyInputHandler,
-                CA.chatState(({ deferRender, bufferedInputEnabled }) =>
-                    bufferedInputEnabled
-                        ? CA.render
-                        : CA.scheduleEvent(deferRender, renderEvent())
-                )
-            ]
-        ],
-    ]),
-    handleAction: CA.sequence(
-        [CA.applyActionHandler, CA.replyCallback, CA.render]
-    ),
-    handleEvent: makeEventReducer(applyActionEventReducer())
+    handleMessage,
+    handleAction: util.actions(handleAction),
+    handleEvent
 })

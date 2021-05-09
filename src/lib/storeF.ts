@@ -20,7 +20,7 @@ type Z2 = 1 | 2 extends 1 ? true : false
 // true
 type Z3 = 1 extends 1 | 2 ? true : false
 
-export interface StoreF2<S, H> {
+export interface StoreF2<S, H = StoreAction<S>> {
     applyAction(a: H): StoreF2<S, H>
     state: S
     dispatch: <SS extends H>(a: SS) => void

@@ -1,4 +1,7 @@
 import { chatstateAction } from "Lib/reducer"
+import * as CA from 'Lib/chatactions'
+import { BasicAppEvent } from "Lib/types-util"
+import { createActionEvent } from "Lib/event"
 
 export type FlushState = {
     doFlush: boolean
@@ -14,7 +17,7 @@ export const setBufferedInputEnabled = (bufferedInputEnabled: boolean) =>
         ({ ...s, bufferedInputEnabled })
     )
 
-export const flushState = (values: {
+export const withFlush = (values: {
     deferRender?: number,
     bufferedInputEnabled?: boolean,
     bufferedOnce?: boolean,
@@ -25,3 +28,35 @@ export const flushState = (values: {
     bufferedInputEnabled: values.bufferedInputEnabled ?? false,
     bufferedOnce: values.bufferedOnce ?? false,
 })
+
+
+export const flushIfNeeded = <R extends FlushState, H, E>() =>
+    CA.chatState<R, H, E>(
+        c => c.doFlush ? CA.flush : CA.doNothing)
+
+export const deferredRender = <R extends FlushState, H>(
+    enabled = true
+) =>
+    CA.chatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled }) =>
+        enabled && bufferedInputEnabled
+            ? CA.scheduleEvent(
+                deferRender,
+                createActionEvent([
+                    CA.render,
+                    CA.mapState(s =>
+                        setBufferedInputEnabled(!s.bufferedOnce).f(s)
+                    ),
+                    flushIfNeeded()
+                ]))
+            : CA.sequence([
+                CA.render,
+                flushIfNeeded()
+            ])
+    )
+
+export const addUserMessageIfNeeded = <R extends FlushState, H, E>() =>
+    CA.chatState<R, H, E>(
+        c => c.doFlush
+            ? CA.doNothing
+            : CA.addRenderedUserMessage()
+    )

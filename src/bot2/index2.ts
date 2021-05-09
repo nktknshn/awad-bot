@@ -2,20 +2,33 @@ import * as CA from '../lib/chatactions';
 import { ChatState, createChatState, application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
 import { getTrackingRendererE, removeMessages } from "../lib/chatrenderer";
 import { ChatActionReducer, composeReducers, extendDefaultReducer, reducer } from '../lib/reducer';
-import { AppActions, AppActionsFlatten, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
+import { addState, AppActions, AppActionsFlatten, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
-import { createAwadStore } from "./store";
+import { AwadStore, createAwadStore } from "./store";
 import { updateUser } from "./store/user";
 import { storeToDispatch } from "./storeToDispatch";
 import { clearChat } from '../lib/inputhandler';
 import { createActionEvent, applyActionEventReducer, ApplyActionsEvent, makeEventReducer, renderEvent } from 'Lib/event';
 import { identity } from 'fp-ts/lib/function';
+import { ChatActionContext } from '../lib/chatactions';
+import { createDefaultRenderer, initTrackingRenderer, saveToTrackerAction, UseTrackingRenderer, useTrackingRenderer } from 'Lib/components/actions/tracker';
+import { reloadInterface } from 'Lib/components/actions/misc';
 
 
-type AppState = { store: ReturnType<typeof createAwadStore> }
+type AppState = { store: ReturnType<typeof createAwadStore> } & UseTrackingRenderer
 type AppAction = AppActionsFlatten<typeof App>
 type AppEvent = ApplyActionsEvent<AppState, AppAction, AppEvent>
+
+type Application<R, H, E> = {
+    state: R,
+    action: H,
+    event: E
+    chatContext: ChatActionContext<R, H, E>
+}
+
+type AwadApp = Application<AppState, AppAction, AppEvent>
+type AppEvents<R, H> = ApplyActionsEvent<R, H, AppEvents<R, H>>
 
 export const bot2Reducers = <R, H, E>(): ChatActionReducer<"done" | "next" | Promise<unknown>, R, H, E> =>
     composeReducers(
@@ -29,14 +42,36 @@ export const bot2Reducers = <R, H, E>(): ChatActionReducer<"done" | "next" | Pro
         )
     )
 
+export const initBot2 = <K extends keyof any>(key: K) => <R extends Record<K, AwadStore>, H>(services: AwadServices) =>
+    async ({ chatdata, queue, tctx }: ChatActionContext<R, H, AppEvents<R, H>>) => {
+
+        const user = await services.getOrCreateUser(userDtoFromCtx(tctx))
+
+        chatdata[key].subscribe(() =>
+            queue.handleEvent(tctx)(renderEvent()))
+
+        chatdata[key].dispatch(updateUser(user))
+
+        return chatdata
+    }
+
+const u = addState(App)<AppState>()
+
+export const contextCreatorBot2 = u.mapState2<
+    { store: AwadStore }>()
+    ((s) => ({
+        ...s.store.getState(),
+        dispatcher: storeToDispatch(s.store)
+    }))
+
 export function createAwadApplication(services: AwadServices) {
 
-    const { renderer, saveToTrackerAction, cleanChatAction } = getTrackingRendererE(services.users)
-
     return application<AppState, AppAction, AppEvent>({
-        renderer,
-        chatStateFactory:
-            async () => createChatState({ store: createAwadStore(services) }),
+        state:
+            createChatState([
+                useTrackingRenderer(services.users),
+                async () => ({ store: createAwadStore(services) })
+            ]),
         actionReducer: extendDefaultReducer(
             bot2Reducers()
         ),
@@ -44,34 +79,21 @@ export function createAwadApplication(services: AwadServices) {
             defaultRenderScheme(),
             {
                 component: App,
-                contextCreator: s => ({
-                    ...s.store.getState(),
-                    dispatcher: storeToDispatch(s.store)
-                }),
+                contextCreator: contextCreatorBot2,
                 props: { showPinned: true }
             }),
         init: CA.sequence([
-            cleanChatAction,
-            async ({ chatdata, queue, tctx }) => {
-
-                const user = await services.getOrCreateUser(userDtoFromCtx(tctx))
-
-                chatdata.store.subscribe(() =>
-                    queue.handleEvent(tctx)(renderEvent()))
-
-                chatdata.store.dispatch(updateUser(user))
-
-                return chatdata
-            }
+            initTrackingRenderer(),
+            initBot2('store')(services)
         ]),
         handleMessage:
             CA.branchHandler([
                 [
                     CA.ifTextEqual('/start'),
-                    [CA.addRenderedUserMessage(), clearChat, CA.render],
+                    [reloadInterface()],
                     [
                         CA.addRenderedUserMessage(),
-                        saveToTrackerAction,
+                        saveToTrackerAction(),
                         CA.applyInputHandler,
                         CA.applyEffects,
                         CA.render
