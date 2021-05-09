@@ -1,9 +1,5 @@
 import { TelegrafContext } from "telegraf/typings/context"
-import { ChatRenderer, createChatRenderer } from "./chatrenderer"
-import { ChatHandlerFactory } from "./chatsdispatcher"
-import { Application, ChatState } from './application'
 import { mylog } from "./logging"
-import { render } from "./chatactions"
 
 export interface ChatHandler<R, E = any> {
     chatdata: R,
@@ -13,13 +9,13 @@ export interface ChatHandler<R, E = any> {
     setChatData(self: ChatHandler<R>, d: R): void
 }
 
-export interface ChatHandler2<E = any> {
+export interface OpaqueChatHandler<E> {
     handleMessage(ctx: TelegrafContext): Promise<unknown>
     handleAction(ctx: TelegrafContext): Promise<unknown>
-    handleEvent(ctx: TelegrafContext, event: E): Promise<unknown>
+    handleEvent(ctx?: TelegrafContext): (event: E) => Promise<unknown>
 }
 
-type IncomingItem = IncomingMessage | IncomingAction | IncomingEvent<unknown>
+type IncomingItem<E> = IncomingMessage | IncomingAction | IncomingEvent<E>
 
 class IncomingMessage {
     kind: 'IncomingMessage' = 'IncomingMessage'
@@ -42,27 +38,27 @@ class IncomingEvent<E> {
     }
 }
 
-export class QueuedChatHandler<R, E = unknown> implements ChatHandler2<E> {
-    incomingQueue: IncomingItem[] = []
+export class QueuedChatHandler<R, E> implements OpaqueChatHandler<E> {
+    incomingQueue: IncomingItem<E>[] = []
 
     busy = false
-    currentItem?: IncomingItem
+    currentItem?: IncomingItem<E>
 
     rerender = false
     _chat: ChatHandler<R, E>
 
-    constructor(readonly chat: ((t: QueuedChatHandler<R>) => ChatHandler<R>)) {
-
+    constructor(readonly chat: ((t: QueuedChatHandler<R, E>) => ChatHandler<R>), busy = false) {
+        this.busy = busy
         this._chat = chat(this)
     }
 
-    async push(item: IncomingItem) {
+    async push(item: IncomingItem<E>) {
 
         if (this.busy) {
-            mylog(`busy so item was queued ${item.kind}`);
+            mylog(`busy so item was queued: ${item.kind}`);
             this.incomingQueue.push(item)
         } else {
-            mylog(`processing ${item.kind}  ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
+            mylog(`processing ${item.kind} ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
 
             await this.processItem(item)
 
@@ -81,7 +77,7 @@ export class QueuedChatHandler<R, E = unknown> implements ChatHandler2<E> {
         }
     }
 
-    async processItem(item: IncomingItem) {
+    async processItem(item: IncomingItem<E>) {
         this.busy = true
         this.currentItem = item
 
@@ -94,7 +90,7 @@ export class QueuedChatHandler<R, E = unknown> implements ChatHandler2<E> {
             await this._chat.handleAction(this._chat, item.ctx)
         }
         else if (item.kind === 'IncomingEvent') {
-            await this._chat.handleEvent(this._chat, item.ctx, item.event as E)
+            await this._chat.handleEvent(this._chat, item.ctx, item.event)
         }
 
         mylog(`done processItem: ${item.kind}`)
@@ -113,92 +109,12 @@ export class QueuedChatHandler<R, E = unknown> implements ChatHandler2<E> {
         await this.push(new IncomingMessage(ctx))
     }
 
-    async handleEvent<E>(ctx: TelegrafContext, event: E) {
-        // mylog(`handleEvent: ${ctx.message?.message_id}`)
-        await this.push(new IncomingEvent<E>(ctx, event))
+    handleEvent(ctx: TelegrafContext) {
+        return (event: E) =>
+            this.push(new IncomingEvent(ctx, event))
     }
 }
 
-interface InitializedApp<R, H, E> {
-    app: Application<R, H, E>,
-    chatdata: ChatState<R, H>,
-    renderer: ChatRenderer
-}
-
-function initApplication<R, H, E>(app: Application<R, H, E>) {
-    return async (ctx: TelegrafContext): Promise<InitializedApp<R, H, E>> => {
-        const renderer = (app.renderer ?? createChatRenderer)(ctx)
-        const { chatdata } = app.renderFunc(app.chatStateFactory(ctx))
-
-        return {
-            app,
-            chatdata,
-            renderer
-        }
-    }
-}
-
-function createChatHandler<R, H, E>(
-    { app, chatdata, renderer }: InitializedApp<R, H, E>
-): QueuedChatHandler<ChatState<R, H>, E> {
-    return new QueuedChatHandler<ChatState<R, H>, E>(chat => ({
-        chatdata,
-        handleAction: async (self, ctx) => {
-            self.setChatData(
-                self,
-                await app.handleAction!(
-                    { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata }
-                ))
-        },
-        handleMessage: async (self, ctx) => {
-            mylog(`QueuedChatHandler.chat: ${ctx.message?.text} ${ctx.message?.message_id}`);
-
-            self.setChatData(
-                self,
-                await app.handleMessage!(
-                    { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata }
-                ))
-            mylog(`QueuedChatHandler.chat done ${ctx.message?.message_id}}`)
-
-        },
-        handleEvent: async (self, ctx, event: E) => {
-            mylog(`handleEvent: ${event}`);
-
-            if (app.handleEvent)
-                self.setChatData(
-                    self,
-                    await app.handleEvent(
-                        { app, tctx: ctx, renderer, queue: chat, chatdata: self.chatdata },
-                        event
-                    )
-                )
-        },
-        setChatData: (self, d) => {
-            // mylog(self.chatdata.treeState.nextStateTree?.state)
-            self.chatdata = d
-            // mylog(self.chatdata.treeState.nextStateTree?.state)
-        }
-    }))
-}
-
-export const createChatHandlerFactory = <R, H, E>(app: Application<R, H, E>)
-    : ChatHandlerFactory<ChatHandler2<E>, E> =>
-    async ctx => {
-        mylog("createChatHandlerFactory");
-
-        const a = await initApplication(app)(ctx)
-
-        const chat = createChatHandler(a)
-
-        if (app.init) {
-            chat._chat.setChatData(
-                chat._chat,
-                await app.init({ app, tctx: ctx, renderer: a.renderer, queue: chat, chatdata: a.chatdata })
-            )
-        }
-
-        return chat
-    }
 
 
 

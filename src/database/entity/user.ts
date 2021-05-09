@@ -40,7 +40,7 @@ export class UserRepository extends Repository<UserEntity> {
     getRenderedMessage(chatId: number): Promise<number[]> {
         return this.query(
             `SELECT "renderedMessagesIds" FROM "user" WHERE id = $1`, [chatId]
-        ).then(_ => _[0].renderedMessagesIds)
+        ).then(_ => _[0] ? _[0].renderedMessagesIds ?? []: [])
     }
 
 }

@@ -109,7 +109,7 @@ function areSame(a: RenderedElement, b?: OutcomingMessageType) {
     return false
 }
 
-export namespace Actions {
+export namespace RenderActions {
     export class Keep {
         kind: 'Keep' = 'Keep'
         constructor(readonly element: RenderedElement, readonly newElement: OutcomingMessageType) { }
@@ -129,11 +129,11 @@ export namespace Actions {
 }
 
 
-export type Actions = Actions.Keep | Actions.Replace | Actions.Remove | Actions.Create
+export type RenderActions = RenderActions.Keep | RenderActions.Replace | RenderActions.Remove | RenderActions.Create
 
 export function createRenderActions(renderedElements: RenderedElement[], nextElements: OutcomingMessageType[]) {
 
-    const actions: Actions[] = []
+    const actions: RenderActions[] = []
 
     mylog({ "renderedElements": renderedElements });
     mylog({ "nextElements": nextElements });
@@ -143,16 +143,16 @@ export function createRenderActions(renderedElements: RenderedElement[], nextEle
         nextElements,
         areSame,
         (leaveThis, leaveThat) => {
-            actions.push(new Actions.Keep(leaveThis, leaveThat))
+            actions.push(new RenderActions.Keep(leaveThis, leaveThat))
         },
         (replaceThis, withThat) => {
-            actions.push(new Actions.Replace(replaceThis, withThat))
+            actions.push(new RenderActions.Replace(replaceThis, withThat))
         },
         (removeThis) => {
-            actions.push(new Actions.Remove(removeThis))
+            actions.push(new RenderActions.Remove(removeThis))
         },
         (createThis) => {
-            actions.push(new Actions.Create(createThis))
+            actions.push(new RenderActions.Create(createThis))
         }
     )
 

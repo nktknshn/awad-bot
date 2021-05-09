@@ -30,7 +30,7 @@ const AppInput = ({ dispatcher: { onCard, onRedirect } }: WithDispatcher) =>
         on(otherwise, (action((a) => [onRedirect('main?message=bad_card')]))),
     ])
 
-const App = connected1(
+export const App = connected1(
     select(getDispatcher, getIfUserLoaded, getPath),
     function* ({
         path, userLoaded, dispatcher

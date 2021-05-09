@@ -12,7 +12,7 @@ export type Subtract<T1 extends T2, T2> = {
     [P in Diff<keyof T1, keyof T2>]: T1[P]
 }
 
-export type AppType<P> = (props: P) => ComponentGenerator
+export type AppType<P, E> = (props: P) => ComponentGenerator<E>
 
 export class WithContext<C, R> {
     kind: 'WithContext' = 'WithContext'
@@ -21,27 +21,28 @@ export class WithContext<C, R> {
     }
 }
 
-export type BasicElement = 
+export type BasicElement<H> = 
     TextElement 
     | TextPartElement 
     | NextMessageElement 
-    | ButtonElement<any>
-    | ButtonsRowElement <any>
+    | ButtonElement<H>
+    | ButtonsRowElement <H>
     | InputHandlerElement<any>
     | RequestLocationButtonElement 
     | ActionsHandlerElement 
-    | EffectElement<any>
+    | EffectElement<H>
     | FileElement 
     | KeyboardElement
 
-export type Element = BasicElement | ComponentElement
+export type Element<H> = BasicElement<H> | ComponentElement
 
-export function isComponentElement(el: Element): el is ComponentElement {
+export function isComponentElement<H>(el: Element<H>): el is ComponentElement {
     return el.kind === 'component-with-state-connected'
         // || el.kind === 'component-with-state'
 }
 
 import { Lens } from 'monocle-ts'
+import { Matcher2 } from "./input"
 
 type LensObject<S> = {
     [k in keyof S]-?: Lens<S, S[k]>
@@ -118,17 +119,25 @@ export interface Appliable<S = unknown, H= unknown> {
     apply(draft: RenderDraft<H>): RenderDraft<H>
 }
 
-export function isAppliable(b: BasicElement | Appliable) : b is Appliable {
+export function isAppliable<H>(b: BasicElement<H> | Appliable) : b is Appliable {
     return 'apply' in b
 }
 
-export class ButtonElement<R = any> {
+export class ButtonElement<R> {
     kind: 'ButtonElement' = 'ButtonElement'
     constructor(
         readonly text: string,
         readonly data?: string,
         readonly callback?: () => R,
     ) { }
+
+    mapCallback<R2>(f: (h: R) => R2): ButtonElement<R2>  {
+        return new ButtonElement<R2>(
+            this.text,
+            this.data,
+            () => f(this.callback!())
+        )
+    }
 }
 
 export class ButtonsRowElement<R> {
@@ -136,6 +145,12 @@ export class ButtonsRowElement<R> {
     constructor(
         readonly buttons: ButtonElement<R>[] = []
     ) { }
+
+    mapCallback<R2>(f: (h: R) => R2): ButtonsRowElement<R2>  {
+        return new ButtonsRowElement<R2>(
+            this.buttons.map(_ => _.mapCallback(f))
+        )
+    }
 }
 
 export class FileElement {
@@ -151,6 +166,13 @@ export class EffectElement<R> {
         readonly callback: () => R,
         readonly type: 'OnCreated' | 'OnRemoved' | 'onRendered' = 'OnCreated'
     ) { }
+
+    mapCallback<R2>(f: (h: R) => R2): EffectElement<R2>  {
+        return new EffectElement<R2>(
+            () => f(this.callback!()),
+            this.type
+        )
+    }
 }
 
 export class ActionsHandlerElement {
@@ -160,6 +182,8 @@ export class ActionsHandlerElement {
     ) { }
 }
 
+// export type _InputHandlerElement<R> = InputHandlerElement<Matcher2<R>>
+
 export class InputHandlerElement<R> {
     kind: 'InputHandlerElement' = 'InputHandlerElement'
     constructor(
@@ -168,6 +192,12 @@ export class InputHandlerElement<R> {
             next: () => R | undefined,
         ) => R | undefined
     ) { }
+
+    mapCallback<R2>(f: (h: R | undefined) => R2): InputHandlerElement<R2>  {
+        return new InputHandlerElement(
+            (input, next) => f(this.callback!(input, () => f(next()as any) as any))
+        )
+    }
 }
 
 

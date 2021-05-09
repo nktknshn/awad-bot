@@ -1,12 +1,9 @@
+import { getAwadServices } from "bot2/services"
 import Telegraf from "telegraf"
-import { TelegrafContext } from "telegraf/typings/context"
 import { createConnection } from "typeorm"
-import { createAwadApplication } from "./bot2/index"
-import { getAwadServices } from "./bot2/services"
-import { ChatsDispatcher } from "./lib/chatsdispatcher"
+import { createApp } from './bot7/index7'
 import { initLogging, mylog } from "./lib/logging"
 import { attachAppToBot } from "./lib/util"
-
 import { token } from "./telegram-token.json"
 
 async function main() {
@@ -14,13 +11,14 @@ async function main() {
         () => true
     ])
 
+    mylog('Starting...')
     const connection = await createConnection()
     const services = getAwadServices(connection)
-    const bot = attachAppToBot(new Telegraf(token), createAwadApplication(services))
 
-    mylog('Starting...')
-
-    await bot.launch()
+    await attachAppToBot(
+        new Telegraf(token),
+        createApp(services)
+    ).launch()
 
     mylog('Started...')
 }

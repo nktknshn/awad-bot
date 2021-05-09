@@ -1,17 +1,17 @@
 import Debug from 'debug'
 import { TelegrafContext } from "telegraf/typings/context"
-import { ChatHandler2 } from './chathandler'
+import { OpaqueChatHandler } from './chathandler'
 import { mylog } from './logging'
 
-export type ChatHandlerFactory<T extends ChatHandler2<E>, E> = (ctx: TelegrafContext) => Promise<T | undefined>
+export type ChatHandlerFactory<T extends OpaqueChatHandler<E>, E> = (ctx: TelegrafContext) => Promise<T | undefined>
 
 type Dict<V> = { [key: string]: V }
 type DictNumber<V> = { [key: number]: V }
 
-export class ChatsDispatcher<T extends ChatHandler2<E>, E> {
+export class ChatsDispatcher<T extends OpaqueChatHandler<E>, E> {
 
-    private chats: { [chatId: number]: ChatHandler2<E> } = {}
-    private pendingChats: DictNumber<Promise<ChatHandler2<E> | undefined>> = {}
+    private chats: { [chatId: number]: OpaqueChatHandler<E> } = {}
+    private pendingChats: DictNumber<Promise<OpaqueChatHandler<E> | undefined>> = {}
 
     constructor(
         readonly chatFactory: ChatHandlerFactory<T, E>,

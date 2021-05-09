@@ -3,8 +3,7 @@ import Telegraf from "telegraf"
 import { levelDatabase, levelTracker } from "./bot3/leveltracker"
 import { append, flush } from "./bot3/util"
 import * as CA from './lib/chatactions'
-import { ChatState, createChatState, getApp, getUserMessages, renderComponent } from "./lib/application"
-import { getTrackingRenderer } from "./lib/chatrenderer"
+import { ChatState, createChatState, application, getUserMessages, renderComponent } from "./lib/application"
 import { connected } from "./lib/component"
 import { button, message, messagePart, nextMessage } from "./lib/elements-constructors"
 import { action, caseText, inputHandler, on } from "./lib/input"
@@ -16,9 +15,10 @@ import { AppActionsFlatten } from "./lib/types-util"
 import { UserMessageElement } from "./lib/usermessage"
 import { attachAppToBot } from "./lib/util"
 import { token } from "./telegram-token.json"
-import { GetSetState } from "Libtree2"
-import { select } from "Libstate"
+import { GetSetState } from "Lib/tree2"
+import { select } from "Lib/state"
 import { identity } from "fp-ts/lib/function"
+import { getTrackingRendererE } from "Lib/chatrenderer"
 
 type StoreState = {
     lists: string[][]
@@ -107,11 +107,11 @@ function createApp() {
         }
     })
 
-    const { renderer, saveToTrackerAction: saveToTracker, cleanChatAction, tracker } = getTrackingRenderer(
+    const { renderer, saveToTrackerAction: saveToTracker, cleanChatAction, tracker } = getTrackingRendererE(
         levelTracker(levelDatabase('./mydb_bot4'))
     )
 
-    return getApp<MyState, AppAction>({
+    return application<MyState, AppAction>({
         renderer,
         chatStateFactory: () => createChatState({
             store: storef<StoreState>({ lists: [] })

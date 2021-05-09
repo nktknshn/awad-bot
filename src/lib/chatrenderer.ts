@@ -3,91 +3,117 @@ import * as O from 'fp-ts/lib/Option';
 import { TelegrafContext } from "telegraf/typings/context";
 import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types";
 import { ChatActionContext } from "./chatactions";
-import { ChatHandler2 } from "./chathandler";
+import { OpaqueChatHandler } from "./chathandler";
 import { ChatState } from "./application";
 import { ContextOpt } from "./inputhandler";
 import { mylog } from "./logging";
 import { randomAnimal } from './util';
+import * as TE from "fp-ts/lib/TaskEither";
+import * as E from "fp-ts/lib/Either";
+import { tryCatch } from "fp-ts/lib/TaskEither";
+import { pipe } from 'fp-ts/lib/pipeable';
+import { identity } from 'fp-ts/lib/function';
+
+type Response<T> = TE.TaskEither<ChatRendererError, T>
+
+export interface ChatRendererError {
+    description?: string
+}
 
 export interface ChatRenderer {
     chatId: number,
     message(text: string,
         extra?: ExtraReplyMessage,
         targetMessage?: Message,
-        removeTarget?: boolean): Promise<Message>,
-    delete(messageId: number): Promise<boolean>,
-    sendFile(f: InputFile): Promise<MessageDocument>,
-    sendPhoto(f: InputFile): Promise<MessagePhoto>,
-    sendMediaGroup(fs: InputFile[]): Promise<Message[]>,
+        removeTarget?: boolean): Response<Message>,
+    delete(messageId: number): Response<boolean>,
+    sendFile(f: InputFile): Response<MessageDocument>,
+    sendPhoto(f: InputFile): Response<MessagePhoto>,
+    sendMediaGroup(fs: InputFile[]): Response<Message[]>,
 }
 
-export const createChatRenderer = (ctx: TelegrafContext): ChatRenderer => ({
+const isCantRemove = (e: ChatRendererError) => e.description
+    && e.description == `Bad Request: message can't be deleted for everyone`
+
+export const mapToChatRendererError = (e: unknown) => e as ChatRendererError
+
+export const createChatRendererE = (ctx: TelegrafContext): ChatRenderer => ({
     chatId: ctx.chat?.id!,
-    async message(text: string,
+    message(text: string,
         extra?: ExtraReplyMessage,
         targetMessage?: Message,
-        removeTarget?: boolean
+        removeTarget: boolean = false
     ) {
-
-        // ctx.reply()
-        if (targetMessage) {
-
-            if (removeTarget) {
-                mylog('removing reply markup');
-                await this.delete(targetMessage.message_id)
-            }
-            else {
-
-                const ret = await ctx.telegram.editMessageText(
-                    ctx.chat?.id!,
-                    targetMessage.message_id,
-                    undefined,
-                    text,
-                    { ...extra, disable_notification: false, parse_mode: 'HTML' }
+        return pipe(
+            O.fromNullable(targetMessage),
+            O.map(message => removeTarget
+                ? pipe(
+                    this.delete(message.message_id)
+                    , TE.map(_ => O.none)
                 )
-
-                if (typeof ret !== 'boolean')
-                    return ret
-            }
-        }
-
-        return await ctx.replyWithHTML(text, extra)
+                : pipe(
+                    tryCatch(
+                        () => ctx.telegram.editMessageText(
+                            ctx.chat?.id!, message.message_id, undefined, text,
+                            { ...extra, disable_notification: false, parse_mode: 'HTML' }
+                        )
+                        , mapToChatRendererError)
+                    , TE.map(ret => typeof ret !== 'boolean' ? O.some(ret) : O.none)
+                ))
+            , O.fold(() =>
+                tryCatch(
+                    () => ctx.replyWithHTML(text, extra)
+                    , mapToChatRendererError),
+                message => TE.flatten(
+                    pipe(
+                        message,
+                        TE.map(
+                            O.fold(() => tryCatch(
+                                () => ctx.replyWithHTML(text, extra)
+                                , mapToChatRendererError)
+                                , m => TE.of(m))
+                        ))
+                ))
+        )
     },
-    async delete(messageId: number) {
+    delete(messageId: number): Response<boolean> {
         mylog(`renderer.delete(${messageId})`)
-        try {
-            return await ctx.deleteMessage(messageId)
-        } catch (e) {
-            console.error(`error removing ${messageId}`)
-            // Bad Request: message can't be deleted for everyone
-            if (e.description
-                && e.description == `Bad Request: message can't be deleted for everyone`) {
-                console.error(`Bad Request: message can't be deleted for everyone`)
-                await ctx.telegram.editMessageText(
-                    ctx.chat?.id,
-                    messageId,
-                    undefined,
-                    randomAnimal()
-                )
 
-                return true
-
-            }
-            return false
-        }
+        return pipe(
+            tryCatch(
+                () => ctx.deleteMessage(messageId)
+                , mapToChatRendererError),
+            TE.orElse(e => isCantRemove(e)
+                ? tryCatch(
+                    () => ctx.telegram.editMessageText(
+                        ctx.chat?.id,
+                        messageId,
+                        undefined,
+                        randomAnimal())
+                        .then(_ => true)
+                    , mapToChatRendererError)
+                : TE.of(false)
+            )
+        )
     },
-    async sendFile(f: InputFile) {
-        return await ctx.telegram.sendDocument(ctx.chat?.id!, f)
+    sendFile(f: InputFile) {
+        return tryCatch(
+            () => ctx.telegram.sendDocument(ctx.chat?.id!, f)
+            , mapToChatRendererError)
     },
-    async sendPhoto(f: InputFile) {
-        return await ctx.telegram.sendPhoto(ctx.chat?.id!, f)
+    sendPhoto(f: InputFile) {
+        return tryCatch(
+            () => ctx.telegram.sendPhoto(ctx.chat?.id!, f)
+            , mapToChatRendererError)
     },
-    async sendMediaGroup(fs: InputFile[]) {
-        return await ctx.telegram.sendMediaGroup(ctx.chat?.id!,
-            fs.map((_: InputFile): InputMediaPhoto => ({
-                media: _,
-                type: 'photo'
-            })))
+    sendMediaGroup(fs: InputFile[]) {
+        return tryCatch(
+            () => ctx.telegram.sendMediaGroup(ctx.chat?.id!,
+                fs.map((_: InputFile): InputMediaPhoto => ({
+                    media: _,
+                    type: 'photo'
+                })))
+            , mapToChatRendererError)
     }
 })
 
@@ -97,83 +123,92 @@ export type Tracker = {
     getRenderedMessage(chatId: number): Promise<number[]>
 }
 
-
-export const messageTrackingRenderer: (tracker: Tracker, r: ChatRenderer) => ChatRenderer =
+export const messageTrackingRendererE: (tracker: Tracker, r: ChatRenderer) => ChatRenderer =
     (tracker, r) => ({
         chatId: r.chatId,
-        async message(text, extra, targetMessage, removeTarget) {
-            const sent = await r.message(text, extra, targetMessage, removeTarget)
-
-            if (!targetMessage && r.chatId)
-                await tracker.trackRenderedMessage(r.chatId, sent.message_id!)
-
-            return sent
+        message(text, extra, targetMessage, removeTarget) {
+            return pipe(
+                r.message(text, extra, targetMessage, removeTarget),
+                TE.chainFirst(
+                    sent =>
+                        !targetMessage && r.chatId
+                            ? tryCatch(
+                                () => tracker.trackRenderedMessage(r.chatId, sent.message_id!)
+                                , mapToChatRendererError)
+                            : TE.of(undefined as void)
+                )
+            )
         },
-        async delete(messageId) {
-            if (r.chatId)
-                await tracker.untrackRenderedMessage(r.chatId, messageId)
+        delete(messageId) {
+            console.log(`delete: ${messageId}`);
 
-            return await r.delete(messageId)
+            return pipe(
+                tryCatch(
+                    () => tracker.untrackRenderedMessage(r.chatId, messageId)
+                    , mapToChatRendererError
+                )
+                , TE.chain(() => r.delete(messageId))
+            )
         },
-        async sendFile(f: InputFile) {
-            const sent = await r.sendFile(f)
-
-            if (r.chatId)
-                await tracker.trackRenderedMessage(r.chatId, sent.message_id!)
-
-            return sent
+        sendFile(f: InputFile) {
+            return pipe(
+                r.sendFile(f),
+                TE.chainFirst(sent => tryCatch(
+                    () => tracker.trackRenderedMessage(r.chatId, sent.message_id!)
+                    , mapToChatRendererError))
+            )
         },
-        async sendPhoto(f: InputFile) {
-            const sent = await r.sendPhoto(f)
-
-            if (r.chatId)
-                await tracker.trackRenderedMessage(r.chatId, sent.message_id!)
-
-            return sent
+        sendPhoto(f: InputFile) {
+            return pipe(
+                r.sendPhoto(f),
+                TE.chainFirst(sent => tryCatch(
+                    () => tracker.trackRenderedMessage(r.chatId, sent.message_id!)
+                    , mapToChatRendererError))
+            )
         },
-        async sendMediaGroup(fs: InputFile[]) {
-            const sent = await r.sendMediaGroup(fs)
-
-            if (r.chatId)
-                for (const m of sent)
-                    await tracker.trackRenderedMessage(r.chatId, m.message_id!)
-
-            return sent
+        sendMediaGroup(fs: InputFile[]) {
+            return pipe(
+                r.sendMediaGroup(fs),
+                TE.chainFirst(sent => array.sequence(TE.taskEither)(
+                    sent.map(sent => tryCatch(
+                        () => tracker.trackRenderedMessage(r.chatId, sent.message_id!)
+                        , mapToChatRendererError))
+                ))
+            )
         }
     })
+import { array } from 'fp-ts/lib/Array'
 
-export async function removeMessages(renderedMessagesIds: number[], renderer: ChatRenderer) {
-    for (const messageId of renderedMessagesIds ?? []) {
-        try {
-            await renderer.delete(messageId)
-        } catch (e) {
-            mylog(`Error deleting ${messageId}`)
-        }
-    }
-
-    // user.renderedMessagesIds = []
+export function removeMessages(renderedMessagesIds: number[], renderer: ChatRenderer)
+    : TE.TaskEither<ChatRendererError, boolean[]> {
+    return array.sequence(TE.taskEitherSeq)(
+        renderedMessagesIds.map(messageId => renderer.delete(messageId))
+    )
 }
 
-export function getTrackingRenderer(t: Tracker) {
-    const cleanChat = (chatId: number) => async (renderer: ChatRenderer) => {
-        const messages = await t.getRenderedMessage(chatId)
-        console.log(messages);
-        
-        await removeMessages(messages, renderer)
+export function getTrackingRendererE(t: Tracker) {
+    const cleanChatTask = (chatId: number) => (renderer: ChatRenderer) => {
+        return pipe(
+            tryCatch(
+                () => t.getRenderedMessage(chatId)
+                , mapToChatRendererError)
+            , TE.chain(
+                messages => removeMessages(messages, renderer)
+            )
+        )
     }
 
     return {
         renderer: function (ctx: TelegrafContext) {
-            return messageTrackingRenderer(
-                t,
-                createChatRenderer(ctx)
-            )
+            return messageTrackingRendererE(t, createChatRendererE(ctx))
         },
-        saveMessageHandler: saveMessageHandler(t),
         saveToTrackerAction: saveToTracker(t),
-        cleanChat,
+        cleanChatTask,
         cleanChatAction: async <R, H, E>(ctx: ChatActionContext<R, H, E>): Promise<ChatState<R, H>> => {
-            await cleanChat(ctx.tctx.chat?.id!)(ctx.renderer)
+
+            const res = await cleanChatTask(ctx.tctx.chat?.id!)(ctx.renderer)()
+            console.log(res);
+            
             return ctx.chatdata
         },
         untrackRendererElementsAction: async <R, H, E>({ chatdata, tctx }: ChatActionContext<R, H, E>)
@@ -207,7 +242,7 @@ export function saveMessageHandler<R, H>(registrar: Tracker) {
             .return(({ chatId, messageId }) =>
                 (ctx: TelegrafContext,
                     renderer: ChatRenderer,
-                    chat: ChatHandler2<ChatState<R, H>>,
+                    chat: OpaqueChatHandler<ChatState<R, H>>,
                     chatdata: ChatState<R, H>
                 ) => registrar.trackRenderedMessage(chatId, messageId)
             )

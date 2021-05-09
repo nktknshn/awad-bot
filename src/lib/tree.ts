@@ -1,7 +1,7 @@
 import { Store } from "redux"
 import { Appliable, BasicElement, isComponentElement, LocalStateAction } from "./elements"
 import { ComponentElement, ComponentGenerator } from "./component"
-import { AppReqs, GetAllBasics } from "./types-util"
+import { ComponentReqs, GetAllBasics } from "./types-util"
 import { nspaces, range } from "./util"
 import { equal, ObjectHelper } from "./util3dparty"
 import { mylog } from "./logging"
@@ -520,7 +520,7 @@ export class ElementsTree {
     public static createElements<
         P,
         C extends ComponentElement,
-        S extends AppReqs<C>,
+        S extends ComponentReqs<C>,
         Els extends GetAllBasics<C>
     >(
         rootComponent: (props: P) => C,

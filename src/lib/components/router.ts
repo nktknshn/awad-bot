@@ -1,12 +1,12 @@
 import { isSome, none, Option, some } from "fp-ts/lib/Option";
-import { Component, ComponentConnected, ComponentWithState, connected } from "../component";
+import { Component, ComponentConnected, ComponentGenerator, ComponentWithState, connected } from "../component";
 
 interface RouteMatcher<PP, P extends M, S, M, RS, R> {
     (path: PP): Option<ComponentConnected<P, S, M, RS, R>>;
 }
-export function routeMatcher<PP, P extends M, S, M, RS, R>(
+export function routeMatcher<PP, P extends M, S, M, RS, E>(
     f: (props: PP) => boolean,
-    c: (props: PP) => ComponentConnected<P, S, M, RS, R>) {
+    c: (props: PP) => ComponentConnected<P, S, M, RS, E>) {
     return (props: PP) => f(props) ? some(c(props)) : none;
 }
 
@@ -18,10 +18,9 @@ export function Router<P,
         unmatched: ComponentConnected<P2, S2, M2, RS2, R2>
     )
     : (props: P) => ComponentWithState<P, unknown,
-        Generator<
             ComponentConnected<P1, S1, M1, RS1, R1>
             | ComponentConnected<P2, S2, M2, RS2, R2>
-            , void, void>>;
+           >;
 
 export function Router<P,
     P1 extends M1, S1, M1, RS1, R1,
@@ -32,11 +31,11 @@ export function Router<P,
         m2: RouteMatcher<P, P2, S2, M2, RS2, R2>,
         unmatched: ComponentConnected<P3, S3, M3, RS3, R3>
     ): (props: P) => ComponentWithState<P, unknown,
-        Generator<
+        
             ComponentConnected<P1, S1, M1, RS1, R1>
             | ComponentConnected<P2, S2, M2, RS2, R2>
             | ComponentConnected<P3, S3, M3, RS3, R3>
-            , void, void>>;
+           >;
 
 export function Router<P,
     P1 extends M1, S1, M1, RS1, R1,
@@ -49,12 +48,12 @@ export function Router<P,
         m3: RouteMatcher<P, P3, S3, M3, RS3, R3>,
         unmatched: ComponentConnected<P4, S4, M4, RS4, R4>
     ): (props: P) => ComponentWithState<P, unknown,
-        Generator<
+        
             ComponentConnected<P1, S1, M1, RS1, R1>
             | ComponentConnected<P2, S2, M2, RS2, R2>
             | ComponentConnected<P3, S3, M3, RS3, R3>
             | ComponentConnected<P4, S4, M4, RS4, R4>
-            , void, void>>;
+            >;
 
 export function Router<P,
     P1 extends M1, S1, M1, RS1, R1,
@@ -69,17 +68,17 @@ export function Router<P,
         m4: RouteMatcher<P, P4, S4, M4, RS4, R4>,
         unmatched: ComponentConnected<P5, S5, M5, RS5, R5>
     ): (props: P) => ComponentWithState<P, unknown,
-        Generator<
+        
             ComponentConnected<P1, S1, M1, RS1, R1>
             | ComponentConnected<P2, S2, M2, RS2, R2>
             | ComponentConnected<P3, S3, M3, RS3, R3>
             | ComponentConnected<P4, S4, M4, RS4, R4>
             | ComponentConnected<P5, S5, M5, RS5, R5>
-            , void, void>>;
+           >;
 
 export function Router(...matchers: any[]) {
     return connected(
-        (c: any) => ({}),
+        (_) => ({}),
         function* (
             props: any
         ) {

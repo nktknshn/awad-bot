@@ -1,8 +1,8 @@
 import * as A from 'fp-ts/lib/Array';
 import { pipe } from "fp-ts/lib/function";
 import * as O from 'fp-ts/lib/Option';
-import { AppReqs, GetAllBasics } from 'Libtypes-util';
-import { equal } from 'Libutil3dparty';
+import { ComponentReqs, GetAllBasics } from 'Lib/types-util';
+import { equal } from 'Lib/util3dparty';
 import { Lens } from 'monocle-ts';
 import { ComponentElement, ComponentGenerator } from "./component";
 import { BasicElement, isComponentElement } from "./elements";
@@ -41,6 +41,34 @@ function printRunResultComponent2(res: RunResultComponent, tabs: number = 0) {
         }
     }
 }
+
+function printRerunResultComponent2(res: RerunResultUpdated
+    | RerunResultNotUpdated, tabs: number = 0) {
+    const {
+        kind, rerunkind
+    } = res
+
+    if (res.rerunkind === 'not-updated') {
+        tabbedLog('== not-updated', tabs);
+        for (const out of res.result.output) {
+            if (out.kind === 'component')
+                printRerunResultComponent2(out, tabs + 4)
+        }
+    }
+    else if (rerunkind == 'updated') {
+        tabbedLog('== updated', tabs);
+        printRunResultComponent2(res, tabs + 4)
+
+        for (const item of res.oldChildren)
+            if (item.kind === 'element')
+                tabbedLog(`- ${item.element.kind}`, tabs + 4)
+            else
+                tabbedLog(`- ${item.kind}`, tabs + 4)
+
+    }
+
+
+}
 function printLocalStateTree(t: LocalStateTree, tabs: number = 0) {
     const { childrenState, localState } = t
     tabbedLog(`- ${str(localState)}`, tabs)
@@ -64,7 +92,7 @@ export interface CreateElementsResult<Els> {
 export function createElements<
     Props,
     C extends ComponentElement,
-    S extends AppReqs<C>,
+    S extends Readonly<ComponentReqs<C>>,
     Els extends GetAllBasics<C>
 >
     (
@@ -73,7 +101,10 @@ export function createElements<
         props: Props,
         treeState?: TreeState
     ): CreateElementsResult<Els> {
+
     if (!treeState) {
+        // console.log('missing treeState');
+
         const runResult = runComponentTree(
             rootComponent(props), context
         )
@@ -91,6 +122,8 @@ export function createElements<
         }
     }
 
+    // console.log('with treeState');
+
     const runResult = rerunComponentTree(
         treeState.runResult,
         rootComponent(props),
@@ -98,7 +131,7 @@ export function createElements<
         treeState.localStateTree
     )
 
-    // printRunResultComponent2(runResult)
+    // printRerunResultComponent2(runResult)
     // printLocalStateTree(extractLocalStateTree(runResult))
 
     const { elements, removedElements, newElements } = extractElementsFromRerun<Els>(runResult)
@@ -133,7 +166,7 @@ export interface RunResultComponent<O extends RunResult = RunResult> {
 
 export interface RunResultElement {
     kind: 'element',
-    element: BasicElement
+    element: BasicElement<any>
 }
 
 export function extractLocalStateTree(runResult: RunResultComponent<RunResult>): LocalStateTree {
@@ -179,22 +212,55 @@ export function extractRunResultFromRerun(res: RerunResultUpdated | RerunResultN
     return res
 }
 
-export function extractElementsFromRerun<Els extends BasicElement>(res: RerunResultUpdated | RerunResultNotUpdated): RerunElements<Els> {
-    let newElements: Els[] = []
-    let removedElements: Els[] = []
+export function extractElementsFromRerun
+    <Els extends BasicElement<any>>(res: RerunResultUpdated
+        | RerunResultNotUpdated): RerunElements<Els> {
 
     if (res.rerunkind === 'updated') {
-        removedElements = extractElementsFromOutput(res.oldChildren) as Els[]
-        newElements = extractElementsFromOutput(res.result.output.filter(_ => _.kind === 'component')) as Els[]
+        return {
+            elements: extractElementsFromOutput(res.result.output) as Els[],
+            removedElements:
+                pipe(
+                    res.oldChildren,
+                    A.map(_ =>
+                        _.kind === 'component'
+                            ? extractElementsFromOutput(_.result.output)
+                            : []
+                    ),
+                    A.flatten
+                ) as Els[]
+            ,
+            newElements: extractElementsFromOutput(
+                res.result.output) as Els[]
+        }
+
     }
 
     return {
-        elements: extractElementsFromOutput(res.result.output) as Els[]
-        , newElements, removedElements
+        elements: extractElementsFromOutput(res.result.output) as Els[],
+        newElements: pipe(
+            res.result.output,
+            A.map(_ =>
+                _.kind === 'component'
+                    ? extractElementsFromRerun(_).newElements
+                    : []
+            ),
+            A.flatten
+        ) as Els[],
+        removedElements:
+            pipe(
+                res.result.output,
+                A.map(_ =>
+                    _.kind === 'component'
+                        ? extractElementsFromRerun(_).removedElements
+                        : []
+                ),
+                A.flatten
+            ) as Els[]
     }
 }
 
-export function extractElementsFromOutput(output: RunResult[]): BasicElement[] {
+export function extractElementsFromOutput(output: RunResult[]): BasicElement<any>[] {
     return pipe(
         output,
         A.map(_ =>
@@ -226,7 +292,8 @@ export function rerunComponentTree<C, S>(
     comp: ComponentElement,
     context: C,
     localStateTree: LocalStateTree<S>,
-    index: number[] = [0]
+    index: number[] = [0],
+    parents: ComponentElement[] = []
 ): RerunResultUpdated | RerunResultNotUpdated {
     const {
         comp: prevComp,
@@ -239,47 +306,58 @@ export function rerunComponentTree<C, S>(
     let rerender = false;
 
     if (prevComp.id != comp.id) {
+        console.log('needs rerender by comp.id');
         rerender = true
     }
 
-    const { generator, props } = runComponent(comp, context, getset)
+    const compMapped = parents.reduce((c, _) => _.mapChildren ? _.mapChildren(comp) : c, comp)
+    const { generator, props } = runComponent(compMapped, context, getset)
 
     if (!equal(props, result.input.props)) {
+        console.log('needs rerender by props');
+
         rerender = true
     }
 
     if (!equal(closure, result.input.localState)) {
+        console.log(`needs rerender by localstate for ${comp.id}`);
+        // console.log(`old children ${comp.id}`);
+
         rerender = true
     }
 
     if (rerender) {
+        console.log('needs rerender');
+
         return {
-            rerunkind: 'updated',
-            oldChildren: result.output,
             ...runComponentTree(
                 comp, context,
                 { localState: closure, childrenState: [] },
-                index
-            )
+                index,
+                parents
+            ),
+            rerunkind: 'updated',
+            oldChildren: result.output,
         }
     }
+    else {
+        const output = pipe(
+            result.output,
+            A.zip(childrenState.length == result.output.length
+                ? childrenState
+                : A.replicate(result.output.length, undefined)),
+            A.mapWithIndex((idx, [_, s]) => _.kind === 'element'
+                ? _
+                : rerunComponentTree(_, _.comp, context, s!, [...index, idx], [...parents, compMapped]))
+        )
 
-    const output = pipe(
-        result.output,
-        A.zip(childrenState.length == result.output.length
-            ? childrenState
-            : A.replicate(result.output.length, undefined)),
-        A.mapWithIndex((idx, [_, s]) => _.kind === 'element'
-            ? _
-            : rerunComponentTree(_, _.comp, context, s!, [...index, idx]))
-    )
-
-    return {
-        rerunkind: 'not-updated',
-        comp, kind: 'component',
-        result: {
-            input: result.input,
-            output
+        return {
+            rerunkind: 'not-updated',
+            comp, kind: 'component',
+            result: {
+                input: result.input,
+                output
+            }
         }
     }
 
@@ -289,7 +367,8 @@ export function runComponentTree<C, S>(
     comp: ComponentElement,
     context: C,
     localStateTree?: LocalStateTree<S>,
-    index: number[] = [0]
+    index: number[] = [0],
+    parents: ComponentElement[] = []
 ): RunResultComponent<RunResult> {
 
     const { localState, childrenState } = localStateTree ?? {
@@ -297,9 +376,10 @@ export function runComponentTree<C, S>(
         childrenState: undefined
     }
 
-
     const { closure, getset } = createLocalState(index, localState)
-    const { generator, props } = runComponent(comp, context, getset)
+
+    const compMapped = parents.reduce((c, _) => _.mapChildren ? _.mapChildren(comp) : c, comp)
+    const { generator, props } = runComponent(compMapped, context, getset)
 
     const elements = [...generator()]
 
@@ -316,7 +396,13 @@ export function runComponentTree<C, S>(
     for (const [element, state] of z) {
         if (isComponentElement(element)) {
             output.push(
-                runComponentTree(element, context, state, [...index, idx])
+                runComponentTree(
+                    element,
+                    context,
+                    state,
+                    [...index, idx],
+                    [...parents, compMapped]
+                )
             )
         }
         else {
@@ -346,7 +432,7 @@ function runComponent<C, S>(
 ): {
     compId: string,
     props: any,
-    generator: () => ComponentGenerator<BasicElement | ComponentElement>
+    generator: () => ComponentGenerator<BasicElement<any> | ComponentElement>
 } {
     const props = { ...comp.props, ...comp.mapper(context) }
     return {
@@ -374,7 +460,7 @@ type LensObject<S> = {
 
 
 export type GetSetState<S> = {
-    getState: (initialState: S) => S 
+    getState: (initialState: S) => S
     setState: (f: (s: S) => S) => LocalStateAction<S>
     lenses: <K extends keyof S>(k: K) => Lens<S, S[K]>
 }
@@ -386,7 +472,7 @@ function createGetSet<S>(index: number[], localState: LocalState<S>): GetSetStat
                 localState.value = initial
             }
             return {
-                ...localState.value, 
+                ...localState.value,
             }
         },
         setState: (f: (s: S) => S) => ({

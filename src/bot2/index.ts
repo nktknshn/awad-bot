@@ -1,6 +1,6 @@
 import * as CA from '../lib/chatactions';
-import { ChatState, createChatState, getApp, renderComponent, storeWithDispatcher } from "../lib/application";
-import { getTrackingRenderer, removeMessages } from "../lib/chatrenderer";
+import { ChatState, createChatState, application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
+import { getTrackingRendererE, removeMessages } from "../lib/chatrenderer";
 import { extendDefaultReducer, reducer } from '../lib/reducer';
 import { AppActions, AppActionsFlatten, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
 import App from './app';
@@ -9,39 +9,42 @@ import { createAwadStore } from "./store";
 import { updateUser } from "./store/user";
 import { storeToDispatch } from "./storeToDispatch";
 import { clearChat } from '../lib/inputhandler';
-import { applyActionEvent, applyActionEventReducer, ApplyActionsEvent, makeEventReducer, renderEvent } from 'Libevent';
+import { createActionEvent, applyActionEventReducer, ApplyActionsEvent, makeEventReducer, renderEvent } from 'Lib/event';
 import { identity } from 'fp-ts/lib/function';
+
+
+type AppState = { store: ReturnType<typeof createAwadStore> }
+type AppAction = AppActionsFlatten<typeof App>
+type AppEvent = ApplyActionsEvent<AppState, AppAction, AppEvent>
 
 export function createAwadApplication(services: AwadServices) {
 
-    const { renderer, saveToTrackerAction, cleanChatAction } = getTrackingRenderer(services.users)
+    const { renderer, saveToTrackerAction, cleanChatAction } = getTrackingRendererE(services.users)
 
-    type AppState = { store: ReturnType<typeof createAwadStore> }
-    type AppAction = AppActionsFlatten<typeof App>
-    type AppEvent = ApplyActionsEvent<AppState, AppAction, AppEvent>
-
-    return getApp<AppState, AppAction, AppEvent>({
+    return application<AppState, AppAction, AppEvent>({
         renderer,
         chatStateFactory:
-            () => createChatState({ store: createAwadStore(services) }),
+            async () => createChatState({ store: createAwadStore(services) }),
         actionReducer: extendDefaultReducer(
             reducer(
                 (a): a is Promise<unknown> => a instanceof Promise,
-                _ => CA.mapState(identity)
+                _ => CA.doNothing
             ),
             reducer(
                 (a): a is "done" | "next" => a === "done" || a === "next",
-                _ => CA.mapState(identity)
+                _ => CA.doNothing
             )
         ),
-        renderFunc: renderComponent({
-            component: App,
-            contextCreator: s => ({
-                ...s.store.getState(),
-                dispatcher: storeToDispatch(s.store)
+        renderFunc: genericRenderComponent(
+            defaultRenderScheme(),
+            {
+                component: App,
+                contextCreator: s => ({
+                    ...s.store.getState(),
+                    dispatcher: storeToDispatch(s.store)
+                }),
+                props: {}
             }),
-            props: {}
-        }),
         init: CA.sequence([
             cleanChatAction,
             async ({ chatdata, queue, tctx }) => {
@@ -49,7 +52,7 @@ export function createAwadApplication(services: AwadServices) {
                 const user = await services.getOrCreateUser(userDtoFromCtx(tctx))
 
                 chatdata.store.subscribe(() =>
-                    queue.handleEvent(tctx, renderEvent()))
+                    queue.handleEvent(tctx)(renderEvent()))
 
                 chatdata.store.dispatch(updateUser(user))
 

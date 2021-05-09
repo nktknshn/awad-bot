@@ -15,8 +15,8 @@ import { Card } from "./Card"
 import { CardPageInput } from "./CardPage"
 import { WordsList } from "./WordsList"
 import { WithDispatcher } from "../storeToDispatch"
-import { GetSetState } from "Libtree2"
-import { InputHandlerData } from "Libtextmessage"
+import { GetSetState } from "Lib/tree2"
+import { InputHandlerData } from "Lib/textmessage"
 
 type WordListFiltersType = 'All' | 'No meanings' | 'By tag'
 

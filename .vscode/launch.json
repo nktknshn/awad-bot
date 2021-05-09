@@ -5,6 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
+            // "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "name": "bot7",
+            "restart": true,
+            "request": "attach",
+            "port": 9229,
+            "sourceMaps": true,
+            "cwd": "${workspaceRoot}",
+            // "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsnd",
+            "type": "node",
+            // "runtimeArgs": [
+            //     "--respawn"
+            // ],
+            // "args": [
+            //     "-r",
+            //     "tsconfig-paths/register",
+            //     "${workspaceFolder}/src/bot7.ts"
+            // ]
+        },
+        {
             "name": "Current TS File",
             "type": "node",
             "request": "launch",

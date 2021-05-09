@@ -12,7 +12,7 @@ import { parsePathOpt } from './util'
 import { setBufferedInputEnabled, setDoFlush } from "./actions"
 import { last, takeRight } from 'fp-ts/lib/Array'
 import { combineSelectors, select } from "Lib/state"
-import { Context, StoreState } from 'bot5/index'
+import { Context, Bot5StoreState } from 'bot5/index5'
 import { flow } from 'fp-ts/lib/function'
 import { GetSetState, LocalStateAction } from 'Lib/tree2'
 import { Form1 } from './components/form'
@@ -34,6 +34,9 @@ export const App = connected(
         } = getState({ path: '/main', query: {} })
         
         const pathLens = lenses('path')
+
+        yield onCreated(() => [setDoFlush(true)])
+        yield onRemoved(() => [setDoFlush(false)])
 
         yield inputHandler([
             on(caseText,
@@ -99,6 +102,7 @@ const Greeting = connected(
     function* (
         { userId },
         { fromStart }: { fromStart: boolean }) {
+        yield nextMessage()
 
         if (fromStart)
             yield messagePart(`Привет ${userId}`)

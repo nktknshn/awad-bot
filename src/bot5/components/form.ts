@@ -1,13 +1,13 @@
 import { setDoFlush } from "bot5/actions"
-import { StoreState } from "bot5/store"
+import { Bot5StoreState } from "bot5/store"
 import { flow } from "fp-ts/lib/function"
 import { pipe } from "fp-ts/lib/pipeable"
 import { Component, connected } from "Lib/component"
-import { button, effect, message, messagePart, onCreated, onRemoved, radioRow } from "Libelements-constructors"
-import { action, caseText, inputHandler, on } from "Libinput"
-import { select } from "Libstate"
-import { StoreAction } from "LibstoreF"
-import { GetSetState, LocalStateAction } from "Libtree2"
+import { button, effect, message, messagePart, onCreated, onRemoved, radioRow } from "Lib/elements-constructors"
+import { action, caseText, inputHandler, on } from "Lib/input"
+import { select } from "Lib/state"
+import { StoreAction } from "Lib/storeF"
+import { GetSetState, LocalStateAction } from "Lib/tree2"
 import * as O from 'fp-ts/lib/Option'
 
 export interface FormData {
@@ -32,8 +32,8 @@ export const Form1 = connected(
         const {
             dob, lname, fname, sex
         } = getState({})
-        
-        const set = setS(setState)
+
+        const pipeTo = setS(setState)
 
         yield onCreated(() => setDoFlush(false))
         yield onRemoved(() => setDoFlush(true))
@@ -47,13 +47,13 @@ export const Form1 = connected(
 
         if (!fname) {
             yield inputHandler([
-                on(withText, set(lenses('fname').set))
+                on(withText, pipeTo(lenses('fname').set))
             ])
             yield message('Ваше имя: ')
         }
         else if (!lname) {
             yield inputHandler([
-                on(withText, set(lenses('lname').set))
+                on(withText, pipeTo(lenses('lname').set))
             ])
             yield message('Фамилия: ')
         }

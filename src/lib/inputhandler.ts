@@ -5,7 +5,6 @@ import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
 import { Lens } from 'monocle-ts';
 import { TelegrafContext } from "telegraf/typings/context";
-import { ChatHandler2 } from "./chathandler";
 import { Application, ChatState } from "./application";
 import { ChatRenderer } from "./chatrenderer";
 import { deleteAll } from "./ui";
@@ -14,8 +13,8 @@ import { ChatAction, ChatActionContext } from './chatactions';
 import { RenderedElementsAction } from './elements';
 import { RenderDraft } from './elements-to-messages';
 import { BotMessage, RenderedElement } from './rendered-messages';
-import { StoreAction, StoreF } from './storeF';
-import { applyLocalStateAction, LocalStateAction } from 'Libtree2';
+import { StoreAction, StoreF, StoreF2 } from './storeF';
+import { applyLocalStateAction, LocalStateAction } from 'Lib/tree2';
 
 export const findRepliedTo = (r: RenderedElement[]) => (repliedTo: number) =>
     r.filter((_): _ is BotMessage => _.kind === 'BotMessage').find(_ => Array.isArray(_.output)
@@ -103,7 +102,7 @@ export function applyStoreAction<S>
     return function <C extends ChatState<R, H>, R extends { store: StoreF<S> }, H>(cs: C): ChatState<R, H> {
         return {
             ...cs,
-            store: cs.store.map(a.f)
+            store: cs.store.applyAction(a)
         }
     }
 }
@@ -112,10 +111,25 @@ export function applyStoreAction2<S>(a: StoreAction<S>) {
     return function <R extends { store: StoreF<S> }, H>(cs: ChatState<R, H>): ChatState<R, H> {
         return {
             ...cs,
-            store: cs.store.map(a.f)
+            store: cs.store.applyAction(a)
         }
     }
 }
+
+export function applyStoreAction3<S, K extends keyof any, SH>(
+    key: K,
+    a: SH
+    ) {
+    return function
+        <R extends Record<K, StoreF2<S, any>>, H>(
+            cs: ChatState<R, H>): ChatState<R, H> {
+        return {
+            ...cs,
+            [key]: cs[key].applyAction(a)
+        }
+    }
+}
+
 
 export const chainInputHandlers = <D, R>
     (hs: ((d: D, n: () => R | undefined) => R | undefined)[], d: D): R | undefined =>

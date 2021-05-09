@@ -14,7 +14,8 @@
     "graphql": "./node_modules/.bin/ts-node src/graphql.ts",
     "http-cli": "./node_modules/.bin/ts-node src/http-cli.ts",
     "typeorm": "./node_modules/.bin/ts-node ./node_modules/typeorm/cli.js",
-    "test": "jest"
+    "test": "jest",
+    "debug": "./node_modules/.bin/tsnd -r tsconfig-paths/register --inspect --respawn ./src/bot7.ts"
   },
   "author": "",
   "license": "ISC",

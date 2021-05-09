@@ -7,13 +7,12 @@ import { OutcomingPhotoGroupMessage } from '../bot3/mediagroup'
 import { mylog } from './logging'
 import { OutcomingUserMessage } from './usermessage'
 
-export type OutcomingMessageType = (OutcomingTextMessage | OutcomingFileMessage) | OutcomingPhotoGroupMessage | OutcomingUserMessage
+export type OutcomingMessageType = (OutcomingTextMessage<any> | OutcomingFileMessage) | OutcomingPhotoGroupMessage | OutcomingUserMessage
 
-type HandlerType<H> = InputHandler<H> | ActionsHandler
 
 export type RenderDraft<H> = {
     messages: OutcomingMessageType[],
-    handlers: HandlerType<H>[],
+    // handlers: HandlerType<H>[],
     effects: Effect<H>[],
     keyboards: KeyboardElement[],
     inputHandlers: InputHandler<H>[]
@@ -21,17 +20,17 @@ export type RenderDraft<H> = {
 
 export const emptyDraft = <H>(): RenderDraft<H> => ({
     messages: [],
-    handlers: [],
+    // handlers: [],
     effects: [],
     keyboards: [],
     inputHandlers: []
 })
 
-export const defaultCreateDraft = <H>(elements: BasicElement[], d?: RenderDraft<H>): RenderDraft<H> => {
+export const defaultCreateDraft = <H>(elements: BasicElement<H>[], d?: RenderDraft<H>): RenderDraft<H> => {
 
     const draft = d ?? emptyDraft()
 
-    function handle(compel: BasicElement) {
+    function handle(compel: BasicElement<H>) {
         elementsToMessagesAndHandlers(compel, draft)
     }
 
@@ -44,7 +43,7 @@ export const defaultCreateDraft = <H>(elements: BasicElement[], d?: RenderDraft<
 
 
 export function elementsToMessagesAndHandlers<H>(
-    compel: BasicElement,
+    compel: BasicElement<H>,
     draft: RenderDraft<H>
 ): RenderDraft<H> {
 
@@ -57,7 +56,7 @@ export function elementsToMessagesAndHandlers<H>(
 
     const lastMessage = (): {
         idx: number,
-        message: OutcomingTextMessage
+        message: OutcomingTextMessage<any>
     } => {
         const res = filterMapTextMessages(messages)
         if (!res.length) {
@@ -73,7 +72,7 @@ export function elementsToMessagesAndHandlers<H>(
         }
     }
 
-    const setLastMessage = (message: OutcomingTextMessage) => {
+    const setLastMessage = (message: OutcomingTextMessage<any>) => {
         messages[messages.length - 1] = message
     }
 
@@ -146,7 +145,7 @@ export function elementsToMessagesAndHandlers<H>(
 }
 
 export function filterTextMessages(messages: OutcomingMessageType[]) {
-    return messages.filter((_): _ is OutcomingTextMessage => _.kind === 'TextMessage')
+    return messages.filter((_): _ is OutcomingTextMessage<any> => _.kind === 'TextMessage')
 }
 
 export function filterMapTextMessages(messages: OutcomingMessageType[]) {

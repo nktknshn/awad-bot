@@ -6,11 +6,11 @@ import { enumerateListOfLists, flattenList } from "./util"
 
 export type InputHandlerData = ReturnType<typeof parseFromContext>
 
-export class OutcomingTextMessage {
+export class OutcomingTextMessage<H> {
     kind: 'TextMessage' = 'TextMessage'
     constructor(
         readonly text?: string,
-        readonly buttons: ButtonElement[][] = [],
+        readonly buttons: ButtonElement<H>[][] = [],
         readonly keyboardButtons: (RequestLocationButtonElement | KeyboardElement)[] = [],
         readonly isComplete = false
     ) { }
@@ -32,7 +32,7 @@ export class OutcomingTextMessage {
         )
     }
 
-    callback2<R>(data: string): R  | undefined {
+    callback2(data: string): H  | undefined {
         const button = flattenList(this.buttons).find(
             btn => (btn.data ?? btn.text) == data
         )
@@ -85,7 +85,7 @@ export class OutcomingTextMessage {
         )
     }
 
-    addButton(btn: ButtonElement) {
+    addButton(btn: ButtonElement<H>) {
         let buttons = [...this.buttons.map(_ => [..._])]
 
         if (!buttons.length) {
@@ -101,7 +101,7 @@ export class OutcomingTextMessage {
         )
 
     }
-    addButtonsRow<R>(btns: ButtonsRowElement<R>) {
+    addButtonsRow(btns: ButtonsRowElement<H>) {
         let buttons = [...this.buttons.map(_ => [..._])]
         buttons.push(btns.buttons)
 

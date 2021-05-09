@@ -1,5 +1,5 @@
 import { IncomingMessage } from "telegraf/typings/telegram-types";
-import { ChatRenderer } from "./chatrenderer";
+import { ChatRenderer, ChatRendererError } from "./chatrenderer";
 import { wrapR } from "./elements";
 import { OutcomingMessageType, RenderDraft } from "./elements-to-messages";
 import { RenderedElement } from "./rendered-messages";
@@ -33,22 +33,25 @@ export class RenderedUserMessage {
     outputIds = () => [this.output]
 }
 
+import * as TE from "fp-ts/lib/TaskEither";
 
 function remove(
     el: RenderedUserMessage,
 ) {
     return async function (renderer: ChatRenderer) {
-        await renderer.delete(el.output)
+        await renderer.delete(el.output)()
     }
 }
 
 function create(
     newElement: OutcomingUserMessage,
 ) {
-    return async function (renderer: ChatRenderer) {
-        return new RenderedUserMessage(
-            newElement,
-            newElement.el.messageId
+    return function (renderer: ChatRenderer) {
+        return TE.of<ChatRendererError, RenderedElement>(
+            new RenderedUserMessage(
+                newElement,
+                newElement.el.messageId
+            )
         )
     }
 }

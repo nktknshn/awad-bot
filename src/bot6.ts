@@ -1,5 +1,5 @@
 import Telegraf from "telegraf"
-import { createApp } from './bot5/index5'
+import { createApp } from './bot6/index'
 import { initLogging, mylog } from "./lib/logging"
 import { attachAppToBot } from "./lib/util"
 import { token } from "./telegram-token.json"

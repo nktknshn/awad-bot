@@ -1,19 +1,19 @@
-import * as A from 'fp-ts/lib/Array';
 import * as F from 'fp-ts/lib/function';
 import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
 import { TelegrafContext } from 'telegraf/typings/context';
-import * as CA from './chatactions';
-import { ChatHandler2 } from './chathandler';
 import { Application, ChatState } from "./application";
-import { ChatRenderer } from './chatrenderer';
+import * as CA from './chatactions';
+import { OpaqueChatHandler } from './chathandler';
+import { ChatRenderer, ChatRendererError, mapToChatRendererError } from './chatrenderer';
 import { RenderedElementsAction } from './elements';
 import { contextOpt, modifyRenderedElements } from './inputhandler';
-import { addRenderedUserMessage as _addRenderedUserMessage, createRendered as createRenderedMessage } from './usermessage';
-import { Effect } from './draft';
 import { mylog } from './logging';
-import { printStateTree } from './tree';
+import { addRenderedUserMessage as _addRenderedUserMessage, createRendered as createRenderedMessage } from './usermessage';
+import * as TE from "fp-ts/lib/TaskEither";
+import * as T from "fp-ts/lib/Task";
 
+import * as E from "fp-ts/lib/Either";
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
@@ -26,12 +26,11 @@ export async function applyEffects<R, H, E>(
 
     const r = ctx.app.renderFunc(ctx.chatdata)
 
-    mylog('Applying Effects')
+    mylog(`Applying Effects: ${r.effects}`)
 
     const cd = await sequence<R, H, E>(
         ctx.app.actionReducer(r.effects.map(_ => _.element.callback()))
     )({ ...ctx, chatdata: r.chatdata })
-
 
     return cd
 }
@@ -51,7 +50,7 @@ export function scheduleEvent
                 c => ({
                     ...c,
                     deferredRenderTimer: setTimeout(
-                        () => chat.handleEvent(tctx, ev),
+                        () => chat.handleEvent(tctx)(ev),
                         timeout
                     )
                 })
@@ -82,7 +81,8 @@ export function sequence<R, H, E>(
 ): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {
         let data = ctx.chatdata
-
+        console.log(handlers);
+        
         for (const h of handlers) {
             data = await h({ ...ctx, chatdata: data })
         }
@@ -98,9 +98,8 @@ export const applyInputHandler =
             O.chain(O.fromNullable),
             O.fold(() => [], cs => [cs]),
             ctx.app.actionReducer,
-            sequence,
-            a => a(ctx),
-        )
+            sequence
+        )(ctx)
 
 export const applyActionHandler =
     async <R, H, E>(ctx: ChatActionContext<R, H, E>): Promise<ChatState<R, H>> =>
@@ -111,8 +110,7 @@ export const applyActionHandler =
             O.fold(() => [], cs => [cs]),
             ctx.app.actionReducer,
             sequence,
-            a => a(ctx),
-        )
+        )(ctx)
 
 
 export type AppChatAction<R, H, E> = ChatAction<R, H, ChatState<R, H>, E>
@@ -125,15 +123,23 @@ export interface ChatActionContext<R, H, E> {
     app: Application<R, H, E>,
     tctx: TelegrafContext,
     renderer: ChatRenderer,
-    queue: ChatHandler2<E>,
+    queue: OpaqueChatHandler<E>,
     readonly chatdata: ChatState<R, H>
 }
 
-export async function replyCallback<R, H, E>(
+export function replyCallback<R, H, E>(
     { tctx, chatdata }: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
-
-    return tctx.answerCbQuery().then(_ => chatdata)
+    return pipe(
+        TE.tryCatch(
+            () => tctx.answerCbQuery()
+            , mapToChatRendererError
+        )
+        , TE.fold<ChatRendererError, boolean, ChatState<R, H>>(
+            (e) => T.of({...chatdata, error: e.description })
+            , (_) => T.of(chatdata)
+        )
+    )()
 }
 
 export function log<R, H, E>(

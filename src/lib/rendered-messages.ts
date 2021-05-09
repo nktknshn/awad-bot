@@ -12,7 +12,7 @@ export class BotMessage {
     kind: 'BotMessage' = 'BotMessage';
     canReplace = (other: OutcomingMessageType) => other.kind === 'TextMessage'
     constructor(
-        readonly input: OutcomingTextMessage,
+        readonly input: OutcomingTextMessage<any>,
         readonly output: Message
     ) { }
 

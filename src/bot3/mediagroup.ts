@@ -1,8 +1,10 @@
 import * as A from 'fp-ts/lib/Array';
 import { Eq } from "fp-ts/lib/Eq";
+import { pipe } from 'fp-ts/lib/pipeable';
 import { InputFile, Message } from "telegraf/typings/telegram-types";
 import { ChatRenderer } from '../lib/chatrenderer';
 import { OutcomingMessageType, RenderDraft } from "../lib/elements-to-messages";
+import * as TE from "fp-ts/lib/TaskEither";
 
 
 export function photos(fs: InputFile[]) {
@@ -46,10 +48,10 @@ export function areSameMediaGroup(a: RenderedMediaGroup, b: OutcomingPhotoGroupM
 function create(
     newElement: OutcomingPhotoGroupMessage,
 ) {
-    return async function (renderer: ChatRenderer) {
-        return new RenderedMediaGroup(
-            newElement,
-            await renderer.sendMediaGroup(newElement.element.files)
+    return function (renderer: ChatRenderer) {
+       return pipe(
+            renderer.sendMediaGroup(newElement.element.files),
+            TE.map(el => new RenderedMediaGroup(newElement, el))
         )
     }
 }
@@ -59,7 +61,7 @@ function remove(
 ) {
     return async function (renderer: ChatRenderer) {
         for (const m of el.output)
-            await renderer.delete(m.message_id)
+            await renderer.delete(m.message_id)()
     }
 }
 

@@ -2,7 +2,7 @@ import { button, input, message, messagePart } from "../elements-constructors"
 import { Component } from "../component"
 import { enumerate, partitate, textColumns, toggleItem } from "../util"
 import { action, caseText, inputHandler, nextHandler, on } from "../input"
-import { GetSetState } from "Libtree2"
+import { GetSetState } from "Lib/tree2"
 
 type OnClick<T,R> = { onClick: (arg: T) => R }
 type OnUpdate<T,R> = { onUpdate: (arg: T) => R }

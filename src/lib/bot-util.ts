@@ -66,7 +66,7 @@ export function getLocation(line: string): [number, number] | undefined {
     }
 }
 
-export function areSameTextMessages(a: OutcomingTextMessage, b: OutcomingTextMessage) {
+export function areSameTextMessages(a: OutcomingTextMessage<any>, b: OutcomingTextMessage<any>) {
     return a.text == b.text
         && deq(
             a.getExtra(),
