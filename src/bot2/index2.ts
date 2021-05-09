@@ -12,7 +12,7 @@ import { clearChat } from '../lib/inputhandler';
 import { createActionEvent, applyActionEventReducer, ApplyActionsEvent, makeEventReducer, renderEvent } from 'Lib/event';
 import { identity } from 'fp-ts/lib/function';
 import { ChatActionContext } from '../lib/chatactions';
-import { createDefaultRenderer, initTrackingRenderer, saveToTrackerAction, UseTrackingRenderer, useTrackingRenderer } from 'Lib/components/actions/tracker';
+import { createDefaultRenderer, initTrackingRenderer, saveToTrackerAction, UseTrackingRenderer, withTrackingRenderer } from 'Lib/components/actions/tracker';
 import { reloadInterface } from 'Lib/components/actions/misc';
 
 
@@ -69,7 +69,7 @@ export function createAwadApplication(services: AwadServices) {
     return application<AppState, AppAction, AppEvent>({
         state:
             createChatState([
-                useTrackingRenderer(services.users),
+                withTrackingRenderer(services.users),
                 async () => ({ store: createAwadStore(services) })
             ]),
         actionReducer: extendDefaultReducer(

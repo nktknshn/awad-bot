@@ -31,6 +31,6 @@ export interface UseTrackingRenderer {
 export const createDefaultRenderer =
     async (tctx: TelegrafContext) => ({ renderer: createChatRendererE(tctx) })
 
-export const useTrackingRenderer = (t: Tracker) => async () => ({
+export const withTrackingRenderer = (t: Tracker) => async () => ({
     useTrackingRenderer: getTrackingRendererE(t)
 })

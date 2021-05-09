@@ -13,7 +13,7 @@ type AppEvents<R, H> = ApplyActionsEvent<R, H, AppEvents<R, H>>
 
 export const connectFStore =
     <R extends { store: StoreF2<unknown, unknown> }, H>
-        (u: Utils<R, H, AppEvents<R, H>>) =>
+        (u: Utils<R, H, AppEvents<R, H>, {}>) =>
         u.action(
             async ({ app, queue, chatdata }) => ({
                 ...chatdata,

@@ -90,7 +90,7 @@ export const createApp = () =>
             extendDefaultReducer(
                 storeReducer('store')
             ),
-        handleMessage: app.handleMessage,
+        handleMessage: app.ext.handleMessage,
         handleAction: CA.sequence([
             CA.applyActionHandler,
             CA.replyCallback,

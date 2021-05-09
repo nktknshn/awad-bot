@@ -133,72 +133,28 @@ export type ApplicationUtil<R, H, E> = {
     ChatAction: CA.AppChatAction<R, H, E>;
 }
 
-// export function typeutils<R, H, E>(): Utils<R, H, E> {
-//     return {
-//         action: F.identity,
-//         mapState: F.identity,
-//         mapState2: () => f => f,
-//         handleEvent: F.identity,
-//         pick: f => f,
-//         actions: CA.sequence,
-//         withAdditions<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
-//             return {
-//                 ...this,
-//                 ...adds(this)
-//             }
-//         },
-//         actionF: f => f()
-//         , actionFF: (f) => (...args) => f(...args)
-//     }
-// }
-
 export type BasicAppEvent<R, H> = ApplyActionsEvent<R, H, BasicAppEvent<R, H>>
-
-// export const withState = <
-//     R,
-//     RootComponent extends (props: unknown) => ComponentElement,
-//     H extends AppActionsFlatten<RootComponent> = AppActionsFlatten<RootComponent>,
-//     E = BasicAppEvent<R, H>,
-//     >(): Utils<R, H, E> => {
-//     return {
-//         action: F.identity,
-//         mapState: F.identity,
-//         mapState2: () => f => f,
-//         handleEvent: F.identity,
-//         pick: f => f,
-//         actions: CA.sequence,
-//         withAdditions<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
-//             return {
-//                 ...this,
-//                 ...adds(this)
-//             }
-//         },
-//         actionF: f => f()
-//         , actionFF: (f) => (...args) => f(...args)
-//     }
-// }
 
 export const addState = <
     RootComponent extends ComponentElement,
     H extends AppActionsFlatten<RootComponent>,
     P
 >(f: (props: P) => RootComponent) =>
-    <R, E = BasicAppEvent<R, H>>(): Utils<R, H, E> => {
+    <R, E = BasicAppEvent<R, H>>(): Utils<R, H, E, {}> => {
         return {
             action: F.identity,
             mapState: F.identity,
             mapState2: () => f => f,
             eventFunc: F.identity,
-            pick: f => f,
+            // pick: f => f,
             actions: CA.sequence,
-            extend<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
-                return {
-                    ...this,
-                    ...adds(this)
-                }
+            extend<RR>(adds: (u: Utils<R, H, E, {}>) => RR): Utils<R, H, E, RR> {
+                return createUtils({ ...adds(this) })
             },
             actionF: f => f()
             , actionFF: (f) => (...args) => f(...args)
+            , ext: {}
+            , reducer: f => f
         }
     }
 
@@ -212,31 +168,45 @@ export const withState = <
     P
 >(f: (props: P) => RootComponent) =>
     <T, R = GetState<T>, E = BasicAppEvent<R, H>>(
-        a: T
-    )=> {
+        state: T
+    ): Utils<R, H, E, { state: T }> => {
         return ({
             action: F.identity,
             mapState: F.identity,
             mapState2: () => f => f,
             eventFunc: F.identity,
-            pick: f => f,
             actions: CA.sequence,
-            extend<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR {
-                return {
-                    ...this,
-                    ...adds({ ...this, ...adds(this) })
-                }
+            extend<RR>(adds: (u: Utils<R, H, E, { state: T }>) => RR): Utils<R, H, E, RR & { state: T }> {
+                return createUtils({ state, ...adds(this) })
             },
             actionF: f => f()
             , actionFF: (f) => (...args) => f(...args)
-        } as Utils<R, H, E>)
-        // .extend(
-        //     u => ({ construct: a })
-        // )
+            , ext: { state }
+            , reducer: f => f
+        })
     }
 
+function createUtils<R, H, E, Ext>(
+    ext: Ext
+): Utils<R, H, E, Ext> {
+    
+    return {
+        action: F.identity,
+        mapState: F.identity,
+        mapState2: () => f => f,
+        eventFunc: F.identity,
+        actions: CA.sequence,
+        extend<RR>(adds: (u: Utils<R, H, E, Ext>) => RR): Utils<R, H, E, Ext & RR> {
+            return createUtils({ ...ext, ...adds(this) })
+        },
+        actionF: f => f()
+        , actionFF: (f) => (...args) => f(...args)
+        , ext
+        , reducer: f => f
+    }
+}
 
-export type Utils<R, H, E, A extends ApplicationUtil<R, H, E> = ApplicationUtil<R, H, E>> = {
+export type Utils<R, H, E, Ext, A extends ApplicationUtil<R, H, E> = ApplicationUtil<R, H, E>> = {
     action: (f: A['ChatAction']) => A['ChatAction'],
     actionF: (f: () => A['ChatAction']) => A['ChatAction'],
     actionFF: <T extends any[]>(f: (...args: T) => A['ChatAction']) => (...args: T) => A['ChatAction'],
@@ -247,8 +217,7 @@ export type Utils<R, H, E, A extends ApplicationUtil<R, H, E> = ApplicationUtil<
         ctx: A['ChatContext'],
         event: E
     ) => Promise<ChatState<R, H>>) => typeof handleEvent,
-    pick:
-    <R, K extends keyof A['ChatState'] = keyof A['ChatState']>(
-        f: (cs: Pick<A['ChatState'], K>) => R) => typeof f
-    extend<RR>(adds: (u: Utils<R, H, E>) => RR): Utils<R, H, E> & RR
+    extend<RR extends {}>(adds: (u: Utils<R, H, E, Ext>) => RR): Utils<R, H, E, Ext & RR>
+    ext: Ext
+    reducer: (f: (a: H | H[]) => CA.AppChatAction<R, H, E>[]) => (a: H | H[]) => CA.AppChatAction<R, H, E>[]
 }

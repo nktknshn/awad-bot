@@ -120,7 +120,7 @@ export const app = application({
     ),
     init: util.actions([
         cleanChatAction,
-        util.attachStore
+        util.ext.attachStore
     ]),
     handleMessage,
     handleAction: util.actions(handleAction),
