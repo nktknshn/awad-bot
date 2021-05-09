@@ -1,21 +1,20 @@
+import { Context } from 'bot5/index5'
+import { takeRight } from 'fp-ts/lib/Array'
+import { flow } from 'fp-ts/lib/function'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from "fp-ts/lib/pipeable"
-import { ParsedUrlQuery } from "node:querystring"
-import { append, deferRender } from "../bot3/util"
 import { Component, connected } from "Lib/component"
 import { routeMatcher, Router } from "Lib/components/router"
-import { button, effect, message, messagePart, nextMessage, onCreated, onRemoved } from "Lib/elements-constructors"
-import { action, caseText, ifTrue, inputHandler, nextHandler, on } from "Lib/input"
-import { StoreAction } from "Lib/storeF"
-import { userMessage, UserMessageElement } from "Lib/usermessage"
-import { parsePathOpt } from './util'
-import { setBufferedInputEnabled, setDoFlush } from "./actions"
-import { last, takeRight } from 'fp-ts/lib/Array'
-import { combineSelectors, select } from "Lib/state"
-import { Context, Bot5StoreState } from 'bot5/index5'
-import { flow } from 'fp-ts/lib/function'
-import { GetSetState, LocalStateAction } from 'Lib/tree2'
+import { button, message, messagePart, nextMessage, onRemoved } from "Lib/elements-constructors"
+import { action, caseText, ifTrue, inputHandler, on } from "Lib/input"
+import { select } from "Lib/state"
+import { GetSetState } from 'Lib/tree2'
+import { userMessage } from "Lib/usermessage"
+import { ParsedUrlQuery } from "node:querystring"
+import { append } from "../bot3/util"
+import { setBufferedInputEnabled } from "./actions"
 import { Form1 } from './components/form'
+import { parsePathOpt } from './util'
 
 const getUserMessages = ({ userMessages }: { userMessages: number[] }) => ({ userMessages })
 const getStore = ({ store }: { store: Context['store'] }) => ({ store })
@@ -35,8 +34,8 @@ export const App = connected(
         
         const pathLens = lenses('path')
 
-        yield onCreated(() => [setDoFlush(true)])
-        yield onRemoved(() => [setDoFlush(false)])
+        // yield onCreated(() => [setDoFlush(true)])
+        // yield onRemoved(() => [setDoFlush(false)])
 
         yield inputHandler([
             on(caseText,
@@ -127,8 +126,10 @@ const Set = connected(
             list: string[]
         }>) {
 
-        yield onCreated(() => [setDoFlush(false)])
-        yield onRemoved(() => [setDoFlush(true), setBufferedInputEnabled(false)])
+        // yield onCreated(() => [setDoFlush(false)])
+        yield onRemoved(() => [
+            // setDoFlush(true), 
+            setBufferedInputEnabled(false)])
 
         const { list } = getState({ list: [] })
 

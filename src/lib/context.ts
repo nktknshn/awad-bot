@@ -28,3 +28,16 @@ export function mapContext<
         mapChildren: ((e: E) => isComponent(e) ? mapContext(key, e) : e) as any
     }
 }
+
+export function mapContext2<
+   P extends M, S, M, State, E, E2, State2
+>(
+    f: (ctx: State2) => State,
+    comp: ComponentConnected<P, S, M, State, E, E2>
+): ComponentConnected<P, S, M, State2, E, E2> {
+    return {
+        ...comp,
+        mapper: (ctx: State2) => comp.mapper(f(ctx)),
+        // mapChildren: ((e: E) => isComponent(e) ? mapContext(key, e) : e) as any
+    }
+}

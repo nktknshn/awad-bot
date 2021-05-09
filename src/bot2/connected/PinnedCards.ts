@@ -39,22 +39,23 @@ export default connected(
             yield nextMessage()
         }
 
-        if (!showMenu)
-            yield button('Unpin', 
-                () => setState(lenses('showMenu').set(true))
-            )
-        else {
-            for (const item of pinnedCards) {
-                if (onUnpin)
+        if (onUnpin)
+
+            if (!showMenu)
+                yield button('Unpin',
+                    () => setState(lenses('showMenu').set(true))
+                )
+            else {
+                for (const item of pinnedCards) {
                     yield button(`Unpin ${item.theword}`, async () => {
                         return onUnpin(item.id)
                     })
-            }
+                }
 
-            yield button('Cancel', async () => {
-                setState(lenses('showMenu').set(false))
-            })
-        }
+                yield button('Cancel', async () => {
+                    setState(lenses('showMenu').set(false))
+                })
+            }
 
         yield nextMessage()
 

@@ -1,7 +1,7 @@
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
 import { createConnection } from "typeorm"
-import { createAwadApplication } from "./bot2/index"
+import { createAwadApplication } from "./bot2/index2"
 import { getAwadServices } from "./bot2/services"
 import { ChatsDispatcher } from "./lib/chatsdispatcher"
 import { initLogging, mylog } from "./lib/logging"

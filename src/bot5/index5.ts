@@ -1,5 +1,6 @@
-import { application, ChatState, createChatState, defaultRenderScheme, genericRenderComponent } from "Lib/application"
+import { application, ChatState, createChatState, createChatState2, defaultRenderScheme, genericRenderComponent } from "Lib/application"
 import * as CA from 'Lib/chatactions'
+import { flushState, FlushState } from "Lib/components/actions/flush"
 import {
     applyActionEventReducer, ApplyActionsEvent, createActionEvent,
     makeEventReducer
@@ -9,6 +10,7 @@ import { select } from "Lib/state"
 import { lens, StoreAction, storeAction, storef, StoreF2 } from "Lib/storeF"
 import { AppActionsFlatten } from "Lib/types-util"
 import { Lens } from "monocle-ts"
+import { TelegrafContext } from "telegraf/typings/context"
 import { append } from "../bot3/util"
 import { withUserMessages } from "../lib/context"
 import { App } from './app'
@@ -54,25 +56,17 @@ export const store = storef<Bot5StoreState>({ lists: [] })
 export type Bot5AppState = {
     store: Store,
     userId: number,
-    doFlush: boolean
-    deferredRenderTimer?: NodeJS.Timeout,
-    deferRender: number,
-    bufferedInputEnabled: boolean,
-    bufferedOnce: boolean
-}
+} & FlushState
 
 export const bufferEnabledLens = Lens.fromProp<AppChatState>()('bufferedInputEnabled')
+const userId = async (tctx: TelegrafContext) => ({
+    userId: tctx.from?.id!,
+})
 
 export const createApp = () =>
     application<Bot5AppState, AppAction, AppEvents>({
-        chatStateFactory: async (ctx) => createChatState({
-            store,
-            userId: ctx.from?.id!,
-            doFlush: true,
-            deferRender: 1500,
-            bufferedInputEnabled: false,
-            bufferedOnce: false
-        }),
+        chatStateFactory: createChatState2(
+            [flushState({ deferRender: 1500 }), userId], { store }),
         renderFunc: genericRenderComponent(
             defaultRenderScheme(),
             {

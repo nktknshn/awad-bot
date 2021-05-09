@@ -117,6 +117,16 @@ export const chatstateAction = <T>(
         f
     })
 }
+
+// export const chatstateAction2 = <T extends {}>(
+//     f: <R extends T>(a0: (keyof T)[0]) => (s: R) => R
+// ) => {
+//     return ({
+//         kind: 'chatstate-action' as 'chatstate-action',
+//         f
+//     })
+// }
+
 export type ChatStateAction<R> = {
     kind: 'chatstate-action',
     f: (s: R) => R
@@ -298,6 +308,12 @@ export function extendDefaultReducer<R, H, E, T1, T2>(
     m1: ChatActionReducer<T1, R, H, E>,
     m2: ChatActionReducer<T2, R, H, E>,
 ): (a: (T1 | T2 | DefaultActions<R, H>) | (T1 | T2 | DefaultActions<R, H>)[]) => CA.AppChatAction<R, H, E>[]
+export function extendDefaultReducer<R, H, E, T1, T2, T3>(
+    m1: ChatActionReducer<T1, R, H, E>,
+    m2: ChatActionReducer<T2, R, H, E>,
+    m3: ChatActionReducer<T3, R, H, E>,
+): (a: (T1 | T2 | T3 | DefaultActions<R, H>) | (T1 | T2 | T3 | DefaultActions<R, H>)[]) => CA.AppChatAction<R, H, E>[]
+
 export function extendDefaultReducer<R, H, E, T1, T2, T3, T4>(
     m1: ChatActionReducer<T1, R, H, E>,
     m2: ChatActionReducer<T2, R, H, E>,

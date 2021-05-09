@@ -24,6 +24,7 @@ import { renderActions as applyRenderActions } from "./ui";
 import { RenderedUserMessage, UserMessageElement } from "./usermessage";
 import { identity } from 'fp-ts/lib/function';
 import { PhotoGroupElement } from 'bot3/mediagroup';
+import Telegraf from 'telegraf';
 
 
 export type ChatState<R, H> = {
@@ -70,6 +71,37 @@ export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
     renderedElements: [],
     ...r
 }) as ChatState<R, H>;
+
+export function createChatState2<R0, R1, R, H>(
+    fs: [((tctx: TelegrafContext) => Promise<R1>)],
+    r: R0
+): (tctx: TelegrafContext) =>  Promise<ChatState<R0 & R1, H>> 
+export function createChatState2<R0, R1, R2, R, H>(
+    fs: [
+        ((tctx: TelegrafContext) => Promise<R1>),
+        ((tctx: TelegrafContext) => Promise<R2>),
+    ],
+    r: R0
+): (tctx: TelegrafContext) =>  Promise<ChatState<R0 & R1 & R2, H>> 
+export function createChatState2<R0, R1, R2, R3, R, H>(
+    fs: [
+        ((tctx: TelegrafContext) => Promise<R1>),
+        ((tctx: TelegrafContext) => Promise<R2>),
+        ((tctx: TelegrafContext) => Promise<R3>),
+    ],
+    r: R0
+): (tctx: TelegrafContext) =>  Promise<ChatState<R0 & R1 & R2 & R3, H>> 
+
+export function createChatState2(fs: any[], r: any)
+{
+    return  async (tctx: TelegrafContext) => ({
+        treeState: undefined,
+        renderedElements: [],
+        ...(await Promise.all(fs.map(_ => _(tctx)))),
+        ...r
+    })
+}
+
 
 export interface Application<R, H, E> {
     chatStateFactory: (ctx: TelegrafContext) => Promise<ChatState<R, H>>;
@@ -213,13 +245,13 @@ export const genericRenderComponent = <
         console.log(removedElements);
 
         const draft = scheme.createDraft(elements);
-        
+
         const els = scheme.getEffects(removedElements, newElements)
 
         console.log('els');
         console.log(els);
 
-        const effects = 
+        const effects =
             scheme.getEffects(removedElements, newElements)
 
         const inputHandler = scheme.getInputHandler(draft);

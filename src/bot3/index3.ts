@@ -20,23 +20,23 @@ export type Bot3StoreState = {
     stringCandidate: string | undefined,
 }
 
-
 export const store = storef<Bot3StoreState>({
     isVisible: false,
     items: [],
     secondsLeft: 0,
     timer: undefined,
-    stringCandidate: undefined
+    stringCandidate: undefined,
 })
 
 export type Bot3Dispatcher = ReturnType<typeof getDispatcher>
 
-export type Bot3AppState = 
-{
-    store: typeof store,
-    deferredRenderTimer?: NodeJS.Timeout,
-    deferRender: number
-}
+export type Bot3AppState =
+    {
+        store: typeof store,
+        deferredRenderTimer?: NodeJS.Timeout,
+        deferRender: number,
+        bufferedInputEnabled: boolean,
+    }
 
 type AppAction = AppActionsFlatten<typeof App>
 type AppEvent = ApplyActionsEvent<Bot3AppState, AppAction, AppEvent>
@@ -61,7 +61,8 @@ export const app = application<Bot3AppState, AppAction, AppEvent>({
         createChatState({
             store,
             // dispatcher: getDispatcher(store),
-            deferRender: 0
+            deferRender: 0,
+            bufferedInputEnabled: false
         }),
     renderFunc: genericRenderComponent(
         defaultRenderScheme(),
@@ -100,10 +101,10 @@ export const app = application<Bot3AppState, AppAction, AppEvent>({
                 CA.addRenderedUserMessage(),
                 saveToTrackerAction,
                 CA.applyInputHandler,
-                CA.chatState(c =>
-                    c.deferRender == 0
+                CA.chatState(({ deferRender, bufferedInputEnabled }) =>
+                    bufferedInputEnabled
                         ? CA.render
-                        : CA.scheduleEvent(c.deferRender, renderEvent())
+                        : CA.scheduleEvent(deferRender, renderEvent())
                 )
             ]
         ],

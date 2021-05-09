@@ -1,7 +1,7 @@
 import * as CA from '../lib/chatactions';
 import { ChatState, createChatState, application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
 import { getTrackingRendererE, removeMessages } from "../lib/chatrenderer";
-import { extendDefaultReducer, reducer } from '../lib/reducer';
+import { ChatActionReducer, composeReducers, extendDefaultReducer, reducer } from '../lib/reducer';
 import { AppActions, AppActionsFlatten, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
@@ -17,6 +17,18 @@ type AppState = { store: ReturnType<typeof createAwadStore> }
 type AppAction = AppActionsFlatten<typeof App>
 type AppEvent = ApplyActionsEvent<AppState, AppAction, AppEvent>
 
+export const bot2Reducers = <R, H, E>(): ChatActionReducer<"done" | "next" | Promise<unknown>, R, H, E> =>
+    composeReducers(
+        reducer(
+            (a): a is Promise<unknown> => a instanceof Promise,
+            _ => CA.doNothing
+        ),
+        reducer(
+            (a): a is "done" | "next" => a === "done" || a === "next",
+            _ => CA.doNothing
+        )
+    )
+
 export function createAwadApplication(services: AwadServices) {
 
     const { renderer, saveToTrackerAction, cleanChatAction } = getTrackingRendererE(services.users)
@@ -26,14 +38,7 @@ export function createAwadApplication(services: AwadServices) {
         chatStateFactory:
             async () => createChatState({ store: createAwadStore(services) }),
         actionReducer: extendDefaultReducer(
-            reducer(
-                (a): a is Promise<unknown> => a instanceof Promise,
-                _ => CA.doNothing
-            ),
-            reducer(
-                (a): a is "done" | "next" => a === "done" || a === "next",
-                _ => CA.doNothing
-            )
+            bot2Reducers()
         ),
         renderFunc: genericRenderComponent(
             defaultRenderScheme(),
@@ -43,7 +48,7 @@ export function createAwadApplication(services: AwadServices) {
                     ...s.store.getState(),
                     dispatcher: storeToDispatch(s.store)
                 }),
-                props: {}
+                props: { showPinned: true }
             }),
         init: CA.sequence([
             cleanChatAction,

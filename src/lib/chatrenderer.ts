@@ -55,7 +55,11 @@ export const createChatRendererE = (ctx: TelegrafContext): ChatRenderer => ({
                     tryCatch(
                         () => ctx.telegram.editMessageText(
                             ctx.chat?.id!, message.message_id, undefined, text,
-                            { ...extra, disable_notification: false, parse_mode: 'HTML' }
+                            {
+                                ...extra,
+                                // disable_notification: false, 
+                                parse_mode: 'HTML'
+                            }
                         )
                         , mapToChatRendererError)
                     , TE.map(ret => typeof ret !== 'boolean' ? O.some(ret) : O.none)
@@ -208,7 +212,7 @@ export function getTrackingRendererE(t: Tracker) {
 
             const res = await cleanChatTask(ctx.tctx.chat?.id!)(ctx.renderer)()
             console.log(res);
-            
+
             return ctx.chatdata
         },
         untrackRendererElementsAction: async <R, H, E>({ chatdata, tctx }: ChatActionContext<R, H, E>)

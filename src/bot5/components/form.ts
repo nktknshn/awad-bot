@@ -35,8 +35,8 @@ export const Form1 = connected(
 
         const pipeTo = setS(setState)
 
-        yield onCreated(() => setDoFlush(false))
-        yield onRemoved(() => setDoFlush(true))
+        // yield onCreated(() => setDoFlush(false))
+        // yield onRemoved(() => setDoFlush(true))
 
         yield message([
             `Имя: ${fname ?? '?'}`,

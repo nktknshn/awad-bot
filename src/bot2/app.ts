@@ -30,11 +30,11 @@ const AppInput = ({ dispatcher: { onCard, onRedirect } }: WithDispatcher) =>
         on(otherwise, (action((a) => [onRedirect('main?message=bad_card')]))),
     ])
 
-export const App = connected1(
+export const App = connected(
     select(getDispatcher, getIfUserLoaded, getPath),
     function* ({
         path, userLoaded, dispatcher
-    }) {
+    }, {showPinned = true}: { showPinned: boolean }) {
         const { pathname, query } = parsePath(path)
         const titleMessage = pipe(tryKey('message', query), mapOpt(String), toUndefined)
 
@@ -43,7 +43,8 @@ export const App = connected1(
             return
         }
 
-        yield PinnedCards({ onUnpin: dispatcher.onTogglePinnedWord })
+        if(showPinned)
+            yield PinnedCards({ onUnpin: dispatcher.onTogglePinnedWord })
 
         if (pathname == 'main') {
             yield AppInput({ dispatcher })

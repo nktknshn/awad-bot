@@ -31,3 +31,5 @@ export function createAwadStore(services: AwadServices) {
     })
 
 }
+
+export type AwadStore = ReturnType<typeof createAwadStore>

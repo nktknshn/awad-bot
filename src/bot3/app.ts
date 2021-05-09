@@ -12,6 +12,7 @@ import { UserMessageElement } from 'Lib/usermessage';
 import { PhotoSize } from "telegraf/typings/telegram-types";
 import { photos } from './mediagroup';
 import { append, deferRender, flush } from './util';
+import { setBufferedInputEnabled } from 'Lib/components/actions/flush';
 
 export const casePassword =
     (password: string) => on(caseText, ifTrue(({ messageText }) => messageText == password))
@@ -105,7 +106,8 @@ export const App = connected(
             on(casePhoto, action(({ photo, messageId }) => [
                 addUserMessage(messageId),
                 addPhotoCandidate(photo),
-                deferRender(300)
+                deferRender(300),
+                setBufferedInputEnabled(true)
             ]))
         ])
 
@@ -133,7 +135,8 @@ export const App = connected(
             const reset = [
                 resetUserMessages,
                 resetPhotos,
-                deferRender(0)
+                deferRender(0),
+                setBufferedInputEnabled(false)
             ]
 
             const addItem = [
