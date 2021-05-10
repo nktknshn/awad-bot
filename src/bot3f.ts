@@ -4,7 +4,7 @@ import { initLogging, mylog } from "Lib/logging"
 import { StackFrame } from "stacktrace-js"
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
-import { app } from "./bot3/index3"
+import app from "./bot3/index3"
 import { token } from "./telegram-token.json"
 
 async function main() {

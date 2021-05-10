@@ -1,4 +1,4 @@
-import { application, ChatState, createChatState, defaultRenderScheme, genericRenderComponent } from "Lib/application"
+import { application, ChatState, chatState, defaultRenderScheme, genericRenderComponent } from "Lib/application"
 import * as CA from 'Lib/chatactions'
 import { withFlush, FlushState, deferredRender, addUserMessageIfNeeded, flushIfNeeded } from "Lib/components/actions/flush"
 import { UseTrackingRenderer } from "Lib/components/actions/tracker"
@@ -10,7 +10,7 @@ import { extendDefaultReducer, storeReducer } from "Lib/reducer"
 import { RenderedElement } from "Lib/rendered-messages"
 import { select } from "Lib/state"
 import { lens, StoreAction, storeAction, storef, StoreF2 } from "Lib/storeF"
-import { AppActionsFlatten, BasicAppEvent, withState } from "Lib/types-util"
+import { AppActionsFlatten, BasicAppEvent, buildApp } from "Lib/types-util"
 import { Lens } from "monocle-ts"
 import { TelegrafContext } from "telegraf/typings/context"
 import { append } from "../bot3/util"
@@ -62,18 +62,19 @@ const handleMessage = <R extends FlushState, H>() =>
         deferredRender()
     ])
 
-const constructState = createChatState(
+const constructState = chatState(
     [
         withFlush({ deferRender: 1500 }),
         userId,
         async () => ({ store })
     ])
 
-const app = withState(App)(() => constructState)
-    .extend(
-        a => ({
-            handleMessage: a.actionF(handleMessage)
-        }))
+
+const app = buildApp(App, constructState).extend(
+    a => ({
+        handleMessage: a.actionF(handleMessage)
+    })
+)
 
 export const createApp = () =>
     application({

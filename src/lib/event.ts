@@ -8,7 +8,6 @@ export interface ApplyActionsEvent<R, H, E> {
     actions: CA.AppChatAction<R, H, E>[];
 }
 
-
 export function createActionEvent2<R, H, E>(
     actions: CA.AppChatAction<R, H, E>[]
 ): ApplyActionsEvent<R, H, E> {
@@ -17,7 +16,6 @@ export function createActionEvent2<R, H, E>(
         actions
     };
 }
-
 
 export const renderEvent = <R, H, E>() => createActionEvent<R, H, E>([])
 

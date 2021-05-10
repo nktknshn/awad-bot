@@ -3,7 +3,7 @@ import Telegraf from "telegraf"
 import { levelDatabase, levelTracker } from "./bot3/leveltracker"
 import { append, flush } from "./bot3/util"
 import * as CA from './lib/chatactions'
-import { ChatState, createChatState, application, getUserMessages, renderComponent } from "./lib/application"
+import { ChatState, chatState, application, getUserMessages, renderComponent } from "./lib/application"
 import { connected } from "./lib/component"
 import { button, message, messagePart, nextMessage } from "./lib/elements-constructors"
 import { action, caseText, inputHandler, on } from "./lib/input"
@@ -113,7 +113,7 @@ function createApp() {
 
     return application<MyState, AppAction>({
         renderer,
-        state: () => createChatState({
+        state: () => chatState({
             store: storef<StoreState>({ lists: [] })
         }),
         init: CA.sequence([cleanChatAction]),

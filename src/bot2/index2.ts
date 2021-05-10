@@ -1,8 +1,7 @@
-import * as CA from '../lib/chatactions';
-import { ChatState, createChatState, application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
+import { ChatState, chatState, application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
 import { getTrackingRendererE, removeMessages } from "../lib/chatrenderer";
 import { ChatActionReducer, composeReducers, extendDefaultReducer, reducer } from '../lib/reducer';
-import { addState, AppActions, AppActionsFlatten, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
+import { AppActions, AppActionsFlatten, buildApp, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
 import { AwadStore, createAwadStore } from "./store";
@@ -14,7 +13,12 @@ import { identity } from 'fp-ts/lib/function';
 import { ChatActionContext } from '../lib/chatactions';
 import { createDefaultRenderer, initTrackingRenderer, saveToTrackerAction, UseTrackingRenderer, withTrackingRenderer } from 'Lib/components/actions/tracker';
 import { reloadInterface } from 'Lib/components/actions/misc';
+import * as TR from "Lib/components/actions/tracker";
 
+import * as CA from 'Lib/chatactions';
+import * as FL from "Lib/components/actions/flush";
+import { TelegrafContext } from 'telegraf/typings/context';
+import { createLevelTracker } from "bot3/leveltracker";
 
 type AppState = { store: ReturnType<typeof createAwadStore> } & UseTrackingRenderer
 type AppAction = AppActionsFlatten<typeof App>
@@ -29,6 +33,7 @@ type Application<R, H, E> = {
 
 type AwadApp = Application<AppState, AppAction, AppEvent>
 type AppEvents<R, H> = ApplyActionsEvent<R, H, AppEvents<R, H>>
+const add = <T>(arg: T) => async (tctx: TelegrafContext) => arg
 
 export const bot2Reducers = <R, H, E>(): ChatActionReducer<"done" | "next" | Promise<unknown>, R, H, E> =>
     composeReducers(
@@ -55,7 +60,13 @@ export const initBot2 = <K extends keyof any>(key: K) => <R extends Record<K, Aw
         return chatdata
     }
 
-const u = addState(App)<AppState>()
+const state = (services: AwadServices) => chatState([
+    FL.withFlush({ deferRender: 0, bufferedInputEnabled: false }),
+    TR.withTrackingRenderer(services.users),
+    add({ store: createAwadStore(services) })
+])
+
+const u = buildApp(App, state)
 
 export const contextCreatorBot2 = u.mapState2<
     { store: AwadStore }>()
@@ -68,7 +79,7 @@ export function createAwadApplication(services: AwadServices) {
 
     return application<AppState, AppAction, AppEvent>({
         state:
-            createChatState([
+            chatState([
                 withTrackingRenderer(services.users),
                 async () => ({ store: createAwadStore(services) })
             ]),

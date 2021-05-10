@@ -14,6 +14,7 @@ import * as TE from "fp-ts/lib/TaskEither";
 import * as T from "fp-ts/lib/Task";
 
 import * as E from "fp-ts/lib/Either";
+import { FlushState } from './components/actions/flush';
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
@@ -36,7 +37,7 @@ export async function applyEffects<R, H, E>(
 }
 
 export function scheduleEvent
-    <R extends { deferredRenderTimer?: NodeJS.Timeout }, H, E>
+    <R extends FlushState, H, E>
     (timeout: number, ev: E): AppChatAction<R, H, E> {
     {
         return async function
@@ -253,3 +254,7 @@ export const flush = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>
 export const doNothing = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H, E>)
     : Promise<ChatState<R, H>> =>
     chatdata
+
+
+export const onTrue = <R, H, E>(p: boolean, a: AppChatAction<R, H, E>)
+: AppChatAction<R, H, E> => p ? a : doNothing

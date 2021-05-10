@@ -1,4 +1,4 @@
-import { chatstateAction } from "Lib/reducer"
+import { ChatActionReducer, chatstateAction } from "Lib/reducer"
 import * as CA from 'Lib/chatactions'
 import { BasicAppEvent } from "Lib/types-util"
 import { createActionEvent } from "Lib/event"
@@ -10,7 +10,6 @@ export type FlushState = {
     bufferedInputEnabled: boolean,
     bufferedOnce: boolean,
 }
-
 
 export const setBufferedInputEnabled = (bufferedInputEnabled: boolean) =>
     chatstateAction<{ bufferedInputEnabled: boolean }>(s =>
@@ -60,3 +59,16 @@ export const addUserMessageIfNeeded = <R extends FlushState, H, E>() =>
             ? CA.doNothing
             : CA.addRenderedUserMessage()
     )
+
+export const isFlush = (a: Flush | any): a is Flush => a.kind === 'flush'
+
+export function flushReducer<R, H, E>(
+    action: CA.AppChatAction<R, H, E>
+): ChatActionReducer<Flush, R, H, E> {
+    return {
+        isA: isFlush,
+        f: (a: Flush) => action
+    }
+}
+
+export type Flush = { kind: 'flush' } 

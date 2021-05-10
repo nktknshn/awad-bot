@@ -77,16 +77,16 @@ export const getUserMessages = <R, H>(c: ChatState<R, H>): number[] => {
 //     }) as any
 // });
 
-export function createChatState<R1>(
+export function chatState<R1>(
     fs: [((tctx: TelegrafContext) => Promise<R1>)],
 ): <H>(tctx: TelegrafContext) => Promise<ChatState<R1, H>>
-export function createChatState<R1, R2>(
+export function chatState<R1, R2>(
     fs: [
         ((tctx: TelegrafContext) => Promise<R1>),
         ((tctx: TelegrafContext) => Promise<R2>),
     ],
 ): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2, H>>
-export function createChatState<R1, R2, R3>(
+export function chatState<R1, R2, R3>(
     fs: [
         ((tctx: TelegrafContext) => Promise<R1>),
         ((tctx: TelegrafContext) => Promise<R2>),
@@ -94,7 +94,7 @@ export function createChatState<R1, R2, R3>(
 
     ],
 ): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3, H>>
-export function createChatState<R1, R2, R3, R4>(
+export function chatState<R1, R2, R3, R4>(
     fs: [
         ((tctx: TelegrafContext) => Promise<R1>),
         ((tctx: TelegrafContext) => Promise<R2>),
@@ -104,7 +104,7 @@ export function createChatState<R1, R2, R3, R4>(
     ],
 ): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3 & R4, H>>
 
-export function createChatState<R1, R2, R3, R4, R5>(
+export function chatState<R1, R2, R3, R4, R5>(
     fs: [
         ((tctx: TelegrafContext) => Promise<R1>),
         ((tctx: TelegrafContext) => Promise<R2>),
@@ -114,7 +114,7 @@ export function createChatState<R1, R2, R3, R4, R5>(
     ],
 ): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3 & R4 & R5, H>>
 
-export function createChatState<R1, R2, R3, R4, R5, R6>(
+export function chatState<R1, R2, R3, R4, R5, R6>(
     fs: [
         ((tctx: TelegrafContext) => Promise<R1>),
         ((tctx: TelegrafContext) => Promise<R2>),
@@ -125,7 +125,7 @@ export function createChatState<R1, R2, R3, R4, R5, R6>(
     ],
 ): <H>(tctx: TelegrafContext) => Promise<ChatState<R1 & R2 & R3 & R4 & R5 & R6, H>>
 
-export function createChatState(fs: any[]) {
+export function chatState(fs: any[]) {
     return async (tctx: TelegrafContext) => ({
         treeState: undefined,
         renderedElements: [],

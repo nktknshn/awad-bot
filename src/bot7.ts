@@ -1,4 +1,5 @@
 import { getAwadServices } from "bot2/services"
+import { levelDatabase, levelTracker } from "bot3/leveltracker"
 import Telegraf from "telegraf"
 import { createConnection } from "typeorm"
 import { createApp } from './bot7/index7'
@@ -17,7 +18,10 @@ async function main() {
 
     await attachAppToBot(
         new Telegraf(token),
-        createApp(services)
+        createApp(
+            services,
+            levelTracker(levelDatabase('./mydb_bot7'))
+        )
     ).launch()
 
     mylog('Started...')

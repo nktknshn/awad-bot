@@ -2,33 +2,24 @@ import PinnedCards from "bot2/connected/PinnedCards"
 import { bot2Reducers, contextCreatorBot2, initBot2 } from "bot2/index2"
 import { AwadServices } from "bot2/services"
 import { createAwadStore } from "bot2/store"
-import { levelDatabase, levelTracker } from "bot3/leveltracker"
+import { pipe } from "fp-ts/lib/function"
 import {
-    application, createChatState, defaultRenderScheme,
+    application, chatState, defaultRenderScheme,
     genericRenderComponent
 } from "Lib/application"
 import * as CA from 'Lib/chatactions'
+import { Tracker } from "Lib/chatrenderer"
 import { connected } from "Lib/component"
-import { addUserMessageIfNeeded, deferredRender, flushIfNeeded, withFlush } from "Lib/components/actions/flush"
+import * as FL from "Lib/components/actions/flush"
 import { reloadInterface } from "Lib/components/actions/misc"
-import { connectFStore } from "Lib/components/actions/store"
-import { initTrackingRenderer, saveToTrackerAction, withTrackingRenderer } from "Lib/components/actions/tracker"
+import * as TR from "Lib/components/actions/tracker"
 import { contextFromKey } from "Lib/context"
 import { buttonsRow, message, nextMessage } from "Lib/elements-constructors"
-import {
-    applyActionEventReducer,
-
-    makeEventReducer
-} from "Lib/event"
-import { attachStoreExtension, handleActionExtension, handleEventExtension, handleMessage, handleMessageExtension, reducerExtension } from "Lib/newapp"
-import {
-    chatstateAction,
-    composeReducers,
-    extendDefaultReducer, flushReducer, storeReducer
-} from "Lib/reducer"
+import * as AP from "Lib/newapp"
+import { chatstateAction, composeReducers, extendDefaultReducer, storeReducer } from "Lib/reducer"
 import { select } from "Lib/state"
 import { composeStores } from "Lib/storeF"
-import { withState } from "Lib/types-util"
+import { BasicAppEvent, Utils, buildApp, ComponentTypes } from "Lib/types-util"
 import { TelegrafContext } from "telegraf/typings/context"
 import { App as App2 } from '../bot2/app'
 import { App as App3 } from '../bot3/app'
@@ -79,82 +70,128 @@ const App = connected(
     }
 )
 
-const constructState = (services: AwadServices) =>
-    createChatState(
-        [
-            withFlush({ deferRender: 1500, bufferedInputEnabled: false }),
-            withTrackingRenderer(levelTracker(levelDatabase('./mydb_bot7'))),
-            userId,
-            async () => ({
-                activeApp: empty<ActiveApp>(),
-                store: composeStores([store3, store5]),
-                bot2Store: createAwadStore(services)
-            })
-        ],
-    )
+// const defaultBehaviour =
+//     <R extends FL.FlushState & TR.UseTrackingRenderer, H, Ext, RootComp>
+//         (u: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>) => {
+//         return ({
+//             ...handleEventExtension(u),
+//             ...handleActionExtension(u)
+//         })
+//     }
 
-const app = withState(App)(constructState)
-    .extend(handleEventExtension)
-    .extend(attachStoreExtension)
-    .extend(handleActionExtension)
-    .extend(handleMessageExtension)
-    .extend(a => reducerExtension(a)(
-        extendDefaultReducer(
-            flushReducer(CA.doNothing),
-            storeReducer('store'),
-            bot2Reducers()
-        )
-    ))
-    .extend(
-        a => ({
-            defaultMessageHandler: a.actions([
-                CA.applyInputHandler,
-                saveToTrackerAction(),
-                addUserMessageIfNeeded(),
-                CA.applyEffects,
-                deferredRender()
-            ])
-            , handleMessageStart() {
-                return a.action(
-                    CA.tctx(tctx => CA.ifStart(tctx)
-                        ? reloadInterface()
-                        : this.defaultMessageHandler)
-                )
-            }
-            , init(services: AwadServices) {
-                return a.actions([
-                    initTrackingRenderer(),
-                    a.ext.attachStore,
-                    initBot2('bot2Store')(services),
-                ])
-            }
+// .extend(a => attachStoreExtension(a))
+// .extend(a => reducerExtension(a)(
+//     extendDefaultReducer(
+//         FL.flushReducer(CA.doNothing),
+//         storeReducer('store'),
+//         bot2Reducers()
+//     )
+// ))
+// .extend(a => ({
+//     init(services: AwadServices) {
+//         return a.actions([
+//             TR.initTrackingRenderer(),
+//             a.ext.attachStore,
+//             initBot2('bot2Store')(services),
+//         ])
+//     }
+// }))
+// .extend(a => ({
+//     defaultMessageHandler: a.actions([
+//         CA.applyInputHandler,
+//         TR.saveToTrackerAction(),
+//         FL.addUserMessageIfNeeded(),
+//         CA.applyEffects,
+//         FL.deferredRender()
+//     ])
+// }))
+
+// const contextCreator = app.mapState((cs) => ({
+//     error: cs.error,
+//     activeApp: cs.activeApp,
+//     bot3: contextCreatorBot3(cs),
+//     bot5: contextCreatorBot5(cs),
+//     bot2: contextCreatorBot2({
+//         store: cs.bot2Store
+//     })
+// }))
+
+// const renderFunc = app.renderFunc(
+//     genericRenderComponent(
+//         defaultRenderScheme(),
+//         {
+//             component: App,
+//             contextCreator,
+//             props: {}
+//         })
+// )
+
+
+const state = (services: AwadServices, t?: Tracker) =>
+    chatState([
+        FL.withFlush({ deferRender: 1500, bufferedInputEnabled: false }),
+        TR.withTrackingRenderer(t),
+        async () => ({
+            activeApp: empty<ActiveApp>(),
+            store: composeStores([store3, store5]),
+            bot2Store: createAwadStore(services)
+        }),
+        userId,
+    ])
+
+const app = pipe(
+    buildApp(App, state)
+    , AP.defaultBuild
+    , AP.attachStore
+    , AP.withContextCreator((cs) => ({
+        error: cs.error,
+        activeApp: cs.activeApp,
+        bot3: contextCreatorBot3(cs),
+        bot5: contextCreatorBot5(cs),
+        bot2: contextCreatorBot2({
+            store: cs.bot2Store
         })
-    )
+    }))
+    , AP.withProps({})
+    , AP.extend(a => ({
+        init: (services: AwadServices) =>
+            a.actions([
+                TR.initTrackingRenderer(),
+                a.ext.attachStore,
+                initBot2('bot2Store')(services),
+            ])
+    }))
+    , AP.addReducer(_ => composeReducers(
+        FL.flushReducer(CA.doNothing),
+        storeReducer('store'),
+        bot2Reducers()
+    ))
+    , AP.extend(a => ({
+        defaultMessageHandler: a.actions([
+            CA.applyInputHandler,
+            TR.saveToTrackerAction(),
+            FL.addUserMessageIfNeeded(),
+            CA.applyEffects,
+            FL.deferredRender()
+        ])
+    }))
+    , AP.extend(a => ({
+        handleMessage: a.action(
+            CA.tctx(tctx => CA.ifStart(tctx) 
+            ? reloadInterface() 
+            : a.ext.defaultMessageHandler))
+    }))
+    , AP.getapp
+)
 
-const contextCreator = app.mapState((cs) => ({
-    error: cs.error,
-    activeApp: cs.activeApp,
-    bot3: contextCreatorBot3(cs),
-    bot5: contextCreatorBot5(cs),
-    bot2: contextCreatorBot2({
-        store: cs.bot2Store
-    })
-}))
 
-
-export const createApp = (services: AwadServices) =>
+export const createApp = (services: AwadServices, t?: Tracker) =>
     application({
-        state: app.ext.state(services),
+        state: app.ext.state(services, t),
         init: app.ext.init(services),
         actionReducer: app.ext.actionReducer,
         handleMessage: app.ext.handleMessage,
         handleAction: app.ext.handleAction,
         handleEvent: app.ext.handleEvent,
-        renderFunc: genericRenderComponent(
-            defaultRenderScheme(),
-            {
-                component: App,
-                contextCreator,
-                props: {}
-            }),
+        renderFunc: app.ext.renderFunc,
     })

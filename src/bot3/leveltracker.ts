@@ -1,6 +1,7 @@
 import levelup, { LevelUp } from 'levelup'
 import leveldown, { LevelDown } from 'leveldown'
 import { getTrackingRendererE, removeMessages, Tracker } from '../lib/chatrenderer';
+import { flow, pipe } from 'fp-ts/lib/function';
 
 export const levelDatabase = (path: string) => levelup(leveldown(path))
 
@@ -39,3 +40,8 @@ export const levelTracker = (trackerDb: LevelUp<LevelDown>): Tracker => ({
         return messages
     },
 })
+
+export const createLevelTracker = flow(
+    levelDatabase,
+    levelTracker
+)

@@ -1,7 +1,7 @@
 import { select } from "Lib/state"
 import { Lens } from "monocle-ts"
 import { append, flush } from "../bot3/util"
-import { AppActionsOf, AppEventsOf, Application, ApplicationFor, ChatState, createChatState, defaultHandleAction, defaultRenderScheme, genericRenderComponent, application, initApplication, InitializedApp, InitializedAppFor }
+import { AppActionsOf, AppEventsOf, Application, ApplicationFor, ChatState, chatState, defaultHandleAction, defaultRenderScheme, genericRenderComponent, application, initApplication, InitializedApp, InitializedAppFor }
     from "Lib/application"
 import * as CA from 'Lib/chatactions'
 import { withUserMessages } from "../lib/context"
@@ -304,7 +304,7 @@ export const createApp = () =>
                 props: {}
             }),
         state: async (tctx) =>
-            createChatState({
+            chatState({
                 apps: {
                     app5: await initApplication(apps.app5)(tctx),
                     app3f: await initApplication(apps.app3f)(tctx)
