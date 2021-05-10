@@ -2,10 +2,9 @@ import PinnedCards from "bot2/connected/PinnedCards"
 import { bot2Reducers, contextCreatorBot2, initBot2 } from "bot2/index2"
 import { AwadServices } from "bot2/services"
 import { createAwadStore } from "bot2/store"
-import { pipe } from "fp-ts/lib/function"
+import { flow, pipe } from "fp-ts/lib/function"
 import {
-    application, chatState, defaultRenderScheme,
-    genericRenderComponent
+    application, chatState
 } from "Lib/application"
 import * as CA from 'Lib/chatactions'
 import { Tracker } from "Lib/chatrenderer"
@@ -16,10 +15,10 @@ import * as TR from "Lib/components/actions/tracker"
 import { contextFromKey } from "Lib/context"
 import { buttonsRow, message, nextMessage } from "Lib/elements-constructors"
 import * as AP from "Lib/newapp"
-import { chatstateAction, composeReducers, extendDefaultReducer, storeReducer } from "Lib/reducer"
+import { chatstateAction, composeReducers, storeReducer } from "Lib/reducer"
 import { select } from "Lib/state"
 import { composeStores } from "Lib/storeF"
-import { BasicAppEvent, Utils, buildApp, ComponentTypes } from "Lib/types-util"
+import { buildApp } from "Lib/types-util"
 import { TelegrafContext } from "telegraf/typings/context"
 import { App as App2 } from '../bot2/app'
 import { App as App3 } from '../bot3/app'
@@ -85,9 +84,8 @@ const state = (services: AwadServices, t?: Tracker) =>
 
 const app = pipe(
     buildApp(App, state)
-    , AP.defaultBuild
-    , AP.attachStore
-    , AP.withContextCreator((cs) => ({
+    , flow(AP.defaultBuild, AP.attachStore)
+    , AP.context((cs) => ({
         error: cs.error,
         activeApp: cs.activeApp,
         bot3: contextCreatorBot3(cs),
@@ -96,7 +94,7 @@ const app = pipe(
             store: cs.bot2Store
         })
     }))
-    , AP.withProps({})
+    , AP.props({})
     , AP.extend(a => ({
         init: (services: AwadServices) =>
             a.actions([
@@ -111,19 +109,10 @@ const app = pipe(
         bot2Reducers()
     ))
     , AP.extend(a => ({
-        defaultMessageHandler: a.actions([
-            CA.applyInputHandler,
-            TR.saveToTrackerAction(),
-            FL.addUserMessageIfNeeded(),
-            CA.applyEffects,
-            FL.deferredRender()
-        ])
-    }))
-    , AP.extend(a => ({
         handleMessage: a.action(
-            CA.tctx(tctx => CA.ifStart(tctx) 
-            ? reloadInterface() 
-            : a.ext.defaultMessageHandler))
+            CA.tctx(tctx => CA.ifStart(tctx)
+                ? reloadInterface()
+                : a.ext.defaultMessageHandler))
     }))
     , AP.complete
 )

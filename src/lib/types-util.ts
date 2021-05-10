@@ -204,7 +204,45 @@ export type GetChatState<T> =
 //         })
 //     }
 
-type BuildApp<T, P, RootComponent> = { state: T, component: (props: P) => RootComponent }
+export type BuildApp<T, P, RootComponent> = { state: T, component: (props: P) => RootComponent }
+export type BuildAppInput<T, P, RootComponent> = { state: T, component: (props: P) => RootComponent }
+
+export const getBuildApp2 = <RootComponent extends ComponentElement, P, T>
+    (component: (props: P) => RootComponent, state: T)
+    : BuildApp<T, P, RootComponent> => {
+    return {
+        state, component
+    }
+}
+
+export const buildApp2 = <
+    RootComponent extends ComponentElement,
+    H extends AppActionsFlatten<RootComponent>,
+    P, T, R = GetState<T>, E = BasicAppEvent<R, H>
+>(component: (props: P) => RootComponent, state: T)
+    : Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent> => {
+    return ({
+        action: F.identity,
+        mapState: F.identity,
+        mapState2: () => f => f,
+        eventFunc: F.identity,
+        actions: CA.sequence,
+        extend<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => RR)
+            : Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent> {
+            return createUtils({ state, component, ...adds(this) }) as Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent>
+        }
+        , extendF<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent>)
+            : Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent> {
+            return adds(this)
+        }
+        , actionF: f => f()
+        , actionFF: (f) => (...args) => f(...args)
+        , ext: { state, component }
+        , reducer: f => f
+        , renderFunc: f => f
+        , reducerFunc: f => f
+    })
+}
 
 export const buildApp = <
     RootComponent extends ComponentElement,
@@ -220,7 +258,7 @@ export const buildApp = <
         actions: CA.sequence,
         extend<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => RR)
             : Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent> {
-            return createUtils({ state, component, ...adds(this) } )as Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent> 
+            return createUtils({ state, component, ...adds(this) }) as Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent>
         }
         , extendF<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent>)
             : Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent> {
@@ -237,7 +275,7 @@ export const buildApp = <
 
 // type Merge<T1 extends {}, T2 extends {}> = { [K1 in (keyof T1 | keyof T2)]: K1 extends keyof T2 ? T2[K1] : K1 extends keyof T1 ? T1[K1] : never }
 
-export type Merge<A,B> = A & B
+export type Merge<A, B> = A & B
 
 // type Merge<T1 extends {}, T2 extends {}> = { [K1 in keyof T1]: T1[K1]} & T2
 

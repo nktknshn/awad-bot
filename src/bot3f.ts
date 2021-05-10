@@ -4,7 +4,7 @@ import { initLogging, mylog } from "Lib/logging"
 import { StackFrame } from "stacktrace-js"
 import Telegraf from "telegraf"
 import { TelegrafContext } from "telegraf/typings/context"
-import app from "./bot3/index3"
+import {createApp} from "./bot3/index3"
 import { token } from "./telegram-token.json"
 
 async function main() {
@@ -32,7 +32,7 @@ async function main() {
 
     const bot = new Telegraf(token)
     const dispatcher = new ChatsDispatcher(
-        createChatHandlerFactory(app)
+        createChatHandlerFactory(createApp())
     )
 
     bot.on('message', dispatcher.messageHandler)
