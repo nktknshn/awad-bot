@@ -70,62 +70,6 @@ const App = connected(
     }
 )
 
-// const defaultBehaviour =
-//     <R extends FL.FlushState & TR.UseTrackingRenderer, H, Ext, RootComp>
-//         (u: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>) => {
-//         return ({
-//             ...handleEventExtension(u),
-//             ...handleActionExtension(u)
-//         })
-//     }
-
-// .extend(a => attachStoreExtension(a))
-// .extend(a => reducerExtension(a)(
-//     extendDefaultReducer(
-//         FL.flushReducer(CA.doNothing),
-//         storeReducer('store'),
-//         bot2Reducers()
-//     )
-// ))
-// .extend(a => ({
-//     init(services: AwadServices) {
-//         return a.actions([
-//             TR.initTrackingRenderer(),
-//             a.ext.attachStore,
-//             initBot2('bot2Store')(services),
-//         ])
-//     }
-// }))
-// .extend(a => ({
-//     defaultMessageHandler: a.actions([
-//         CA.applyInputHandler,
-//         TR.saveToTrackerAction(),
-//         FL.addUserMessageIfNeeded(),
-//         CA.applyEffects,
-//         FL.deferredRender()
-//     ])
-// }))
-
-// const contextCreator = app.mapState((cs) => ({
-//     error: cs.error,
-//     activeApp: cs.activeApp,
-//     bot3: contextCreatorBot3(cs),
-//     bot5: contextCreatorBot5(cs),
-//     bot2: contextCreatorBot2({
-//         store: cs.bot2Store
-//     })
-// }))
-
-// const renderFunc = app.renderFunc(
-//     genericRenderComponent(
-//         defaultRenderScheme(),
-//         {
-//             component: App,
-//             contextCreator,
-//             props: {}
-//         })
-// )
-
 
 const state = (services: AwadServices, t?: Tracker) =>
     chatState([
@@ -181,7 +125,7 @@ const app = pipe(
             ? reloadInterface() 
             : a.ext.defaultMessageHandler))
     }))
-    , AP.getapp
+    , AP.complete
 )
 
 
