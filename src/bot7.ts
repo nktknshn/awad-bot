@@ -18,10 +18,10 @@ async function main() {
 
     await attachAppToBot(
         new Telegraf(token),
-        createApp(
+        createApp({
             services,
-            levelTracker(levelDatabase('./mydb_bot7'))
-        )
+            t: levelTracker(levelDatabase('./mydb_bot7'))
+        })
     ).launch()
 
     mylog('Started...')

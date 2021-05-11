@@ -1,7 +1,8 @@
 import { application, ChatState, chatState, defaultRenderScheme, genericRenderComponent } from "Lib/application"
 import * as CA from 'Lib/chatactions'
-import { withFlush, FlushState, deferredRender, addUserMessageIfNeeded, flushIfNeeded } from "Lib/components/actions/flush"
+import { withFlush, FlushState, deferredRender, addUserMessageIfNeeded, flushIfNeeded, FlushAction } from "Lib/components/actions/flush"
 import { UseTrackingRenderer } from "Lib/components/actions/tracker"
+import { defaultFlushAction } from "Lib/defaults"
 import {
     applyActionEventReducer, ApplyActionsEvent, createActionEvent,
     makeEventReducer
@@ -54,7 +55,7 @@ const userId = async (tctx: TelegrafContext) => ({
     userId: tctx.from?.id!,
 })
 
-const handleMessage = <R extends FlushState, H>() =>
+const handleMessage = <R extends FlushState & FlushAction, H>() =>
     CA.sequence<R, H, BasicAppEvent<R, H>>([
         CA.applyInputHandler,
         addUserMessageIfNeeded(),
@@ -66,7 +67,10 @@ const state = chatState(
     [
         withFlush({ deferRender: 1500 }),
         userId,
-        async () => ({ store: store() })
+        async () => ({ 
+            store: store(),
+            flushAction: defaultFlushAction
+        })
     ])
 
 const app = buildApp(App, state).extend(
@@ -96,7 +100,7 @@ export const createApp = () =>
             CA.replyCallback,
             CA.applyEffects,
             CA.render,
-            flushIfNeeded(),
+            flushIfNeeded(CA.chatState(s => s.flushAction())),
         ]),
         handleEvent: makeEventReducer(applyActionEventReducer())
     })

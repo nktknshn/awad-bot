@@ -155,7 +155,9 @@ export function log<R, H, E>(
         return ctx.chatdata
     }
 }
-
+//  XXX
+// export const lazy = (ca: CA.AppChatAction<unknown, unknown, unknown>) =>
+    // <R, H, E>(): CA.AppChatAction<R, H, E> => ca
 
 export function chatState<R, H, E>(
     pred: (state: ChatState<R, H>) => AppChatAction<R, H, E>,

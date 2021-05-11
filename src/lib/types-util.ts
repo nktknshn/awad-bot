@@ -125,6 +125,7 @@ import * as F from 'fp-ts/lib/function'
 import { ApplyActionsEvent } from "./event";
 import { ChatRenderer } from "./chatrenderer";
 import { ChatActionReducer, ReducerFunction } from "./reducer";
+import { TelegrafContext } from "telegraf/typings/context";
 
 export type ApplicationUtil<R, H, E, T> = {
     state: R,
@@ -166,12 +167,16 @@ export type BasicAppEvent<R, H> = ApplyActionsEvent<R, H, BasicAppEvent<R, H>>
 
 
 export type GetState<T> =
-    T extends (...a: any[]) => (...a: any[]) => Promise<ChatState<infer R, infer H>> ? R
-    : T extends (...a: any[]) => Promise<ChatState<infer R, infer H>> ? R : never
+    T extends (a: infer Deps) => (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? R
+    : T extends (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? R : never
+
+export type GetStateDeps<T> =
+    T extends (a: infer Deps) => (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? Deps
+    : T extends (...a: any[]) => Promise<ChatState<infer R, infer H>> ? R : void
 
 export type GetChatState<T> =
-    T extends (...a: any[]) => (...a: any[]) => Promise<ChatState<infer R, infer H>> ? ChatState<R, H>
-    : T extends (...a: any[]) => Promise<ChatState<infer R, infer H>> ? ChatState<R, H> : never
+    T extends (a: infer Deps) => (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? ChatState<R, H>
+    : T extends (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? ChatState<R, H> : never
 
 // export const withState = <
 //     RootComponent extends ComponentElement,
@@ -228,7 +233,7 @@ export const buildApp2 = <
         eventFunc: F.identity,
         actions: CA.sequence,
         extend<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => RR)
-            : Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent> {
+            : Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent> {
             return createUtils({ state, component, ...adds(this) })
         }
         , extendF<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent>)
@@ -260,8 +265,8 @@ export const buildApp = <
         eventFunc: F.identity,
         actions: CA.sequence,
         extend<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => RR)
-            : Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent> {
-            return createUtils({ state, component, ...adds(this) }) as Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent>
+            : Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent> {
+            return createUtils({ state, component, ...adds(this) })
         }
         , extendF<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent>)
             : Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent> {
@@ -281,7 +286,7 @@ export const buildApp = <
 
 // type Merge<T1 extends {}, T2 extends {}> = { [K1 in (keyof T1 | keyof T2)]: K1 extends keyof T2 ? T2[K1] : K1 extends keyof T1 ? T1[K1] : never }
 
-export type Merge<A, B> = A & B
+// export type Merge<A, B> = A & B
 
 // type Merge<T1 extends {}, T2 extends {}> = { [K1 in keyof T1]: T1[K1]} & T2
 
@@ -298,11 +303,11 @@ export function createUtils<R, H, E, Ext, RootComp>(
         eventFunc: F.identity,
         actions: CA.sequence,
         extend<RR>(adds: (u: Utils<R, H, E, Ext, RootComp>) => RR)
-            : Utils<R, H, E, Merge<Ext, RR>, RootComp> {
-            return createUtils({ ...ext, ...adds(this) } as Merge<Ext, RR>)
+            : Utils<R, H, E, Ext & RR, RootComp> {
+            return createUtils({ ...ext, ...adds(this) })
         },
-        extendF<RR>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R, H, E, Merge<Ext, RR>, RootComp>)
-            : Utils<R, H, E, Merge<Ext, RR>, RootComp> {
+        extendF<RR>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R, H, E, Ext & RR, RootComp>)
+            : Utils<R, H, E, Ext & RR, RootComp> {
             return adds(this)
         },
         extendState<RR>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R & RR, H, E, Ext, RootComp>) {
@@ -331,15 +336,18 @@ export interface Utils<R, H, E, Ext, RootComp,
     actionFF: <T extends any[]>(f: (...args: T) => A['ChatAction']) => (...args: T) => A['ChatAction'],
     actions: (fs: A['ChatAction'][]) => A['ChatAction'],
     mapState: <R>(f: (s: A['ChatState']) => R) => (s: A['ChatState']) => R,
+    // state: <R>(f: (s: A['ChatState']) => R) => (s: A['ChatState']) => R,
     mapState2: <S>() => <R>(f: (s: S) => R) => (s: S) => R,
+    // mapState3: <S>(f: (s: R) => S) => (s: S) => R,
     eventFunc: (handleEvent: (
         ctx: A['ChatContext'],
         event: E
     ) => Promise<ChatState<R, H>>) => typeof handleEvent,
     extend<RR extends {}>(adds: (u: Utils<R, H, E, Ext, RootComp>) => RR)
-        : Utils<R, H, E, Merge<Ext, RR>, RootComp>
-    extendF<RR extends {}>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R, H, E, Merge<Ext, RR>, RootComp>)
-        : Utils<R, H, E, Merge<Ext, RR>, RootComp>
+        : Utils<R, H, E, Ext & RR, RootComp>
+    extendF<RR extends {}>(
+        adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R, H, E, Ext & RR, RootComp>
+    ): Utils<R, H, E, Ext & RR, RootComp>
     // extendF<RR extends {}>(adds: (u: Utils<R, H, E, Ext>) => RR): Utils<R, H, E, Ext & RR>
     ext: Ext
     reducer: <H1, H2>(f: ReducerFunction<R, H, H1, E>) => ReducerFunction<R, H, H1, E>
@@ -352,7 +360,7 @@ export interface Utils<R, H, E, Ext, RootComp,
     extendState<RR extends {}>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R & RR, H, E, Ext, RootComp>)
         : Utils<R & RR, H, E, Ext, RootComp>
     A?: A
-    Context?: A['ChatContext']
+    // Context?: A['ChatContext']
     // State?: ChatState<A['state'], A['action']>
     // Types?: A['Types']
     // AppContext?: A['AppContext']

@@ -4,21 +4,26 @@ import { ComponentElement } from "Lib/component";
 import * as FL from "Lib/components/actions/flush";
 import { reloadInterface } from 'Lib/components/actions/misc';
 import * as TR from "Lib/components/actions/tracker";
+import { UseTrackingRenderer } from "Lib/components/actions/tracker";
 import * as AP from 'Lib/newapp';
 import { WithComponent } from "Lib/newapp";
-import { chatstateAction, storeReducer } from 'Lib/reducer';
+import { ChatActionReducer, ChatStateAction, chatstateAction, storeReducer } from 'Lib/reducer';
 import { StoreF2 } from 'Lib/storeF';
-import { BasicAppEvent, Utils } from 'Lib/types-util';
+import { ApplicationUtil, BasicAppEvent, GetAllComps, GetStateDeps, RenderFunc, StateReq, Utils } from 'Lib/types-util';
+import { application, ChatState } from "./application";
+import { LocalStateAction } from "./tree2";
 
 interface ReloadOnStart {
     reloadOnStart: boolean
+    bufferActions: boolean
 }
 
-type DefaultState<K extends keyof any> =
+export type DefaultState<K extends keyof any> =
     & FL.FlushState
     & TR.UseTrackingRenderer
     & Record<K, StoreF2<unknown, unknown>>
     & ReloadOnStart
+    & FL.FlushAction
 
 export const withDefaults = ({
     reloadOnStart = true,
@@ -26,13 +31,16 @@ export const withDefaults = ({
     bufferedInputEnabled = false,
     bufferedOnce = false,
     doFlush = false,
+    bufferActions = false,
+    flushAction = defaultFlushAction
 } = {}) =>
     async () =>
     ({
-        reloadOnStart,
+        reloadOnStart, bufferActions,
         ...(await FL.withFlush({
             doFlush, deferRender, bufferedInputEnabled, bufferedOnce
-        })())
+        })()),
+        flushAction
     })
 
 
@@ -43,26 +51,33 @@ export const setReloadOnStart = (reloadOnStart: boolean) =>
     chatstateAction<{ reloadOnStart: boolean }>(s =>
         ({ ...s, reloadOnStart })
     )
+export const setbufferActions = (bufferActions: boolean) =>
+    chatstateAction<{ bufferActions: boolean }>(s =>
+        ({ ...s, bufferActions })
+    )
+
+export const defaultFlushAction = <R extends TR.UseTrackingRenderer & FL.FlushState, H, E>() =>
+    CA.sequence<R, H, E>([
+        TR.untrackRendererElementsAction(),
+        CA.flush
+    ])
 
 export const myDefaultBehaviour = <K extends keyof any = 'store'>(
     {
-        // cleanPrevious = true,
         useTracking = true,
-        deferActions = false,
-        // , withStore = true 
+        reloadInterfaceAction = reloadInterface
     } = {}, storeKey: K = 'store' as K
 ) => <
-    R extends DefaultState<K>, H, Ext, RootComp extends ComponentElement, P
+    R extends DefaultState<K>,
+    H, Ext, RootComp extends ComponentElement, P
 >(u: Utils<R, H, BasicAppEvent<R, H>,
     WithComponent<P, RootComp> & Ext, RootComp>) => pipe(u
         , AP.defaultBuild
         // , a => withStore ? a.extendF(AP.attachStore(storeKey)) : a
         , a => a.extendF(AP.attachStore(storeKey))
         , AP.addReducer(_ => FL.flushReducer(
-            _.actions([
-                TR.untrackRendererElementsAction(),
-                CA.flush
-            ])))
+            CA.chatState(s => s.flushAction())
+        ))
         , AP.addReducer(_ => storeReducer(storeKey))
         , AP.extend(a => ({
             defaultMessageHandler: a.actions([
@@ -74,40 +89,31 @@ export const myDefaultBehaviour = <K extends keyof any = 'store'>(
             ])
             , handleAction: a.actions([
                 CA.applyActionHandler,
-                CA.replyCallback,
                 CA.applyEffects,
-                deferActions ? FL.deferredRender() : CA.render,
-                FL.flushIfNeeded(),
+                CA.chain(({ chatdata }) => chatdata.bufferActions
+                    ? FL.deferredRender({
+                        renderAction: () => CA.sequence([CA.render, CA.replyCallback])
+                    })
+                    : a.actions([CA.render, CA.replyCallback])),
+                FL.flushIfNeeded(CA.chatState(s => s.flushAction())),
             ])
         }))
         , AP.extend(a => ({
             handleMessage: a.action(CA.chain(
                 ({ tctx, chatdata }) =>
                     chatdata.reloadOnStart && CA.ifStart(tctx)
-                        ? a.actionF(reloadInterface)
+                        ? a.actionF(reloadInterfaceAction)
                         : a.ext.defaultMessageHandler))
         }))
         , AP.extend(_ => ({
-            defaultInit: ({ cleanPrevious = true } = {}) => _.actions([
-                CA.onTrue(useTracking, TR.initTrackingRenderer({ cleanPrevious })),
+            defaultInit: ({ cleanOldMessages = true } = {}) => _.actions([
+                CA.onTrue(useTracking, TR.initTrackingRenderer({ cleanOldMessages })),
                 _.ext.attachStore
             ])
         }))
         , AP.props({})
+        // , AP.extend(_ => ({
+
+        // )
     )
 
-/*
-
-: Utils<R, H, BasicAppEvent<R, H>, Merge<WithReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | FL.Flush | undefined, R, H> & WithReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined, R, H> & AP.WithComponent<P, RootComp> & Ext & {
-    handleEvent: (ctx: CA.ChatActionContext<R, H, BasicAppEvent<R, H>>, event: BasicAppEvent<R, H>) => Promise<ChatState<R, H>>;
-    handleAction: CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
-    render(contextCreator: (cs: ChatState<R, H>) => StateReq<GetAllComps<RootComp>>, props: P): RenderFunc<R, H>;
-    defaultMessageHandler: CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
-    attachStore: CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
-    reducer: ChatActionReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | FL.Flush | Parameters<R["store"]["applyAction"]>[0] | undefined, R, H, BasicAppEvent<R, H>>
-    handleMessage: CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
-    init: CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
-}, {
-    props: {};
-}>, RootComp, ApplicationUtil<R, H, BasicAppEvent<R, H>, RootComp>>
-*/

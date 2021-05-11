@@ -11,6 +11,10 @@ export type FlushState = {
     bufferedOnce: boolean,
 }
 
+export type FlushAction = {
+    flushAction: <R extends FlushState, H, E>() => CA.AppChatAction<R, H, E>
+}
+
 export const setBufferedInputEnabled = (bufferedInputEnabled: boolean) =>
     chatstateAction<{ bufferedInputEnabled: boolean }>(s =>
         ({ ...s, bufferedInputEnabled })
@@ -34,27 +38,28 @@ export const deferRender = (n: number) => ({
         ({ ...s, deferRender: n })
 })
 
-export const flushIfNeeded = <R extends FlushState, H, E>() =>
+export const flushIfNeeded = <R extends FlushState, H, E>(a: CA.AppChatAction<R, H, E>) =>
     CA.chatState<R, H, E>(
-        c => c.doFlush ? CA.flush : CA.doNothing)
+        c => c.doFlush ? a : CA.doNothing)
 
-export const deferredRender = <R extends FlushState, H>(
-    enabled = true
+export const deferredRender = <R extends FlushState & FlushAction, H>(
+    { renderAction = () => CA.render,
+        enabled = true } = {}
 ) =>
-    CA.chatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled }) =>
+    CA.chatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled, flushAction }) =>
         enabled && bufferedInputEnabled && deferRender > 0
             ? CA.scheduleEvent(
                 deferRender,
                 createActionEvent([
-                    CA.render,
+                    renderAction(),
                     CA.mapState(s =>
                         setBufferedInputEnabled(!s.bufferedOnce).f(s)
                     ),
-                    flushIfNeeded()
+                    flushIfNeeded(flushAction())
                 ]))
             : CA.sequence([
-                CA.render,
-                flushIfNeeded()
+                renderAction(),
+                flushIfNeeded(flushAction())
             ])
     )
 
@@ -76,4 +81,4 @@ export function flushReducer<R, H, E>(
     }
 }
 
-export type Flush = { kind: 'flush' } 
+export type Flush = { kind: 'flush' }

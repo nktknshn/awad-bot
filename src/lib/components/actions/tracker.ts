@@ -1,9 +1,10 @@
 import * as CA from 'Lib/chatactions';
+import { If, IfDef } from 'Lib/types-util';
 import { TelegrafContext } from 'telegraf/typings/context';
 import { createChatRendererE, getTrackingRendererE, Tracker } from '../../chatrenderer';
 
 export const initTrackingRenderer = <R extends UseTrackingRenderer, H, E>(
-    { cleanPrevious = true } = {}
+    { cleanOldMessages = true } = {}
 ) =>
     CA.chain<R, H, E>(
         ({ chatdata, tctx }) =>
@@ -13,7 +14,7 @@ export const initTrackingRenderer = <R extends UseTrackingRenderer, H, E>(
                         ...ctx.chatdata,
                         renderer: chatdata.useTrackingRenderer!.renderer(tctx)
                     }),
-                    CA.onTrue(cleanPrevious, chatdata.useTrackingRenderer.cleanChatAction)
+                    CA.onTrue(cleanOldMessages, chatdata.useTrackingRenderer.cleanChatAction)
                 ])
                 : CA.doNothing
     )
@@ -35,10 +36,14 @@ export const createDefaultRenderer =
 export const withTrackingRenderer = (t?: Tracker) => async () => ({
     useTrackingRenderer: t ? getTrackingRendererE(t) : undefined
 })
+// Assert extends If<Required<R>, Required<UseTrackingRenderer>, R, never> =
+// If<Required<R>, Required<UseTrackingRenderer>, R, never>
+
+export const assertType = <T>(expect: [T] extends [never] ? never : T): T => expect;
 
 export const untrackRendererElementsAction = <R extends UseTrackingRenderer, H, E>() =>
     CA.chain<R, H, E>(
-        ({ chatdata, tctx }) =>
+        ({ chatdata, tctx }: CA.ChatActionContext<R, H, E>): CA.AppChatAction<R, H, E> =>
             chatdata.useTrackingRenderer
                 ? chatdata.useTrackingRenderer.untrackRendererElementsAction
                 : CA.doNothing

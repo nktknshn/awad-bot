@@ -3,12 +3,12 @@ import { application, chatState } from "Lib/application";
 import * as FL from "Lib/components/actions/flush";
 import * as TR from "Lib/components/actions/tracker";
 import { withUserMessages } from 'Lib/context';
-import { myDefaultBehaviour, withDefaults } from "Lib/defaults";
+import { defaultFlushAction, DefaultState, myDefaultBehaviour, withDefaults } from "Lib/defaults";
 // import { defaultBehaviour } from "Lib/defaults";
 import * as AP from 'Lib/newapp';
 import { select } from 'Lib/state';
 import { storef, StoreF2 } from 'Lib/storeF';
-import { buildApp } from 'Lib/types-util';
+import { buildApp, GetState } from 'Lib/types-util';
 import { TelegrafContext } from "telegraf/typings/context";
 import { PhotoSize } from 'telegraf/typings/telegram-types';
 import { App } from './app';
@@ -46,10 +46,16 @@ export const contextCreatorBot3 = select(
 
 const tracker = createLevelTracker('./mydb')
 
-const state = chatState([
+const state = () => chatState([
     TR.withTrackingRenderer(tracker),
-    withDefaults({ reloadOnStart: true, deferRender: 0, bufferedInputEnabled: false }),
-    async () => ({ store: store() }),
+    withDefaults({
+        reloadOnStart: true,
+        deferRender: 0,
+        bufferedInputEnabled: false
+    }),
+    async () => ({
+        store: store(),
+    }),
 ])
 
 const app = pipe(
@@ -58,6 +64,7 @@ const app = pipe(
     , AP.context(contextCreatorBot3)
     , AP.props({ password: 'a' })
     , AP.complete
+    , AP.createApplication
 )
 
-export const createApp = () => application(app.ext)
+export const createApp = app.ext.createApplication

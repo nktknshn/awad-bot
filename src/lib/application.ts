@@ -150,7 +150,7 @@ export const defaultHandleAction = () => CA.sequence(
 
 export function application<R, H, E,
     NeverNever extends IfDef<H, {}, never> = IfDef<H, {}, never>>(
-        app: Application<R, H, E> & NeverNever
+        app: Application<R, H, E> 
     ): Application<R, H, E> {
     return app;
 }
