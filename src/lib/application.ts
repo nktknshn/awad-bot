@@ -68,15 +68,6 @@ export const getUserMessages = <R, H>(c: ChatState<R, H>): number[] => {
         .map(_ => _.outputIds()));
 };
 
-// export const createChatState = <R, H>(r: R): ChatState<R, H> => ({
-//     treeState: undefined,
-//     renderedElements: [],
-//     ...r,
-//     renderer: ({
-
-//     }) as any
-// });
-
 export function chatState<R1>(
     fs: [((tctx: TelegrafContext) => Promise<R1>)],
 ): <H>(tctx: TelegrafContext) => Promise<ChatState<R1, H>>
@@ -135,10 +126,8 @@ export function chatState(fs: any[]) {
     })
 }
 
-
 export interface Application<R, H, E> {
     state: (ctx: TelegrafContext) => Promise<ChatState<R, H>>;
-    // renderer?: (ctx: TelegrafContext) => ChatRenderer;
     renderFunc: (state: ChatState<R, H>) => {
         chatdata: ChatState<R, H>;
         renderFunction: (renderer: ChatRenderer) => Promise<ChatState<R, H>>;
@@ -261,12 +250,9 @@ export const genericRenderComponent = <
     Props,
     RootComponent extends ComponentElement,
     ContextReqs extends ComponentReqs<RootComponent>,
-    // ContextReqs,
-    // CompEls,
     CompEls,
     State,
     HandlerReturn,
-    // HandlerReturn,
     // TypeAssert extends If<CompEls, Els, {}, never> = If<CompEls, Els, {}, never>
     >(
         scheme: RenderScheme<CompEls, HandlerReturn>,
@@ -322,13 +308,10 @@ export const genericRenderComponent = <
     };
 };
 
-// export const renderComponent = genericRenderComponent();
-
 
 export interface InitializedApp<R, H, E> {
     app: Required<Application<R, H, E>>,
     chatdata: ChatState<R, H>,
-    // renderer: ChatRenderer
 }
 
 export type InitializedAppFor<C> =
@@ -361,12 +344,9 @@ export function initApplication<R, H, E>(app: Application<R, H, E>) {
             app: {
                 ...app,
                 handleAction: app.handleAction ?? defaultHandleAction(),
-                // renderer: (app.renderer ?? createChatRenderer),
                 init: app.init ?? CA.doNothing,
-                // handleEvent: app.handleEvent ?? (async (ctx, e: {}) => ctx.chatdata),
                 queueStrategy: app.queueStrategy ?? (() => { })
             },
-            // renderer: (app.renderer ?? createChatRenderer)(ctx),
             chatdata,
         }
     }

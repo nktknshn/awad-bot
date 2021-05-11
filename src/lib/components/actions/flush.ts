@@ -15,19 +15,24 @@ export const setBufferedInputEnabled = (bufferedInputEnabled: boolean) =>
     chatstateAction<{ bufferedInputEnabled: boolean }>(s =>
         ({ ...s, bufferedInputEnabled })
     )
-
-export const withFlush = (values: {
-    deferRender?: number,
-    bufferedInputEnabled?: boolean,
-    bufferedOnce?: boolean,
-    doFlush?: boolean
+// export type WithFlushArgs = 
+export const withFlush = ({
+    deferRender = 1500,
+    bufferedInputEnabled = false,
+    bufferedOnce = false,
+    doFlush = false
 } = {}) => async () => ({
-    doFlush: values.doFlush ?? false,
-    deferRender: values.deferRender ?? 1500,
-    bufferedInputEnabled: values.bufferedInputEnabled ?? false,
-    bufferedOnce: values.bufferedOnce ?? false,
+    doFlush,
+    deferRender,
+    bufferedInputEnabled,
+    bufferedOnce,
 })
 
+export const deferRender = (n: number) => ({
+    kind: 'chatstate-action' as 'chatstate-action',
+    f: <R extends { deferRender: number }>(s: R) =>
+        ({ ...s, deferRender: n })
+})
 
 export const flushIfNeeded = <R extends FlushState, H, E>() =>
     CA.chatState<R, H, E>(
@@ -37,7 +42,7 @@ export const deferredRender = <R extends FlushState, H>(
     enabled = true
 ) =>
     CA.chatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled }) =>
-        enabled && bufferedInputEnabled
+        enabled && bufferedInputEnabled && deferRender > 0
             ? CA.scheduleEvent(
                 deferRender,
                 createActionEvent([

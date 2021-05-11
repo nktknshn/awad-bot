@@ -48,7 +48,7 @@ export const contextCreatorBot5 = select(
     ({ userId }: { userId: number }) => ({ userId })
 )
 
-export const store = storef<Bot5StoreState>({ lists: [] })
+export const store = () => storef<Bot5StoreState>({ lists: [] })
 
 const userId = async (tctx: TelegrafContext) => ({
     userId: tctx.from?.id!,
@@ -62,15 +62,14 @@ const handleMessage = <R extends FlushState, H>() =>
         deferredRender()
     ])
 
-const constructState = chatState(
+const state = chatState(
     [
         withFlush({ deferRender: 1500 }),
         userId,
-        async () => ({ store })
+        async () => ({ store: store() })
     ])
 
-
-const app = buildApp(App, constructState).extend(
+const app = buildApp(App, state).extend(
     a => ({
         handleMessage: a.actionF(handleMessage)
     })
@@ -78,7 +77,7 @@ const app = buildApp(App, constructState).extend(
 
 export const createApp = () =>
     application({
-        state: constructState,
+        state,
         renderFunc: genericRenderComponent(
             defaultRenderScheme(),
             {

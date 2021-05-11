@@ -23,19 +23,12 @@ import { createLevelTracker } from "bot3/leveltracker";
 type AppState = { store: ReturnType<typeof createAwadStore> } & UseTrackingRenderer
 type AppAction = AppActionsFlatten<typeof App>
 type AppEvent = ApplyActionsEvent<AppState, AppAction, AppEvent>
-
-type Application<R, H, E> = {
-    state: R,
-    action: H,
-    event: E
-    chatContext: ChatActionContext<R, H, E>
-}
-
-type AwadApp = Application<AppState, AppAction, AppEvent>
 type AppEvents<R, H> = ApplyActionsEvent<R, H, AppEvents<R, H>>
+
 const add = <T>(arg: T) => async (tctx: TelegrafContext) => arg
 
-export const bot2Reducers = <R, H, E>(): ChatActionReducer<"done" | "next" | Promise<unknown>, R, H, E> =>
+export const bot2Reducers = <R, H, E>()
+    : ChatActionReducer<"done" | "next" | Promise<unknown>, R, H, E> =>
     composeReducers(
         reducer(
             (a): a is Promise<unknown> => a instanceof Promise,
@@ -47,30 +40,29 @@ export const bot2Reducers = <R, H, E>(): ChatActionReducer<"done" | "next" | Pro
         )
     )
 
-export const initBot2 = <K extends keyof any>(key: K) => <R extends Record<K, AwadStore>, H>(services: AwadServices) =>
-    async ({ chatdata, queue, tctx }: ChatActionContext<R, H, AppEvents<R, H>>) => {
+export const initBot2 = <K extends keyof any>(key: K) =>
+    <R extends Record<K, AwadStore>, H>(services: AwadServices) =>
+        async ({ chatdata, queue, tctx }: ChatActionContext<R, H, AppEvents<R, H>>) => {
 
-        const user = await services.getOrCreateUser(userDtoFromCtx(tctx))
+            const user = await services.getOrCreateUser(userDtoFromCtx(tctx))
 
-        chatdata[key].subscribe(() =>
-            queue.handleEvent(tctx)(renderEvent()))
+            chatdata[key].subscribe(() =>
+                queue.handleEvent(tctx)(renderEvent()))
 
-        chatdata[key].dispatch(updateUser(user))
+            chatdata[key].dispatch(updateUser(user))
 
-        return chatdata
-    }
+            return chatdata
+        }
 
 const state = (services: AwadServices) => chatState([
-    FL.withFlush({ deferRender: 0, bufferedInputEnabled: false }),
     TR.withTrackingRenderer(services.users),
     add({ store: createAwadStore(services) })
 ])
 
 const u = buildApp(App, state)
 
-export const contextCreatorBot2 = u.mapState2<
-    { store: AwadStore }>()
-    ((s) => ({
+export const contextCreatorBot2 = u.mapState2<{ store: AwadStore }>()
+    (s => ({
         ...s.store.getState(),
         dispatcher: storeToDispatch(s.store)
     }))
@@ -78,11 +70,7 @@ export const contextCreatorBot2 = u.mapState2<
 export function createAwadApplication(services: AwadServices) {
 
     return application<AppState, AppAction, AppEvent>({
-        state:
-            chatState([
-                withTrackingRenderer(services.users),
-                async () => ({ store: createAwadStore(services) })
-            ]),
+        state: state(services),
         actionReducer: extendDefaultReducer(
             bot2Reducers()
         ),

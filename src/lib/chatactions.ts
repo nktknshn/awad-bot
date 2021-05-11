@@ -76,7 +76,6 @@ export const ifTextEqual = (text: string) => F.flow(
 
 export const ifStart = ifTextEqual('/start')
 
-
 export function sequence<R, H, E>(
     handlers: AppChatAction<R, H, E>[]
 ): AppChatAction<R, H, E> {

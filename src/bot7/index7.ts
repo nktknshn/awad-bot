@@ -2,20 +2,19 @@ import PinnedCards from "bot2/connected/PinnedCards"
 import { bot2Reducers, contextCreatorBot2, initBot2 } from "bot2/index2"
 import { AwadServices } from "bot2/services"
 import { createAwadStore } from "bot2/store"
-import { flow, pipe } from "fp-ts/lib/function"
+import { identity, pipe } from "fp-ts/lib/function"
 import {
     application, chatState
 } from "Lib/application"
-import * as CA from 'Lib/chatactions'
 import { Tracker } from "Lib/chatrenderer"
 import { connected } from "Lib/component"
 import * as FL from "Lib/components/actions/flush"
-import { reloadInterface } from "Lib/components/actions/misc"
 import * as TR from "Lib/components/actions/tracker"
 import { contextFromKey } from "Lib/context"
-import { buttonsRow, message, nextMessage } from "Lib/elements-constructors"
+import { myDefaultBehaviour, setReloadOnStart, withDefaults } from "Lib/defaults"
+import { button, buttonsRow, message, messagePart, nextMessage } from "Lib/elements-constructors"
 import * as AP from "Lib/newapp"
-import { chatstateAction, composeReducers, storeReducer } from "Lib/reducer"
+import { chatstateAction } from "Lib/reducer"
 import { select } from "Lib/state"
 import { composeStores } from "Lib/storeF"
 import { buildApp } from "Lib/types-util"
@@ -43,14 +42,33 @@ export const setActiveApp = (activeApp?: ActiveApp) =>
         ({ ...s, activeApp })
     )
 
+// ({ 
+//     activeApp: c.activeApp, 
+//     reloadOnStart: c.reloadOnStart,
+//     bufferedInputEnabled: c.bufferedInputEnabled,
+//     deferRender: c.deferRender })
+
 const App = connected(
-    select<{ activeApp?: ActiveApp }>(
-        c => ({ activeApp: c.activeApp }),
+    select<{
+        activeApp?: ActiveApp, reloadOnStart: boolean,
+        bufferedInputEnabled: boolean, deferRender: number
+    }>(
+        identity,
     ),
-    function* ({ activeApp }) {
-        yield contextFromKey('bot2', PinnedCards({}))
+    function* ({ activeApp, reloadOnStart, bufferedInputEnabled, deferRender }) {
+        // yield contextFromKey('bot2', PinnedCards({}))
+        // yield nextMessage()
+        yield message(`hi ${activeApp} reloadOnStart=${reloadOnStart}`)
+        yield messagePart(`bufferedInputEnabled=${bufferedInputEnabled}`)
+        yield messagePart(`deferRender=${deferRender}`)
+
         yield nextMessage()
-        yield message(`hi ${activeApp}`)
+        yield button('do reload', () => setReloadOnStart(true))
+        yield button('no reload', () => setReloadOnStart(false))
+        yield button('do buffer', () => FL.setBufferedInputEnabled(true))
+        yield button('no buffer', () => FL.setBufferedInputEnabled(false))
+        yield button('+ defer', () => FL.deferRender(deferRender + 200))
+        yield button('- defer', () => FL.deferRender(deferRender - 200))
 
         yield buttonsRow(['app3f', 'app5', 'app2'],
             (_, data) => setActiveApp(data as ActiveApp))
@@ -69,54 +87,43 @@ const App = connected(
     }
 )
 
-
 const state = (services: AwadServices, t?: Tracker) =>
     chatState([
-        FL.withFlush({ deferRender: 1500, bufferedInputEnabled: false }),
+        withDefaults(),
         TR.withTrackingRenderer(t),
         async () => ({
+            reloadOnStart: true, deferRender: 1500,
             activeApp: empty<ActiveApp>(),
-            store: composeStores([store3, store5]),
-            bot2Store: createAwadStore(services)
+            store: composeStores([store3(), store5()]),
+            bot2Store: createAwadStore(services),
         }),
         userId,
     ])
 
 const app = pipe(
     buildApp(App, state)
-    , flow(AP.defaultBuild, AP.attachStore)
+    , myDefaultBehaviour()
+    , AP.extend(a => ({
+        init: (services: AwadServices) => a.actions([
+            a.ext.defaultInit({ cleanPrevious: true })
+            , initBot2('bot2Store')(services)
+        ])
+    }))
     , AP.context((cs) => ({
         error: cs.error,
         activeApp: cs.activeApp,
+        reloadOnStart: cs.reloadOnStart,
+        bufferedInputEnabled: cs.bufferedInputEnabled,
+        deferRender: cs.deferRender,
         bot3: contextCreatorBot3(cs),
         bot5: contextCreatorBot5(cs),
-        bot2: contextCreatorBot2({
-            store: cs.bot2Store
-        })
+        bot2: contextCreatorBot2({ store: cs.bot2Store })
     }))
-    , AP.props({})
-    , AP.extend(a => ({
-        init: (services: AwadServices) =>
-            a.actions([
-                TR.initTrackingRenderer(),
-                a.ext.attachStore,
-                initBot2('bot2Store')(services),
-            ])
-    }))
-    , AP.addReducer(_ => composeReducers(
-        FL.flushReducer(CA.doNothing),
-        storeReducer('store'),
-        bot2Reducers()
-    ))
-    , AP.extend(a => ({
-        handleMessage: a.action(
-            CA.tctx(tctx => CA.ifStart(tctx)
-                ? reloadInterface()
-                : a.ext.defaultMessageHandler))
-    }))
+    // , a => a.extendState<{}>(_ => buildApp(App, state))
+    , AP.addReducer(_ => bot2Reducers())
     , AP.complete
 )
-
+type ZZZ = typeof app
 
 export const createApp = (services: AwadServices, t?: Tracker) =>
     application({

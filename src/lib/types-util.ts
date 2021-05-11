@@ -229,10 +229,13 @@ export const buildApp2 = <
         actions: CA.sequence,
         extend<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => RR)
             : Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent> {
-            return createUtils({ state, component, ...adds(this) }) as Utils<R, H, E, Merge<BuildApp<T, P, RootComponent>, RR>, RootComponent>
+            return createUtils({ state, component, ...adds(this) })
         }
         , extendF<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent>)
             : Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent> {
+            return adds(this)
+        }
+        , extendState<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R & RR, H, E, BuildApp<T, P, RootComponent>, RootComponent>) {
             return adds(this)
         }
         , actionF: f => f()
@@ -262,6 +265,9 @@ export const buildApp = <
         }
         , extendF<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent>)
             : Utils<R, H, E, BuildApp<T, P, RootComponent> & RR, RootComponent> {
+            return adds(this)
+        }
+        , extendState<RR>(adds: (u: Utils<R, H, E, BuildApp<T, P, RootComponent>, RootComponent>) => Utils<R & RR, H, E, BuildApp<T, P, RootComponent>, RootComponent>) {
             return adds(this)
         }
         , actionF: f => f()
@@ -297,6 +303,9 @@ export function createUtils<R, H, E, Ext, RootComp>(
         },
         extendF<RR>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R, H, E, Merge<Ext, RR>, RootComp>)
             : Utils<R, H, E, Merge<Ext, RR>, RootComp> {
+            return adds(this)
+        },
+        extendState<RR>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R & RR, H, E, Ext, RootComp>) {
             return adds(this)
         },
         actionF: f => f()
@@ -340,12 +349,13 @@ export interface Utils<R, H, E, Ext, RootComp,
         ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>
 
     renderFunc: (f: RenderFunc<R, H>) => RenderFunc<R, H>
-
+    extendState<RR extends {}>(adds: (u: Utils<R, H, E, Ext, RootComp>) => Utils<R & RR, H, E, Ext, RootComp>)
+        : Utils<R & RR, H, E, Ext, RootComp>
     A?: A
     Context?: A['ChatContext']
     // State?: ChatState<A['state'], A['action']>
     // Types?: A['Types']
-    AppContext?: A['AppContext']
+    // AppContext?: A['AppContext']
 }
 export type Defined<T> = T extends (infer R) ? R extends undefined ? never : R : never
 
