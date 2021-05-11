@@ -15,10 +15,10 @@ import { myDefaultBehaviour, setReloadOnStart, withDefaults, setbufferActions, d
 import { button, buttonsRow, message, messagePart, nextMessage } from "Lib/elements-constructors"
 import { action, caseText, ifTrue, inputHandler, on } from "Lib/input"
 import * as AP from "Lib/newapp"
-import { chatstateAction, isObject } from "Lib/reducer"
+import { chatstateAction, hasOwnProperty, isObject, reducer } from "Lib/reducer"
 import { select } from "Lib/state"
 import { composeStores } from "Lib/storeF"
-import { buildApp, ComponentTypes, Defined, GetStateDeps } from "Lib/types-util"
+import { AppActionsFlatten, buildApp, ComponentTypes, Defined, GetAllBasics, GetAllComps, GetAllComps1, GetChatState, GetCompGenerator, GetComponent, GetState, GetStateDeps } from "Lib/types-util"
 import { TelegrafContext } from "telegraf/typings/context"
 import { App as App2 } from '../bot2/app'
 import { App as App3 } from '../bot3/app'
@@ -26,6 +26,25 @@ import { contextCreatorBot3, store as store3 } from '../bot3/index3'
 import { App as App5 } from '../bot5/app'
 import { contextCreatorBot5, store as store5 } from '../bot5/index5'
 import * as CA from 'Lib/chatactions';
+import { reloadInterface } from "Lib/components/actions/misc"
+import { setDoFlush } from "bot5/actions"
+
+const select2 = <Props>() => <K extends keyof Props>(
+    ...keys: K[]
+) => {
+    const fromState = <R extends Props>(
+        state: R
+    ): { [P in K]: Props[P] } =>
+        keys.reduce((acc, cur) => ({ ...acc, [cur]: state[cur] }), {} as { [P in K]: Props[P] })
+
+    const fromContext = <Ctx extends { [P in K]: Props[P] }>(context: Ctx) =>
+        keys.reduce((acc, cur) => ({ ...acc, [cur]: context[cur] }), {} as { [P in K]: Props[P] })
+
+    return {
+        fromState,
+        fromContext
+    }
+}
 
 const empty = <T>(): T | undefined => undefined
 
@@ -44,53 +63,69 @@ export const setActiveApp = (activeApp?: ActiveApp) =>
         ({ ...s, activeApp })
     )
 
+type Refresh = { kind: 'refresh' }
+const refresh = (): Refresh => ({ kind: 'refresh' })
+
+type Clear = { kind: 'clear' }
+const clear = (): Clear => ({ kind: 'clear' })
+
+const refreshReducer = <R, H>(action: CA.AppChatAction<R, H>) => reducer(
+    (a): a is Refresh => isObject(a) && hasOwnProperty(a, 'kind') && a.kind === 'refresh',
+    _ => action
+)
+
+const clearReducer = <R, H>(action: CA.AppChatAction<R, H>) => reducer(
+    (a): a is Clear => isObject(a) && hasOwnProperty(a, 'kind') && a.kind === 'clear',
+    _ => action
+)
+
+const infoContext = select2<GetChatState<typeof state>>()(
+    'activeApp', 'error', 'reloadOnStart', 'bufferedInputEnabled',
+    'renderFinished', 'renderStarted', 'bufferActions', 'deferRender', 'doFlush'
+)
+
 const Info = connected(
-    select<{
-        activeApp?: ActiveApp, reloadOnStart: boolean,
-        bufferedInputEnabled: boolean, deferRender: number
-        , bufferActions: boolean
-    }>(
-        ({ activeApp, reloadOnStart, bufferedInputEnabled, deferRender
-            , bufferActions
-        }) => ({
-            activeApp, reloadOnStart, bufferedInputEnabled, deferRender
-            , bufferActions
-        })
-    ),
-    function* ({ activeApp, reloadOnStart, bufferedInputEnabled, deferRender, bufferActions }) {
-        yield message(`hi ${activeApp} reloadOnStart=${reloadOnStart}`)
-        yield messagePart(`bufferedInputEnabled=${bufferedInputEnabled}`)
-        yield messagePart(`deferRender=${deferRender}`)
-        yield messagePart(`bufferActions=${bufferActions}`)
+    infoContext.fromContext,
+    function* (c) {
+        yield messagePart(`hi ${c.activeApp} reloadOnStart=${c.reloadOnStart}`)
+        yield messagePart(`error=${c.error}`)
+        yield messagePart(`bufferedInputEnabled=${c.bufferedInputEnabled}`)
+        yield messagePart(`deferRender=${c.deferRender}`)
+        yield messagePart(`bufferActions=${c.bufferActions}`)
+        yield messagePart(`doFlush=${c.doFlush}`)
+
+        if (c.renderFinished && c.renderStarted)
+            yield messagePart(`render duration=${c.renderFinished - c.renderStarted}`)
 
         yield nextMessage()
-        yield button('do reload', () => setReloadOnStart(true))
-        yield button('no reload', () => setReloadOnStart(false))
+        yield button('refresh', refresh)
+        yield button('doFlush', () => setDoFlush(!c.doFlush))
+        yield button('clear', clear)
         yield button('do buffer', () => FL.setBufferedInputEnabled(true))
         yield button('no buffer', () => FL.setBufferedInputEnabled(false))
-        yield button('+ defer', () => FL.deferRender(deferRender + 200))
-        yield button('- defer', () => FL.deferRender(deferRender - 200))
 
-        yield inputHandler([
-            on(caseText,
-                ifTrue(({ messageText }) => messageText == 'A'),
-                action(_ => [
-                    setbufferActions(!bufferActions)
-                ])),
-        ])
+        yield buttonsRow(['Acts', '+ defer', '- defer', 'flush'],
+            (idx, _) => [
+                setbufferActions(!c.bufferActions),
+                FL.deferRender(c.deferRender + 200),
+                FL.deferRender(c.deferRender - 200),
+                FL.flush()
+            ][idx])
 
-        yield buttonsRow(['app3f', 'app5', 'app2'],
-            (_, data) => setActiveApp(data as ActiveApp))
+        yield buttonsRow(['app3f', 'app5', 'app2', 'none'],
+            (idx, _) => setActiveApp(
+                ['app3f', 'app5', 'app2', undefined][idx] as ActiveApp
+            ))
 
     }
 )
 
 const App = connected(
-    select<{ activeApp?: ActiveApp }>(({ activeApp }) => ({ activeApp })),
+    select2<{ activeApp?: ActiveApp }>()('activeApp').fromContext,
     function* ({ activeApp }) {
         // yield contextFromKey('bot2', PinnedCards({}))
         // yield nextMessage()
-        yield Info({})
+        yield contextFromKey('info', Info({}))
 
         yield nextMessage()
 
@@ -118,7 +153,9 @@ const state = ({ services, t }: Deps) =>
             store: composeStores([store3(), store5()]),
             bot2Store: createAwadStore(services),
             bufferActions: false,
-            // flushAction: () => CA.doNothing
+            renderStarted: empty<number>(),
+            renderFinished: empty<number>(),
+            // flushAction: () => CA.flush
             // flushAction: CA.doNothing
             // XXX
         }),
@@ -127,28 +164,44 @@ const state = ({ services, t }: Deps) =>
 
 export const app = pipe(
     buildApp(App, state)
-    , myDefaultBehaviour()
+    , a => myDefaultBehaviour(a, {
+        renderMessage: a.actions([
+            CA.mapState(s => ({ ...s, renderStarted: Date.now() })),
+            CA.render,
+            CA.mapState(s => ({ ...s, renderFinished: Date.now() })),
+            CA.render
+        ]),
+        flushAction: CA.flush
+        // renderAction: a.actions([
+        //     CA.mapState(s => ({ ...s, renderStarted: Date.now() })),
+        //     CA.render,
+        //     CA.mapState(s => ({ ...s, renderFinished: Date.now() })),
+        //     CA.render
+        // ]),
+    })
     , AP.addReducer(_ => bot2Reducers())
+    , AP.addReducer(_ => refreshReducer(reloadInterface()))
+    , AP.addReducer(_ => clearReducer(_.actions([
+        CA.chain(({ chatdata }) => chatdata.useTrackingRenderer
+            ? CA.sequence([chatdata.useTrackingRenderer.cleanChatAction, reloadInterface()])
+            : CA.mapState(s => ({ ...s, error: 'no tracker installed' })))
+    ])))
     , AP.extend(a => ({
         init: ({ services }: { services: AwadServices }) => a.actions([
-            a.ext.defaultInit({ cleanOldMessages: true })
-            , initBot2('bot2Store')(services)
+            a.ext.defaultInit({ cleanOldMessages: true }),
+            initBot2('bot2Store')(services)
         ])
     }))
     , AP.context((cs) => ({
-        error: cs.error,
         activeApp: cs.activeApp,
-        reloadOnStart: cs.reloadOnStart,
-        bufferedInputEnabled: cs.bufferedInputEnabled,
-        deferRender: cs.deferRender,
-        bufferActions: cs.bufferActions,
+        info: infoContext.fromState(cs),
         bot3: contextCreatorBot3(cs),
         bot5: contextCreatorBot5(cs),
         bot2: contextCreatorBot2({ store: cs.bot2Store })
     }))
     // , a => a.extendState<{}>(_ => buildApp(App, state))
     , AP.complete
-    , AP.createApplication
+    , AP.withCreateApplication
 )
 
 export const createApp = app.ext.createApplication

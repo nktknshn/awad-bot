@@ -8,11 +8,12 @@ import { ComponentElement } from "./component";
 import { flushIfNeeded, FlushState } from "./components/actions/flush";
 import { connectFStore } from "./components/actions/store";
 import { UseTrackingRenderer } from "./components/actions/tracker";
+import { WithContext } from "./elements";
 import { applyActionEventReducer, makeEventReducer } from "./event";
 import { ChatActionReducer, ChatStateAction, composeReducers, defaultReducer, ReducerFunction, reducerToFunction } from "./reducer";
 import { StoreF2 } from "./storeF";
 import { LocalStateAction } from "./tree2";
-import { AppActionsFlatten, ApplicationUtil, BasicAppEvent, BuildApp, Defined, GetAllComps, GetState, GetStateDeps, RenderFunc, StateReq, Utils } from "./types-util";
+import { AppActionsFlatten, ApplicationUtil, BasicAppEvent, Defined, GetAllComps, GetState, GetStateDeps, RenderFunc, StateReq, Utils } from "./types-util";
 // { store: StoreF2<unknown, unknown> }
 
 export function attachStore<K extends keyof R,
@@ -75,9 +76,7 @@ export function context<R, H, Ctx>(
     contextCreator: (cs: ChatState<R, H>) => Ctx) {
     return function withContextCreator<Ext, RootComp>
         (a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>)
-        : Utils<R, H, BasicAppEvent<R, H>, Ext & {
-            contextCreator: (cs: ChatState<R, H>) => Ctx;
-        }, RootComp> {
+        : Utils<R, H, BasicAppEvent<R, H>, Ext & WithContextCreator<R, H, Ctx>, RootComp> {
         return a.extend(_ => ({ contextCreator }))
     }
 }
@@ -107,8 +106,8 @@ export function renderExtension<
     })
 }
 
-export type WithComponent<P, R> = {
-    component: (props: P) => R
+export type WithComponent<P, RootComponent> = {
+    component: (props: P) => RootComponent
 }
 
 export type WithState<T> = {
@@ -156,6 +155,7 @@ export type WithReducer<T1, R, H,> = {
     reducer: ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>
 }
 
+export type DefaultActions<R, H> = LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined
 
 export function withDefaultReducer<R, H, Ext, RootComp extends ComponentElement>(
     a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp, ApplicationUtil<R, H, BasicAppEvent<R, H>, RootComp>>,
@@ -188,6 +188,13 @@ export function withActionReducer<R, H extends H1, Ext, RootComp extends Compone
     }))
 }
 
+export function extend<R, H, Ext, RootComp, RR>(f: (a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>) => RR) {
+    return function (a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>)
+        : Utils<R, H, BasicAppEvent<R, H>, Ext & RR, RootComp> {
+        return a.extend(f)
+    }
+}
+
 export function defaultBuild<
     R extends FlushState & UseTrackingRenderer,
     H, Ext, RootComp extends ComponentElement, P>
@@ -200,6 +207,24 @@ export function defaultBuild<
         .extend(withDefaultReducer)
 }
 
+// export function create<
+// R, H extends H1, RootComp extends ComponentElement, P, Ctx, Ext, H1, T>
+// (a: Utils<R, H, BasicAppEvent<R, H>,
+//     Ext & WithReducer<H1, R, H>
+//     & WithComponent<P, RootComp>
+//     & WithRender<R, H, P, Ctx>
+//     & WithContextCreator<R, H, Ctx>
+//     & WithProps<P>
+//     & WithState<T>
+//     , RootComp>)
+// : Utils<R, H, BasicAppEvent<R, H>,
+//     Ext & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
+//     & WithRenderFunc<R, H>
+//     , RootComp> {
+
+//         return pipe(a, complete, createApplication)
+// }
+
 export function complete<
     R, H extends H1, RootComp extends ComponentElement, P, Ctx, Ext, H1, T>
     (a: Utils<R, H, BasicAppEvent<R, H>,
@@ -209,12 +234,10 @@ export function complete<
         & WithContextCreator<R, H, Ctx>
         & WithProps<P>
         & WithState<T>
-        // & BuildApp<T, P, RootComp>
         , RootComp>)
     : Utils<R, H, BasicAppEvent<R, H>,
         Ext & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
         & WithRenderFunc<R, H>
-        & BuildApp<T, P, RootComp>
         , RootComp> {
 
     return pipe(
@@ -224,14 +247,8 @@ export function complete<
     )
 }
 
-export function extend<R, H, Ext, RootComp, RR>(f: (a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>) => RR) {
-    return function (a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>)
-        : Utils<R, H, BasicAppEvent<R, H>, Ext & RR, RootComp> {
-        return a.extend(f)
-    }
-}
 
-export function createApplication<
+export function withCreateApplication<
     R, H extends H1, RootComp extends ComponentElement, H1, Ext,
     T extends (d: any) => (tctx: TelegrafContext) => Promise<ChatState<R, H>>,
     InitDeps, StateDeps extends Parameters<T>[0] = Parameters<T>[0]>
@@ -260,7 +277,7 @@ export function createApplication<
 
             return application({
                 state,
-                init: _.ext.init ?_.ext.init(deps) : undefined,
+                init: _.ext.init ? _.ext.init(deps) : undefined,
                 actionReducer,
                 handleMessage,
                 handleAction,

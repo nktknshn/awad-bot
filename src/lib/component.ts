@@ -84,6 +84,8 @@ export function connected2<P extends M, S, M, State, PP, E>(
     );
 }
 
+export type LazyType<T> = T
+
 export function connected<P extends M, S, M, State, PP, E>(
     mapper: (state: State) => M,
     cons: (reqs: Readonly<P>, props: PP, getset: GetSetState<S>) => ComponentGenerator<E>

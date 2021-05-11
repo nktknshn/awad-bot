@@ -60,11 +60,11 @@ const state = () => chatState([
 
 const app = pipe(
     buildApp(App, state)
-    , myDefaultBehaviour()
+    , myDefaultBehaviour
     , AP.context(contextCreatorBot3)
     , AP.props({ password: 'a' })
     , AP.complete
-    , AP.createApplication
+    , AP.withCreateApplication
 )
 
 export const createApp = app.ext.createApplication

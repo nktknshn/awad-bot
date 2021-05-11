@@ -15,6 +15,7 @@ import * as T from "fp-ts/lib/Task";
 
 import * as E from "fp-ts/lib/Either";
 import { FlushState } from './components/actions/flush';
+import { BasicAppEvent } from './types-util';
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
@@ -76,7 +77,7 @@ export const ifTextEqual = (text: string) => F.flow(
 
 export const ifStart = ifTextEqual('/start')
 
-export function sequence<R, H, E>(
+export function sequence<R, H, E = BasicAppEvent<R, H>>(
     handlers: AppChatAction<R, H, E>[]
 ): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {
@@ -113,7 +114,7 @@ export const applyActionHandler =
         )(ctx)
 
 
-export type AppChatAction<R, H, E> = ChatAction<R, H, ChatState<R, H>, E>
+export type AppChatAction<R, H, E = BasicAppEvent<R, H>> = ChatAction<R, H, ChatState<R, H>, E>
 
 export interface ChatAction<R, H, Returns, E> {
     (ctx: ChatActionContext<R, H, E>): Promise<Returns>
@@ -159,7 +160,7 @@ export function log<R, H, E>(
 // export const lazy = (ca: CA.AppChatAction<unknown, unknown, unknown>) =>
     // <R, H, E>(): CA.AppChatAction<R, H, E> => ca
 
-export function chatState<R, H, E>(
+export function chatState<R, H, E= BasicAppEvent<R, H>>(
     pred: (state: ChatState<R, H>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (
@@ -167,7 +168,7 @@ export function chatState<R, H, E>(
     ) => pred(ctx.chatdata)(ctx)
 }
 
-export function tctx<R, H, E>(
+export function tctx<R, H, E= BasicAppEvent<R, H>>(
     pred: (ctx: TelegrafContext) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (
@@ -175,7 +176,7 @@ export function tctx<R, H, E>(
     ) => pred(ctx.tctx)(ctx)
 }
 
-export function app<R, H, E>(
+export function app<R, H, E= BasicAppEvent<R, H>>(
     pred: (app: Application<R, H, E>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (
@@ -183,20 +184,20 @@ export function app<R, H, E>(
     ) => pred(ctx.app)(ctx)
 }
 
-export function chain<R, H, E>(
+export function chain<R, H, E= BasicAppEvent<R, H>>(
     f: (ctx: ChatActionContext<R, H, E>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (ctx) => f(ctx)(ctx)
 }
 
-export type Branch<R, H, T, E> = [
+export type Branch<R, H, T, E= BasicAppEvent<R, H>> = [
     (ctx: TelegrafContext) => boolean,
     ChatAction<R, H, T, E>[],
     ChatAction<R, H, T, E>[]
 ]
 
 
-export function branchHandler<R, H, E>(
+export function branchHandler<R, H, E = BasicAppEvent<R, H>>(
     handlers: Branch<R, H, ChatState<R, H>, E>[]
 ): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {

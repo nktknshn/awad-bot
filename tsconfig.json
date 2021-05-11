@@ -57,6 +57,7 @@
     "emitDecoratorMetadata": true, /* Enables experimental support for emitting type metadata for decorators. */
     "resolveJsonModule": true,
     "noErrorTruncation": true,
+    "skipLibCheck": true
     // "constraintDepth": 100
   },
   "include": [
