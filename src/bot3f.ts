@@ -32,7 +32,7 @@ async function main() {
 
     const bot = new Telegraf(token)
     const dispatcher = new ChatsDispatcher(
-        createChatHandlerFactory(createApp())
+        createChatHandlerFactory(createApp({}))
     )
 
     bot.on('message', dispatcher.messageHandler)

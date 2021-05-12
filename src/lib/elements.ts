@@ -32,7 +32,7 @@ export type BasicElement<H> =
     | ActionsHandlerElement 
     | EffectElement<H>
     | FileElement 
-    | KeyboardElement
+    | KeyboardButtonElement
 
 export type Element<H> = BasicElement<H> | ComponentElement
 
@@ -85,9 +85,9 @@ export const wrapR = (f: (rs: RenderedElement[]) => RenderedElement[]): Rendered
     f
 })
 
-export class KeyboardElement {
-    kind: 'Keyboard' = 'Keyboard'
-    constructor(readonly text: string, readonly hide: boolean = true) { }
+export class KeyboardButtonElement {
+    kind: 'KeyboardButtonElement' = 'KeyboardButtonElement'
+    constructor(readonly text: string | string[], readonly hide: boolean = false) { }
 }
 
 export class RequestLocationButtonElement {

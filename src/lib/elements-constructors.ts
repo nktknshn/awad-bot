@@ -1,7 +1,7 @@
 import { Markup } from "telegraf"
 import { InputFile } from "telegraf/typings/telegram-types"
 import { InputHandlerData } from "./textmessage"
-import { ButtonElement, ButtonsRowElement, TextElement, RequestLocationButtonElement, FileElement, TextPartElement, NextMessageElement, EffectElement, ActionsHandlerElement, InputHandlerElement } from "./elements"
+import { ButtonElement, ButtonsRowElement, TextElement, RequestLocationButtonElement, FileElement, TextPartElement, NextMessageElement, EffectElement, ActionsHandlerElement, InputHandlerElement, KeyboardButtonElement } from "./elements"
 
 export function file(f: InputFile) {
     return new FileElement(f)
@@ -91,4 +91,8 @@ export function buttonsRow<R>(
                 button(text, () => callback(idx, data)))
         ]
     )
+}
+
+export function keyboardButton(text: string | string[]) {
+    return new KeyboardButtonElement(text)
 }

@@ -3,7 +3,7 @@ import { application, chatState } from "Lib/application";
 import * as FL from "Lib/components/actions/flush";
 import * as TR from "Lib/components/actions/tracker";
 import { withUserMessages } from 'Lib/context';
-import { defaultFlushAction, DefaultState, myDefaultBehaviour, withDefaults } from "Lib/defaults";
+import { defaultFlushAction, DefaultState, myDefaultBehaviour, withDefaults, withStore } from "Lib/defaults";
 // import { defaultBehaviour } from "Lib/defaults";
 import * as AP from 'Lib/newapp';
 import { select } from 'Lib/state';
@@ -61,6 +61,7 @@ const state = () => chatState([
 const app = pipe(
     buildApp(App, state)
     , myDefaultBehaviour
+    , a => withStore(a, { storeKey: 'store' })
     , AP.context(contextCreatorBot3)
     , AP.props({ password: 'a' })
     , AP.complete

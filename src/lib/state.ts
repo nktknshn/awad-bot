@@ -41,7 +41,7 @@ export function combineSelectors<S1, S2, R1, R2>(
 export type Selector<S, R> = (state: S) => R
 
 
-export function select<S1 = never>(): Selector<S1, S1>
+export function select<S1 = {}>(): Selector<S1, S1>
 export function select<S1 = never, R1 = S1>(sel1: Selector<S1, R1>): Selector<S1, R1>
 export function select<S1, S2, R1, R2>(
     sel1: Selector<S1, R1>,

@@ -1,11 +1,21 @@
 import { getAwadServices } from "bot2/services"
 import { levelDatabase, levelTracker } from "bot3/leveltracker"
+import { pipe } from "fp-ts/lib/pipeable"
 import Telegraf from "telegraf"
 import { createConnection } from "typeorm"
-import { createApp } from './bot7/index7'
+import { apppp } from './bot7/index7'
 import { initLogging, mylog } from "./lib/logging"
 import { attachAppToBot } from "./lib/util"
 import { token } from "./telegram-token.json"
+import * as AP from "Lib/newapp"
+
+const res = pipe(
+    apppp
+    , AP.complete
+    , AP.withCreateApplication
+)
+
+export const createApp = res.ext.createApplication
 
 async function main() {
     initLogging([

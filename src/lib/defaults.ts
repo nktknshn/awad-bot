@@ -6,8 +6,8 @@ import { reloadInterface } from 'Lib/components/actions/misc';
 import * as TR from "Lib/components/actions/tracker";
 import { UseTrackingRenderer } from "Lib/components/actions/tracker";
 import * as AP from 'Lib/newapp';
-import { WithComponent } from "Lib/newapp";
-import { ChatActionReducer, ChatStateAction, chatstateAction, storeReducer } from 'Lib/reducer';
+import { OnUndefined, WithComponent, WithInit, WithReducer } from "Lib/newapp";
+import { ChatActionReducer, ChatStateAction, chatstateAction, reducer, storeReducer, storeReducer2 } from 'Lib/reducer';
 import { StoreF2 } from 'Lib/storeF';
 import { ApplicationUtil, BasicAppEvent, GetAllComps, GetStateDeps, RenderFunc, StateReq, Utils } from 'Lib/types-util';
 import { application, ChatState } from "./application";
@@ -18,11 +18,11 @@ interface ReloadOnStart {
     bufferActions: boolean
 }
 
-export type DefaultState<K extends keyof any> =
+export type DefaultState =
     & FL.FlushState
     & FL.FlushAction
     & TR.UseTrackingRenderer
-    & Record<K, StoreF2<unknown, unknown>>
+    // & Record<K, StoreF2<unknown, unknown>>
     & ReloadOnStart
 
 export const withDefaults = ({
@@ -61,53 +61,72 @@ export const defaultFlushAction = <R extends TR.UseTrackingRenderer & FL.FlushSt
         TR.untrackRendererElementsAction(),
         CA.flush
     ])
-// opts: {
-//     renderMessage: CA.AppChatAction<R, H>,
-//     renderAction: CA.AppChatAction<R, H>,
-//     reloadInterfaceAction: CA.AppChatAction<R, H>,
-//     flushIfNeeded: CA.AppChatAction<R, H>,
-//     useTracking: boolean,
-//     storeKey: K
-// } = {
-//         renderMessage: CA.render,
-//         renderAction: CA.sequence([CA.render, CA.replyCallback]),
-//         reloadInterfaceAction: reloadInterface(),
-//         flushIfNeeded: FL.flushIfNeeded(CA.chatState(s => s.flushAction())),
-//         useTracking: true,
-//         storeKey: 'store' as K
-//     }
-export const myDefaultBehaviour = <R extends DefaultState<K>, H, Ext, RootComp extends ComponentElement, P, T, K extends keyof any = 'store',>(a: Utils<R, H, BasicAppEvent<R, H>, WithComponent<P, RootComp> & AP.WithState<T> & Ext, RootComp>,
+
+const zeroReducer = <R, H>() => reducer<never, CA.AppChatAction<R, H>>((_): _ is never => false, _ => CA.doNothing)
+
+export const withStore = <
+    R extends DefaultState & Record<K, StoreF2<unknown, unknown>>, H, Ext, RootComp extends ComponentElement, P, T, H1,
+     K extends keyof R>(a: Utils<R, H, BasicAppEvent<R, H>,
+        WithComponent<P, RootComp>
+        & AP.WithState<T>
+        & WithReducer<H1, R, H> & Ext,
+        RootComp>, {
+            storeKey,
+            storeAction = apply => a.actions([apply, CA.render])
+        }: {
+            storeKey: K,
+            storeAction?: (apply: CA.AppChatAction<R, H>) => CA.AppChatAction<R, H>
+        }) =>
+    pipe(a
+        , a => a.extendF(AP.attachStore(storeKey))
+        , AP.addReducer(_ => storeReducer2(storeKey, storeAction))
+    )
+
+export const myDefaultBehaviour = <R extends DefaultState, H, Ext, RootComp extends ComponentElement, P, T>(a: Utils<R, H, BasicAppEvent<R, H>, WithComponent<P, RootComp> & AP.WithState<T> & Ext, RootComp>,
     {
-        render = CA.render,
+        render = a.action(CA.render),
         renderMessage = a.action(render),
         renderAction = a.actions([render, CA.replyCallback]),
         reloadInterfaceAction = reloadInterface,
         flushAction = a.action(CA.chatState(s => s.flushAction())),
         flushIfNeeded = a.action(FL.flushIfNeeded(flushAction)),
+        applyEffects = CA.applyEffects,
         useTracking = true,
-        storeKey = 'store' as K
     } = {}
 ) => pipe(a
     , AP.defaultBuild
-    , a => a.extendF(AP.attachStore(storeKey))
     , AP.addReducer(_ => FL.flushReducer(flushAction))
-    , AP.addReducer(_ => storeReducer(storeKey))
+    , AP.extend(a => ({
+        chatActions: ({
+            render, renderMessage, renderAction, reloadInterfaceAction, flushAction,
+            flushIfNeeded, applyEffects
+        })
+    }))
     , AP.extend(a => ({
         defaultMessageHandler: a.actions([
             CA.applyInputHandler,
             TR.saveToTrackerAction(),
             // FL.addUserMessageIfNeeded(),
             CA.addRenderedUserMessage(),
-            CA.applyEffects,
-            FL.deferredRender(renderMessage)
+            applyEffects,
+            FL.deferredRender(a.actions([
+                renderMessage,
+                flushIfNeeded
+            ]))
         ])
         , handleAction: a.actions([
             CA.applyActionHandler,
-            CA.applyEffects,
+            applyEffects,
             CA.chain(({ chatdata }) => chatdata.bufferActions
-                ? FL.deferredRender(renderAction)
-                : renderAction),
-            flushIfNeeded,
+                ? FL.deferredRender(a.actions([
+                    renderAction,
+                    flushIfNeeded
+                ]))
+                : a.actions([
+                    renderAction,
+                    flushIfNeeded
+                ])),
+            // flushIfNeeded,
         ])
     }))
     , AP.extend(a => ({
@@ -120,8 +139,10 @@ export const myDefaultBehaviour = <R extends DefaultState<K>, H, Ext, RootComp e
     , AP.extend(_ => ({
         defaultInit: ({ cleanOldMessages = true } = {}) => _.actions([
             CA.onTrue(useTracking, TR.initTrackingRenderer({ cleanOldMessages })),
-            _.ext.attachStore
-        ])
+        ]),
+    }))
+    , AP.extend(_ => ({
+        init: _.ext.defaultInit
     }))
     , AP.props({})
 )

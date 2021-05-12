@@ -13,17 +13,23 @@ import { applyActionEventReducer, makeEventReducer } from "./event";
 import { ChatActionReducer, ChatStateAction, composeReducers, defaultReducer, ReducerFunction, reducerToFunction } from "./reducer";
 import { StoreF2 } from "./storeF";
 import { LocalStateAction } from "./tree2";
-import { AppActionsFlatten, ApplicationUtil, BasicAppEvent, Defined, GetAllComps, GetState, GetStateDeps, RenderFunc, StateReq, Utils } from "./types-util";
+import { AppActionsFlatten, ApplicationUtil, BasicAppEvent, Defined, GetAllComps, GetState, GetStateDeps, If, RenderFunc, StateReq, Utils } from "./types-util";
 // { store: StoreF2<unknown, unknown> }
-
+// {
+//     [`attachStore_${K}`]: CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
+// }
 export function attachStore<K extends keyof R,
     R extends Record<K, StoreF2<unknown, unknown>>>(key: K) {
     return function attachStore<H, Ext, RootComp>
         (a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>)
-        : Utils<R, H, BasicAppEvent<R, H>, Ext & {
-            attachStore: CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
-        }, RootComp> {
-        return a.extend(a => ({ attachStore: connectFStore(a, key) }))
+        : Utils<R, H, BasicAppEvent<R, H>,
+            Ext & Record<`attachStore_${string & K}`,
+                CA.AppChatAction<R, H, BasicAppEvent<R, H>>>, RootComp> {
+
+        return a.extend(a => ({ 
+            [`attachStore_${key}`]: connectFStore(a, key)
+        }) as Record<`attachStore_${string & K}`,
+        CA.AppChatAction<R, H, BasicAppEvent<R, H>>>)
     }
 
 }
@@ -49,9 +55,10 @@ export function handleEventExtension<Ext, R extends FlushState, H, RootComp>
     }
 }
 
-type WithInit<R, H, Deps> = {
+export type WithInit<R, H, Deps> = {
     init?: (deps: Deps) => CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
 }
+
 export function withInit<
     R extends FlushState & UseTrackingRenderer, H, Ext, RootComp>
     (f: (a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>, ext: Ext) =>
@@ -247,6 +254,7 @@ export function complete<
     )
 }
 
+export type OnUndefined<T> = If<T, undefined, {}, T>
 
 export function withCreateApplication<
     R, H extends H1, RootComp extends ComponentElement, H1, Ext,
@@ -256,18 +264,18 @@ export function withCreateApplication<
         & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
         & WithRenderFunc<R, H>
         & WithState<T>
-        & WithInit<R, H, InitDeps>
+        & WithInit<R, H, OnUndefined<InitDeps>>
         & WithHandleEvent<R, H>
         & Record<'handleMessage', CA.AppChatAction<R, H, BasicAppEvent<R, H>>>
         & Record<'handleAction', CA.AppChatAction<R, H, BasicAppEvent<R, H>>>
         & Ext
         , RootComp>)
     : Utils<R, H, BasicAppEvent<R, H>,
-        Ext & Record<'createApplication', (deps: StateDeps & InitDeps) => Application<R, H, BasicAppEvent<R, H>>>
+        Ext & Record<'createApplication', (deps: OnUndefined<StateDeps & InitDeps>) => Application<R, H, BasicAppEvent<R, H>>>
         , RootComp> {
 
     return pipe(a, extend(_ => ({
-        createApplication: (deps: StateDeps & InitDeps): Application<R, H, BasicAppEvent<R, H>> => {
+        createApplication: (deps: OnUndefined<StateDeps & InitDeps>): Application<R, H, BasicAppEvent<R, H>> => {
             const state = _.ext.state(deps)
             const actionReducer = _.ext.actionReducer
             const handleMessage = _.ext.handleMessage

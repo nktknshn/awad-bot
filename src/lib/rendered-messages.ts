@@ -10,11 +10,14 @@ export type RenderedElement = RenderedUserMessage | BotMessage | BotDocumentMess
 
 export class BotMessage {
     kind: 'BotMessage' = 'BotMessage';
-    canReplace = (other: OutcomingMessageType) => other.kind === 'TextMessage'
     constructor(
         readonly input: OutcomingTextMessage<any>,
         readonly output: Message
     ) { }
+    
+    canReplace = (other: OutcomingMessageType) => other.kind === 'TextMessage'
+        && this.input.keyboardButtons.length == 0
+        && other.keyboardButtons.length == 0
 
     outputIds = () => [this.output.message_id]
 }

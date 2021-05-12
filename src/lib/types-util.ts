@@ -49,9 +49,11 @@ export type StatesKeys<A> = GetRootState<A> extends infer T
     ? keyof T
     : never : never
 
-export type FindKey<K, X> = X extends { [KK in keyof X]: X[KK] } ? K extends keyof X ? X[K] : never : never
+export type FindKey<K, X> = X extends { [KK in keyof X]: X[KK] }
+    ? K extends keyof X ? X[K] : never : never
 
-export type StateReq<T> = GetRootState<T> extends infer J ? { [K in StatesKeys<T>]: FindKey<K, J> } : never
+export type StateReq<T> = GetRootState<T> extends infer J ?
+    { [K in StatesKeys<T>]: FindKey<K, J> } : never
 
 export type ComponentReqs<A> = StateReq<GetAllComps<A>>
 
@@ -213,11 +215,13 @@ export const buildApp = <
             : Utils<R, H, E, Merge<B, RR>, RootComponent> {
             return createUtils(merge({ state, component }, adds(this)))
         }
-        , extendF<RR>(adds: (u: Utils<R, H, E, B, RootComponent>) => Utils<R, H, E, Merge<B, RR>, RootComponent>)
+        , extendF<RR>(adds: (u: Utils<R, H, E, B, RootComponent>) =>
+            Utils<R, H, E, Merge<B, RR>, RootComponent>)
             : Utils<R, H, E, Merge<B, RR>, RootComponent> {
             return adds(this)
         }
-        , extendState<RR>(adds: (u: Utils<R, H, E, B, RootComponent>) => Utils<R & RR, H, E, B, RootComponent>) {
+        , extendState<RR>(adds: (u: Utils<R, H, E, B, RootComponent>) =>
+            Utils<R & RR, H, E, B, RootComponent>) {
             return adds(this)
         }
         , actionF: f => f()

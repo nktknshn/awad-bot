@@ -46,7 +46,7 @@ export const deferredRender = <R extends FlushState & FlushAction, H>(
     render: CA.AppChatAction<R, H> = CA.render,
     enabled = true
 ) =>
-    CA.chatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled, flushAction }) =>
+    CA.chatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled }) =>
         enabled && bufferedInputEnabled && deferRender > 0
             ? CA.scheduleEvent(
                 deferRender,
@@ -55,12 +55,8 @@ export const deferredRender = <R extends FlushState & FlushAction, H>(
                     CA.mapState(s =>
                         setBufferedInputEnabled(!s.bufferedOnce).f(s)
                     ),
-                    flushIfNeeded(flushAction())
                 ]))
-            : CA.sequence([
-                render,
-                flushIfNeeded(flushAction())
-            ])
+            : render
     )
 
 export const addUserMessageIfNeeded = <R extends FlushState, H, E>() =>

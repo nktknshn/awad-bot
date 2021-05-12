@@ -1,17 +1,19 @@
 import { Markup } from "telegraf"
 import { ExtraReplyMessage } from "telegraf/typings/telegram-types"
 import { parseFromContext } from "./bot-util"
-import { ButtonElement, ButtonsRowElement, FileElement, KeyboardElement, RequestLocationButtonElement } from "./elements"
+import { ButtonElement, ButtonsRowElement, FileElement, KeyboardButtonElement, RequestLocationButtonElement } from "./elements"
 import { enumerateListOfLists, flattenList } from "./util"
 
 export type InputHandlerData = ReturnType<typeof parseFromContext>
+
+type KeyboardButton = RequestLocationButtonElement | KeyboardButtonElement
 
 export class OutcomingTextMessage<H> {
     kind: 'TextMessage' = 'TextMessage'
     constructor(
         readonly text?: string,
         readonly buttons: ButtonElement<H>[][] = [],
-        readonly keyboardButtons: (RequestLocationButtonElement | KeyboardElement)[] = [],
+        readonly keyboardButtons: KeyboardButton[] = [],
         readonly isComplete = false
     ) { }
 
@@ -32,7 +34,7 @@ export class OutcomingTextMessage<H> {
         )
     }
 
-    callback2(data: string): H  | undefined {
+    callback2(data: string): H | undefined {
         const button = flattenList(this.buttons).find(
             btn => (btn.data ?? btn.text) == data
         )
@@ -58,8 +60,10 @@ export class OutcomingTextMessage<H> {
         if (this.keyboardButtons.length) {
             return Markup.keyboard(
                 this.keyboardButtons
-                    .map(btn => Markup.button(btn.text, btn.hide))
-            )
+                    .map(btn =>
+                        Array.isArray(btn.text)
+                            ? btn.text.map(text => Markup.button(text, btn.hide))
+                            : [Markup.button(btn.text, btn.hide)]))
                 .resize(true)
                 .oneTime(true).extra()
         }
@@ -76,7 +80,7 @@ export class OutcomingTextMessage<H> {
         ).extra()
     }
 
-    addKeyboardButton(btn: RequestLocationButtonElement) {
+    addKeyboardButton(btn: KeyboardButton) {
         return new OutcomingTextMessage(
             this.text,
             [...this.buttons],

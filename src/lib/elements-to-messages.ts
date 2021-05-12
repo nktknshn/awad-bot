@@ -1,12 +1,12 @@
 import { filterMapWithIndex } from 'fp-ts/Array'
-import { none, some } from 'fp-ts/Option'
+import { none, some, getOrElse } from 'fp-ts/Option'
 import { OutcomingTextMessage } from "./textmessage"
-import { KeyboardElement, BasicElement, isAppliable } from "./elements"
+import { KeyboardButtonElement, BasicElement, isAppliable } from "./elements"
 import { OutcomingFileMessage, InputHandler, ActionsHandler, Effect } from './draft'
 import { OutcomingPhotoGroupMessage } from '../bot3/mediagroup'
 import { mylog } from './logging'
 import { OutcomingUserMessage } from './usermessage'
-
+import * as A from 'fp-ts/lib/Array'
 export type OutcomingMessageType = (OutcomingTextMessage<any> | OutcomingFileMessage) | OutcomingPhotoGroupMessage | OutcomingUserMessage
 
 
@@ -14,7 +14,7 @@ export type RenderDraft<H> = {
     messages: OutcomingMessageType[],
     // handlers: HandlerType<H>[],
     effects: Effect<H>[],
-    keyboards: KeyboardElement[],
+    keyboards: KeyboardButtonElement[],
     inputHandlers: InputHandler<H>[]
 }
 
@@ -25,6 +25,26 @@ export const emptyDraft = <H>(): RenderDraft<H> => ({
     keyboards: [],
     inputHandlers: []
 })
+
+export function completeDraft<H>(d: RenderDraft<H>): RenderDraft<H> {
+
+    const res = filterMapTextMessages(d.messages)
+    const lastMessage = res[res.length - 1]
+
+    if (d.keyboards.length) {
+
+        lastMessage.message = d.keyboards.reduce((acc, cur) =>
+            acc.addKeyboardButton(cur), lastMessage.message)
+    }
+
+    return {
+        ...d,
+        messages: getOrElse(() => d.messages)(A.updateAt(
+            lastMessage.idx,
+            lastMessage.message as OutcomingMessageType
+        )(d.messages))
+    }
+}
 
 export const defaultCreateDraft = <H>(elements: BasicElement<H>[], d?: RenderDraft<H>): RenderDraft<H> => {
 
@@ -41,6 +61,23 @@ export const defaultCreateDraft = <H>(elements: BasicElement<H>[], d?: RenderDra
     return draft
 }
 
+const lastMessageFunc = (messages: OutcomingMessageType[]) => (): {
+    idx: number,
+    message: OutcomingTextMessage<any>
+} => {
+    const res = filterMapTextMessages(messages)
+    if (!res.length) {
+        const message = new OutcomingTextMessage()
+        messages.push(message)
+        return {
+            idx: messages.length - 1,
+            message
+        }
+    }
+    else {
+        return res[res.length - 1]
+    }
+}
 
 export function elementsToMessagesAndHandlers<H>(
     compel: BasicElement<H>,
@@ -51,26 +88,10 @@ export function elementsToMessagesAndHandlers<H>(
 
     let messages: OutcomingMessageType[] = draft.messages
     let effects: Effect<H>[] = draft.effects
-    let keyboards: KeyboardElement[] = draft.keyboards
+    let keyboards: KeyboardButtonElement[] = draft.keyboards
     let inputHandlers: InputHandler<H>[] = draft.inputHandlers
 
-    const lastMessage = (): {
-        idx: number,
-        message: OutcomingTextMessage<any>
-    } => {
-        const res = filterMapTextMessages(messages)
-        if (!res.length) {
-            const message = new OutcomingTextMessage()
-            messages.push(message)
-            return {
-                idx: messages.length - 1,
-                message
-            }
-        }
-        else {
-            return res[res.length - 1]
-        }
-    }
+    const lastMessage = lastMessageFunc(messages)
 
     const setLastMessage = (message: OutcomingTextMessage<any>) => {
         messages[messages.length - 1] = message
@@ -83,7 +104,7 @@ export function elementsToMessagesAndHandlers<H>(
 
     if (isAppliable(compel)) {
         compel.apply(draft as any)
-    } 
+    }
     else if (compel.kind === 'InputHandlerElement') {
         inputHandlers.push(
             new InputHandler(compel)
@@ -122,18 +143,22 @@ export function elementsToMessagesAndHandlers<H>(
         setLastMessage(message.complete())
     }
     else if (compel.kind === 'EffectElement') {
-        if(compel.type === 'onRendered')
+        if (compel.type === 'onRendered')
             effects.push(new Effect(compel))
     }
     else if (compel.kind === 'FileElement') {
         messages.push(new OutcomingFileMessage(compel))
     }
-    else if (compel.kind === 'Keyboard') {
+    else if (compel.kind === 'KeyboardButtonElement') {
         // messages.push(compel)
         // if (!lastMessage()) {
         //     messages.push(new TextMessage())
         // }
-        // lastMessage().addKeyboardButton(compel)
+        // setLastMessage(
+        //     [...keyboards, compel].reduce((acc, cur) =>
+        //         acc.addKeyboardButton(cur), lastMessage().message)
+        // )
+
         keyboards.push(compel)
     }
     else {

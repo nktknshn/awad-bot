@@ -73,3 +73,25 @@ export function mapContext2<
         // mapChildren: ((e: E) => isComponent(e) ? mapContext(key, e) : e) as any
     }
 }
+
+type Complete<T> = {
+    [P in keyof Required<T>]: Pick<T, P> extends Required<Pick<T, P>> ? T[P] : (T[P] | undefined);
+}
+export const contextSelector = <Props>() => <K extends keyof Props>(
+    ...keys: K[]
+) => {
+    const fromState = <R extends Props>(
+        state: R
+    ): Complete<{ [P in K]: Props[P] }> =>
+        keys.reduce((acc, cur) => ({ ...acc, [cur]: state[cur] }), {} as Complete<{
+            [P in K]: Props[P]
+        }>)
+
+    const fromContext = <Ctx extends { [P in K]: Props[P] }>(context: Ctx) =>
+        keys.reduce((acc, cur) => ({ ...acc, [cur]: context[cur] }), {} as { [P in K]: Props[P] })
+
+    return {
+        fromState,
+        fromContext
+    }
+}

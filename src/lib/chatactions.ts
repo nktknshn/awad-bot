@@ -16,6 +16,7 @@ import * as T from "fp-ts/lib/Task";
 import * as E from "fp-ts/lib/Either";
 import { FlushState } from './components/actions/flush';
 import { BasicAppEvent } from './types-util';
+
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {

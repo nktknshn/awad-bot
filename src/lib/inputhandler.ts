@@ -51,15 +51,6 @@ export async function clearChat<R, H, E>(
     return { ...ctx.chatdata, renderedElements: [] }
 }
 
-export function startHandler<R, H, E>(c: ContextOpt):
-    O.Option<ChatAction<R, H, ChatState<R, H>, E>> {
-    return pipe(
-        c.messageText,
-        O.filter(m => m == '/start'),
-        O.map((): ChatAction<R, H, ChatState<R, H>, E> => clearChat)
-    )
-}
-
 export function applyRenderedElementsAction(a: RenderedElementsAction) {
     return function <R, H, C extends ChatState<R, H>>(cs: C): C {
         return {

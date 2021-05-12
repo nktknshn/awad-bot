@@ -14,7 +14,7 @@ import { ChatRenderer, ChatRendererError, createChatRendererE as createChatRende
 import { ComponentElement } from "./component";
 import { createDraftWithImages, Effect } from "./draft";
 import { BasicElement, EffectElement } from "./elements";
-import { RenderDraft } from "./elements-to-messages";
+import { completeDraft, RenderDraft } from "./elements-to-messages";
 import { chainInputHandlers, contextOpt, findRepliedTo } from './inputhandler';
 import { mylog } from "./logging";
 import { createRenderActions, RenderActions } from "./render-actions";
@@ -150,7 +150,7 @@ export const defaultHandleAction = () => CA.sequence(
 
 export function application<R, H, E,
     NeverNever extends IfDef<H, {}, never> = IfDef<H, {}, never>>(
-        app: Application<R, H, E> 
+        app: Application<R, H, E>
     ): Application<R, H, E> {
     return app;
 }
@@ -223,6 +223,7 @@ const renderFunction = <Ctx, HandlerReturn, Els>(
     scheme: RenderScheme<Els, HandlerReturn>,
 ) =>
     async (renderer: ChatRenderer): Promise<ChatState<Ctx, HandlerReturn>> => {
+
         const renderedElementsE = await applyRenderActions(renderer, renderActions);
 
         const { renderedElements, error } = pipe(
@@ -234,6 +235,8 @@ const renderFunction = <Ctx, HandlerReturn, Els>(
                 }),
                 rs => ({ renderedElements: rs, error: undefined }),
             ))
+
+        console.log(`ERROR: ${error}`);
 
 
         const actionHandler = scheme.getActionHandler(renderedElements);
@@ -279,7 +282,7 @@ export const genericRenderComponent = <
         console.log('removedElements');
         console.log(removedElements);
 
-        const draft = scheme.createDraft(elements);
+        const draft = completeDraft(scheme.createDraft(elements))
 
         const els = scheme.getEffects(removedElements, newElements)
 
