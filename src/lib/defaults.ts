@@ -7,7 +7,7 @@ import * as AP from 'Lib/newapp';
 import { WithComponent, WithReducer } from "Lib/newapp";
 import { chatStateAction, reducer, storeReducer } from 'Lib/reducer';
 import { StoreF2 } from 'Lib/storeF';
-import { Utils } from 'Lib/types-util';
+import { AppBuilder } from "Lib/appbuilder";
 
 interface ReloadOnStart {
     reloadOnStart: boolean
@@ -66,11 +66,11 @@ type WithStoreArgs<R, H, K extends keyof R> = {
 
 export const withStore = <
     R extends DefaultState & Record<K, StoreF2<unknown, unknown>>, H, Ext, RootComp, H1,
-    K extends keyof R>(a: Utils<R, H,
+    K extends keyof R>(a: AppBuilder<R, H,
         & WithReducer<H1, R, H> & Ext, RootComp>, {
             storeKey,
             storeAction = apply => a.actions([apply, CA.render])
-        }: WithStoreArgs<R, H, K>): Utils<R, H,
+        }: WithStoreArgs<R, H, K>): AppBuilder<R, H,
             Ext & Record<`attachStore_${string & K}`, CA.AppChatAction<R, H>>
             & WithReducer<H1 | Parameters<R[K]["applyAction"]>[0], R, H>
             , RootComp> =>
@@ -79,7 +79,45 @@ export const withStore = <
         , AP.addReducer(_ => storeReducer(storeKey, storeAction))
     )
 
-export const myDefaultBehaviour = <R extends DefaultState, H, Ext, RootComp, P, T>(a: Utils<R, H, WithComponent<P, RootComp> & AP.WithState<T> & Ext, RootComp>,
+type DefaultRenderActions<R extends DefaultState, H> = {
+    render: CA.AppChatAction<R, H>,
+    renderMessage: CA.AppChatAction<R, H>,
+    renderAction: CA.AppChatAction<R, H>,
+    reloadInterfaceAction: () => CA.AppChatAction<R, H>,
+    flushAction: CA.AppChatAction<R, H>,
+    flushIfNeeded: CA.AppChatAction<R, H>,
+    applyEffects: CA.AppChatAction<R, H>,
+}
+// , AP.extend(a => ({
+//     chatActions: defaults({
+//         render: a.action(CA.render),
+//         renderMessage: a.action(render),
+//         renderAction: a.actions([render, CA.replyCallback]),
+//         reloadInterfaceAction: reloadInterface,
+//         flushAction: a.action(CA.withChatState(s => s.flushAction())),
+//         flushIfNeeded: a.action(FL.flushIfNeeded(flushAction)),
+//         applyEffects: CA.applyEffects,
+//         // useTracking: true,
+//     })
+// }))
+
+function getdef<R extends DefaultState, H, Ext, RootComp, P, T>
+    (a: AppBuilder<R, H, WithComponent<P, RootComp> & AP.WithState<T> & Ext, RootComp>) {
+    class DefaultRender {
+        render = a.action(CA.render)
+        renderMessage = a.action(this.render)
+        renderAction = a.actions([this.render, CA.replyCallback])
+        reloadInterfaceAction = reloadInterface
+        flushAction = a.action(CA.withChatState(s => s.flushAction()))
+        flushIfNeeded = a.action(FL.flushIfNeeded(this.flushAction))
+        applyEffects = CA.applyEffects
+    }
+
+    return new DefaultRender()
+}
+
+
+export const addDefaultBehaviour = <R extends DefaultState, H, Ext, RootComp, P, T>(a: AppBuilder<R, H, WithComponent<P, RootComp> & AP.WithState<T> & Ext, RootComp>,
     {
         render = a.action(CA.render),
         renderMessage = a.action(render),
@@ -88,12 +126,10 @@ export const myDefaultBehaviour = <R extends DefaultState, H, Ext, RootComp, P, 
         flushAction = a.action(CA.withChatState(s => s.flushAction())),
         flushIfNeeded = a.action(FL.flushIfNeeded(flushAction)),
         applyEffects = CA.applyEffects,
-        // defaultRender = a.actions([
-        //     renderAction,
-        //     flushIfNeeded
-        // ]),
         useTracking = true,
     } = {}
+    // defaults: (d: DefaultRenderActions<R, H>) => DefaultRenderActions<R, H>
+    // defaults = getdef(a)
 ) => pipe(a
     , AP.defaultBuild
     , AP.addReducer(_ => FL.flushReducer(flushAction))
@@ -125,7 +161,6 @@ export const myDefaultBehaviour = <R extends DefaultState, H, Ext, RootComp, P, 
                     renderAction,
                     flushIfNeeded
                 ])),
-            // flushIfNeeded,
         ])
     }))
     , AP.extend(a => ({

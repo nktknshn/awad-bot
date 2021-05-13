@@ -1,7 +1,8 @@
 import { application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
 import { getTrackingRendererE, removeMessages } from "../lib/chatrenderer";
 import { ChatActionReducer, composeReducers, extendDefaultReducer, reducer } from '../lib/reducer';
-import { AppActions, AppActionsFlatten, buildApp, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
+import { AppActions, AppActionsFlatten, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
+import { startBuild } from "../lib/appbuilder";
 import App from './app';
 import { AwadServices, userDtoFromCtx } from "./services";
 import { AwadStore, createAwadStore } from "./store";
@@ -60,7 +61,7 @@ const state = (services: AwadServices) => chatState([
     add({ store: createAwadStore(services) })
 ])
 
-const u = buildApp(App, state)
+const u = startBuild(App, state)
 
 export const contextCreatorBot2 = u.mapState2<{ store: AwadStore }>()
     (s => ({

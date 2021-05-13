@@ -1,11 +1,12 @@
 import { empty, GetSubState } from "Lib/chatstate";
-import { BasicAppEvent, Utils } from "Lib/types-util";
+import { BasicAppEvent } from "Lib/types-util";
+import { AppBuilder } from "Lib/appbuilder";
 import * as CA from 'Lib/chatactions';
 
 export type WithRenderTimerState = GetSubState<typeof renderTimerState>
 
 export type WithRenderTimer<R extends WithRenderTimerState, H> = {
-    renderWithTimer: CA.AppChatAction<R, H>
+    renderWithTimer: (renderAction?: CA.AppChatAction<R, H>) => CA.AppChatAction<R, H>
 }
 
 export const renderTimerState = async () => ({
@@ -14,13 +15,13 @@ export const renderTimerState = async () => ({
     renderDuration: 0,
 })
 
-export function renderWithTimer<R extends WithRenderTimerState, H, Ext, RootComp>
-    (a: Utils<R, H, Ext, RootComp>)
-    : Utils<R, H, Ext & WithRenderTimer<R, H>, RootComp> {
+export function addRenderWithTimer<R extends WithRenderTimerState, H, Ext, RootComp>
+    (a: AppBuilder<R, H, Ext, RootComp>)
+    : AppBuilder<R, H, Ext & WithRenderTimer<R, H>, RootComp> {
     return a.extend(a => ({
-        renderWithTimer: a.actions([
+        renderWithTimer: (renderAction) => a.actions([
             CA.mapState(s => ({ ...s, renderStarted: Date.now() })),
-            CA.render,
+            renderAction ?? CA.render,
             CA.mapState(s => ({
                 ...s,
                 renderFinished: Date.now(),

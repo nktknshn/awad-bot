@@ -1,19 +1,19 @@
 import { createLevelTracker } from 'bot3/leveltracker';
 import { pipe } from 'fp-ts/lib/pipeable';
-import { chatState, empty, stateSelector } from 'Lib/chatstate';
+import { AppBuilder, finishBuild, startBuild } from "Lib/appbuilder";
+import { chatState, empty } from 'Lib/chatstate';
 import { connected } from 'Lib/component';
+import { addRenderWithTimer, renderTimerState } from 'Lib/components/actions/rendertimer';
 import * as TR from "Lib/components/actions/tracker";
-import { myDefaultBehaviour, withDefaults } from 'Lib/defaults';
-import { button, keyboardButton, message } from 'Lib/elements-constructors';
+import { contextSelector } from 'Lib/context';
+import { addDefaultBehaviour, withDefaults } from 'Lib/defaults';
+import { buttonsRow, keyboardButton, message } from 'Lib/elements-constructors';
 import { action, caseText, inputHandler, on } from 'Lib/input';
 import * as AP from 'Lib/newapp';
-import * as CA from 'Lib/chatactions';
-
 import { chatStateAction } from 'Lib/reducer';
 import { select } from 'Lib/state';
-import { buildApp, GetChatState } from 'Lib/types-util';
-import { contextSelector } from 'Lib/context';
-import { renderTimerState, renderWithTimer } from 'Lib/components/actions/rendertimer';
+import { GetChatState } from 'Lib/types-util';
+
 
 const KeyboardMenu = connected(
     select(),
@@ -21,7 +21,7 @@ const KeyboardMenu = connected(
         buttons: string[][],
         actions: (btnText: string) => R
     }) {
-        yield message(`для клавы`)
+        yield message(`Вы наносите удар`)
 
         yield inputHandler([
             on(caseText, action(({ messageText }) => props.actions(messageText)))
@@ -33,23 +33,27 @@ const KeyboardMenu = connected(
     }
 )
 
-export const context = contextSelector<GetChatState<typeof state>>()('error', 'gameMessage', 'a')
+export const context = contextSelector<GetChatState<typeof state>>()('error', 'gameMessage', 'a', 'b')
 
 export const App = connected(
     context.fromContext,
-    function* ({ a, error, gameMessage }) {
+    function* ({ a, b, error, gameMessage },
+        //  { ss }: { ss: number }, 
+        // XXX
+         ) {
 
         yield message(`gameMessage: ${gameMessage}`)
 
-        yield message(`Монстр 1 ${a}`)
-        yield button('ударить', () => [
-            chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 }))
-        ])
+        yield message(`Монстр 1 = ${a}, Монстр 2 = ${b}`)
+        yield buttonsRow(['ударить 1', 'ударить 2'], (idx, ) => [
+            chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 })),
+            chatStateAction<{ b: number }>(s => ({ ...s, b: b + 1 })),
+        ][idx])
 
-        yield message(`Монстр 2`)
-        yield button('ударить', () => [
-            chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 }))
-        ])
+        // yield message(`Монстр 2`)
+        // yield button('ударить', () => [
+        //     chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 }))
+        // ])
 
         yield KeyboardMenu({
             buttons: [
@@ -66,25 +70,27 @@ export const App = connected(
 
 export const bot8state = async () => ({
     a: 0,
+    b: 0,
     gameMessage: empty<string>()
 })
 
 const state = () => chatState([
-    TR.withTrackingRenderer(createLevelTracker('./mydb_bot8')),
+    TR.withTrackingRenderer(createLevelTracker('./mydb_bot7')),
     withDefaults({}),
     bot8state,
     renderTimerState
 ])
 
-const { createApplication } = pipe(
-    buildApp(App, state)
-    , renderWithTimer
-    , a => myDefaultBehaviour(a, {
-        render: a.ext.renderWithTimer
+// const gettype2 = <RootComp, Ext, H, R>(a: AppBuilder<R, H, Ext, RootComp>) => a
+
+const app = pipe(
+    startBuild(App, state)
+    , addRenderWithTimer
+    , a => addDefaultBehaviour(a, {
+        render: a.ext.renderWithTimer()
     })
     , AP.context(context.fromState)
-    , AP.complete
-    , AP.withCreateApplication
+    , finishBuild()
 )
 
-export const createApp = createApplication
+export const { createApplication: createApp } = AP.withCreateApplication(app)

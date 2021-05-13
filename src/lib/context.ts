@@ -81,7 +81,7 @@ export const contextSelector = <Props>() => <K extends keyof Props>(
     ...keys: K[]
 ) => {
     const fromState = <R extends Props>(
-        state: R
+        state: { [P in K]: R[P] }
     ): Complete<{ [P in K]: Props[P] }> =>
         keys.reduce((acc, cur) => ({ ...acc, [cur]: state[cur] }), {} as Complete<{
             [P in K]: Props[P]

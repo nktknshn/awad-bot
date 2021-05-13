@@ -12,7 +12,8 @@ import { extendDefaultReducer, storeReducer } from "Lib/reducer"
 import { RenderedElement } from "Lib/rendered-messages"
 import { select } from "Lib/state"
 import { lens, StoreAction, storeAction, storef, StoreF2 } from "Lib/storeF"
-import { AppActionsFlatten, BasicAppEvent, buildApp } from "Lib/types-util"
+import { AppActionsFlatten, BasicAppEvent } from "Lib/types-util"
+import { startBuild } from "Lib/appbuilder"
 import { Lens } from "monocle-ts"
 import { TelegrafContext } from "telegraf/typings/context"
 import { append } from "../bot3/util"
@@ -74,7 +75,7 @@ const state = chatState(
         })
     ])
 
-const app = buildApp(App, state).extend(
+const app = startBuild(App, state).extend(
     a => ({
         handleMessage: a.actionF(handleMessage)
     })

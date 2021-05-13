@@ -1,13 +1,11 @@
 import { getAwadServices } from "bot2/services"
-import { levelDatabase, levelTracker } from "bot3/leveltracker"
-import { pipe } from "fp-ts/lib/pipeable"
+import { createLevelTracker } from "bot3/leveltracker"
 import Telegraf from "telegraf"
 import { createConnection } from "typeorm"
-import { ca } from './bot7/index7'
+import { createApplication } from './bot7/index7'
 import { initLogging, mylog } from "./lib/logging"
 import { attachAppToBot } from "./lib/util"
 import { token } from "./telegram-token.json"
-import * as AP from "Lib/newapp"
 
 
 async function main() {
@@ -21,9 +19,9 @@ async function main() {
 
     await attachAppToBot(
         new Telegraf(token),
-        ca({
+        createApplication({
             services,
-            t: levelTracker(levelDatabase('./mydb_bot7'))
+            t: createLevelTracker('./mydb_bot7')
         })
     ).launch()
 

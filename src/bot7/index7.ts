@@ -5,11 +5,11 @@ import { setDoFlush } from "bot5/actions"
 import { pipe } from "fp-ts/lib/function"
 import * as CA from 'Lib/chatactions'
 import { Tracker } from "Lib/chatrenderer"
-import { chatState, empty, subStateSelector } from "Lib/chatstate"
+import { chatState, empty, stateSelector, subStateSelector } from "Lib/chatstate"
 import { ComponentElement, connected } from "Lib/component"
 import * as FL from "Lib/components/actions/flush"
 import { reloadInterface } from "Lib/components/actions/misc"
-import { renderTimerState, renderWithTimer } from "Lib/components/actions/rendertimer"
+import { renderTimerState, addRenderWithTimer } from "Lib/components/actions/rendertimer"
 import * as TR from "Lib/components/actions/tracker"
 import { contextFromKey, contextSelector } from "Lib/context"
 import * as DE from "Lib/defaults"
@@ -18,7 +18,8 @@ import { action, caseTextEqual, inputHandler, on } from "Lib/input"
 import * as AP from "Lib/newapp"
 import { chatStateAction, hasKind, reducer } from "Lib/reducer"
 import { composeStores } from "Lib/storeF"
-import { BasicAppEvent, buildApp, GetChatState, Utils } from "Lib/types-util"
+import { BasicAppEvent, GetChatState } from "Lib/types-util"
+import { finishBuild, startBuild } from "Lib/appbuilder"
 import { TelegrafContext } from "telegraf/typings/context"
 import { App as App2 } from '../bot2/app'
 import { App as App3 } from '../bot3/app'
@@ -111,10 +112,7 @@ const Info = connected(
     }
 )
 
-const appContext = contextSelector<{
-    activeApp?: ActiveApp,
-    showInfo: boolean
-}>()('activeApp', 'showInfo')
+const appContext = contextSelector<ChatState>()('activeApp', 'showInfo')
 
 const App = connected(
     appContext.fromContext,
@@ -122,6 +120,8 @@ const App = connected(
 
         if (showInfo)
             yield contextFromKey('info', Info({}))
+        else   
+            yield button('show', toggleInfo)
 
         yield inputHandler([
             on(caseTextEqual('/info'), action(toggleInfo))
@@ -134,7 +134,6 @@ const App = connected(
         }
         else if (activeApp === 'app3f') {
             yield contextFromKey('bot3', App3({ password: 'a' }))
-            App3({ password: 'a' })
         }
         else if (activeApp === 'app2') {
             yield contextFromKey('bot2', App2({ showPinned: false }))
@@ -153,11 +152,11 @@ const state = ({ services, t }: Deps) =>
         TR.withTrackingRenderer(t),
         async () => ({
             activeApp: empty<ActiveApp>(),
+            forgetFlushed: false,
+            showInfo: true,
             store: composeStores([store3(), store5()]),
             bot2Store: createAwadStore(services),
-            forgetFlushed: false,
-            showInfo: true
-            // flushAction: () => CA.flush
+            // flushAction: () => CA.flush,
             // flushAction: CA.doNothing
             // XXX
         }),
@@ -168,12 +167,12 @@ const state = ({ services, t }: Deps) =>
 
 
 export const app = <RootComponent extends ComponentElement, P>(
-    app: (props: P) => RootComponent, s: typeof state
+    app: (props: P) => RootComponent, st: typeof state
 ) => pipe(
-    buildApp(app, s)
-    , renderWithTimer
-    , a => DE.myDefaultBehaviour(a, {
-        render: a.ext.renderWithTimer,
+    startBuild(app, st)
+    , addRenderWithTimer
+    , a => DE.addDefaultBehaviour(a, {
+        render: a.ext.renderWithTimer(CA.render),
         flushAction: a.actions([
             CA.flush,
             CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
@@ -195,17 +194,13 @@ export const app = <RootComponent extends ComponentElement, P>(
         ])
     }))
     , AP.context((cs) => ({
-        bot8: ({
-            error: cs.error,
-            a: cs.a,
-            gameMessage: cs.gameMessage
-        }),
         activeApp: cs.activeApp,
         showInfo: cs.showInfo,
         info: infoContext.fromState(cs),
         bot3: contextCreatorBot3(cs),
         bot5: contextCreatorBot5(cs),
         bot2: contextCreatorBot2({ store: cs.bot2Store }),
+        bot8: bot8context.fromState(cs),
     }))
     , AP.addReducer(_ => bot2Reducers())
     , AP.addReducer(_ => refreshReducer(reloadInterface()))
@@ -219,12 +214,10 @@ export const app = <RootComponent extends ComponentElement, P>(
 
 // const gettype2 = <RootComp, Ext, H, R>(a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>) => a
 
-const { createApplication } = pipe(
+export const { createApplication } = pipe(
     app(App, state)
-    , AP.complete
+    , finishBuild()
     , AP.withCreateApplication
 )
 
 console.log('ok');
-
-export const ca = createApplication
