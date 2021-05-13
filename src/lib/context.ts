@@ -1,4 +1,4 @@
-import { ChatState, getUserMessages } from "./application";
+import { ChatState, getUserMessages } from "./chatstate";
 import { ComponentConnected, isComponent } from "./component";
 
 export const withUserMessages = <R, H>(c: ChatState<R, H>) => ({ userMessages: getUserMessages(c) });

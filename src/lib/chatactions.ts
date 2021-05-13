@@ -2,7 +2,7 @@ import * as F from 'fp-ts/lib/function';
 import * as O from 'fp-ts/lib/Option';
 import { pipe } from "fp-ts/lib/pipeable";
 import { TelegrafContext } from 'telegraf/typings/context';
-import { Application, ChatState } from "./application";
+import { Application } from "./application";
 import * as CA from './chatactions';
 import { OpaqueChatHandler } from './chathandler';
 import { ChatRenderer, ChatRendererError, mapToChatRendererError } from './chatrenderer';
@@ -16,6 +16,7 @@ import * as T from "fp-ts/lib/Task";
 import * as E from "fp-ts/lib/Either";
 import { FlushState } from './components/actions/flush';
 import { BasicAppEvent } from './types-util';
+import { ChatState } from './chatstate';
 
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
@@ -161,7 +162,7 @@ export function log<R, H, E>(
 // export const lazy = (ca: CA.AppChatAction<unknown, unknown, unknown>) =>
     // <R, H, E>(): CA.AppChatAction<R, H, E> => ca
 
-export function chatState<R, H, E= BasicAppEvent<R, H>>(
+export function withChatState<R, H, E= BasicAppEvent<R, H>>(
     pred: (state: ChatState<R, H>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (

@@ -1,6 +1,6 @@
 import * as CA from 'Lib/chatactions'
 import { createActionEvent } from "Lib/event"
-import { ChatActionReducer, chatstateAction } from "Lib/reducer"
+import { ChatActionReducer, chatStateAction } from "Lib/reducer"
 import { BasicAppEvent } from "Lib/types-util"
 
 export type FlushState = {
@@ -16,7 +16,7 @@ export type FlushAction = {
 }
 
 export const setBufferedInputEnabled = (bufferedInputEnabled: boolean) =>
-    chatstateAction<{ bufferedInputEnabled: boolean }>(s =>
+    chatStateAction<{ bufferedInputEnabled: boolean }>(s =>
         ({ ...s, bufferedInputEnabled })
     )
 // export type WithFlushArgs = 
@@ -39,14 +39,14 @@ export const deferRender = (n: number) => ({
 })
 
 export const flushIfNeeded = <R extends FlushState, H>(a: CA.AppChatAction<R, H>) =>
-    CA.chatState<R, H>(
+    CA.withChatState<R, H>(
         c => c.doFlush ? a : CA.doNothing)
 
 export const deferredRender = <R extends FlushState & FlushAction, H>(
     render: CA.AppChatAction<R, H> = CA.render,
     enabled = true
 ) =>
-    CA.chatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled }) =>
+    CA.withChatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled }) =>
         enabled && bufferedInputEnabled && deferRender > 0
             ? CA.scheduleEvent(
                 deferRender,
@@ -60,7 +60,7 @@ export const deferredRender = <R extends FlushState & FlushAction, H>(
     )
 
 export const addUserMessageIfNeeded = <R extends FlushState, H, E>() =>
-    CA.chatState<R, H, E>(
+    CA.withChatState<R, H, E>(
         c => c.doFlush
             ? CA.doNothing
             : CA.addRenderedUserMessage()

@@ -1,10 +1,10 @@
 import * as A from 'fp-ts/lib/Array'
 import * as CA from './chatactions'
-import { ChatState } from "./application"
 import { applyChatStateAction, applyStoreAction2, applyStoreAction3, applyTreeAction, modifyRenderedElements } from "./inputhandler"
 import { StoreAction, StoreF, StoreF2 } from "./storeF"
 import { TreeState } from "./tree"
 import { LocalStateAction } from 'Lib/tree2'
+import { ChatState } from './chatstate'
 
 export const hasKind = <S extends {kind: any}>(kind: S['kind']) => (a: unknown): a is S =>
     isObject(a) && hasOwnProperty(a, 'kind') && a.kind === kind
@@ -111,7 +111,7 @@ export const storeStateMatcher =
 
 
 
-export const chatstateAction = <T>(
+export const chatStateAction = <T>(
     f: <R extends T>(s: R) => R
 ) => {
     return ({
@@ -119,6 +119,18 @@ export const chatstateAction = <T>(
         f
     })
 }
+
+export const update = <T, R extends T>(s: R, u: R): R => ({...s, ...u})
+
+export const chatStateAction2 = <T>(
+    ff: <R extends T>(s: R) => R
+) => {
+    return ({
+        kind: 'chatstate-action' as 'chatstate-action',
+        f: (s: T) => ({...s, ...ff(s)})
+    })
+}
+
 
 export type ChatStateAction<R> = {
     kind: 'chatstate-action',
@@ -157,19 +169,19 @@ export const stateReducerToChatActionReducer = <R, H, E>(
         })
     }
 
+// export function storeReducer<
+//     K extends keyof R,
+//     R extends Record<K, StoreF2<any, any>>, H, E>(
+//         key: K
+//     ) {
+//     const m = stateReducerToChatActionReducer<R, H, E>(a => a)
+
+//     return m(storeStateMatcher<K, R[K]['state'], R,
+//         Parameters<R[K]['applyAction']>[0]>(key))
+// }
+
+
 export function storeReducer<
-    K extends keyof R,
-    R extends Record<K, StoreF2<any, any>>, H, E>(
-        key: K
-    ) {
-    const m = stateReducerToChatActionReducer<R, H, E>(a => a)
-
-    return m(storeStateMatcher<K, R[K]['state'], R,
-        Parameters<R[K]['applyAction']>[0]>(key))
-}
-
-
-export function storeReducer2<
     K extends keyof R,
     R extends Record<K, StoreF2<any, any>>, H, E>(
         key: K,

@@ -4,7 +4,6 @@ import { TelegrafContext } from "telegraf/typings/context";
 import { ExtraReplyMessage, InputFile, InputMediaPhoto, Message, MessageDocument, MessagePhoto } from "telegraf/typings/telegram-types";
 import { ChatActionContext } from "./chatactions";
 import { OpaqueChatHandler } from "./chathandler";
-import { ChatState } from "./application";
 import { ContextOpt } from "./inputhandler";
 import { mylog } from "./logging";
 import { randomAnimal } from './util';
@@ -182,6 +181,7 @@ export const messageTrackingRendererE: (tracker: Tracker, r: ChatRenderer) => Ch
         }
     })
 import { array } from 'fp-ts/lib/Array'
+import { ChatState } from './chatstate';
 
 export function removeMessages(renderedMessagesIds: number[], renderer: ChatRenderer)
     : TE.TaskEither<ChatRendererError, boolean[]> {

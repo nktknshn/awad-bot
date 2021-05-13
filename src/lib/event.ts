@@ -1,7 +1,7 @@
-import { ChatState } from "./application";
 import * as CA from './chatactions';
 import { ChatActionReducer, reducer, reducerToFunction } from "./reducer";
 import { ChatActionContext } from "./chatactions";
+import { ChatState } from './chatstate';
 
 export interface ApplyActionsEvent<R, H, E> {
     kind: 'apply-actions-event';

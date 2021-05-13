@@ -7,7 +7,7 @@ import { BasicAppEvent, Utils } from "Lib/types-util";
 
 export const connectFStore =
     <R extends Record<K, StoreF2<unknown,unknown>>, H, K extends keyof any = 'store'>
-        (u: Utils<R, H, BasicAppEvent<R, H>, {}, {}>, key: K) =>
+        (u: Utils<R, H, {}, {}>, key: K) =>
         u.action(
             async ({ app, queue, chatdata }) => ({
                 ...chatdata,

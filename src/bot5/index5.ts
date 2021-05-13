@@ -1,5 +1,6 @@
-import { application, ChatState, chatState, defaultRenderScheme, genericRenderComponent } from "Lib/application"
+import { application, defaultRenderScheme, genericRenderComponent } from "Lib/application"
 import * as CA from 'Lib/chatactions'
+import { chatState } from "Lib/chatstate"
 import { withFlush, FlushState, deferredRender, addUserMessageIfNeeded, flushIfNeeded, FlushAction } from "Lib/components/actions/flush"
 import { UseTrackingRenderer } from "Lib/components/actions/tracker"
 import { defaultFlushAction } from "Lib/defaults"
@@ -100,7 +101,7 @@ export const createApp = () =>
             CA.replyCallback,
             CA.applyEffects,
             CA.render,
-            flushIfNeeded(CA.chatState(s => s.flushAction())),
+            flushIfNeeded(CA.withChatState(s => s.flushAction())),
         ]),
         handleEvent: makeEventReducer(applyActionEventReducer())
     })

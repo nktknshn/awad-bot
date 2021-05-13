@@ -20,7 +20,7 @@ export const initTrackingRenderer = <R extends UseTrackingRenderer, H, E>(
     )
 
 export const saveToTrackerAction = <R extends UseTrackingRenderer, H, E>() =>
-    CA.chatState<R, H, E>(chatdata =>
+    CA.withChatState<R, H, E>(chatdata =>
         chatdata.useTrackingRenderer
             ? chatdata.useTrackingRenderer.saveToTrackerAction
             : CA.doNothing

@@ -1,4 +1,4 @@
-import { ChatState, chatState, application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
+import { application, genericRenderComponent, defaultRenderScheme } from "../lib/application";
 import { getTrackingRendererE, removeMessages } from "../lib/chatrenderer";
 import { ChatActionReducer, composeReducers, extendDefaultReducer, reducer } from '../lib/reducer';
 import { AppActions, AppActionsFlatten, buildApp, GetAllInputHandlers, GetAllInputHandlersTypes, _AppActionsFlatten } from "../lib/types-util";
@@ -19,6 +19,7 @@ import * as CA from 'Lib/chatactions';
 import * as FL from "Lib/components/actions/flush";
 import { TelegrafContext } from 'telegraf/typings/context';
 import { createLevelTracker } from "bot3/leveltracker";
+import { chatState } from "Lib/chatstate";
 
 type AppState = { store: ReturnType<typeof createAwadStore> } & UseTrackingRenderer
 type AppAction = AppActionsFlatten<typeof App>

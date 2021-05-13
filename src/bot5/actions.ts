@@ -1,13 +1,13 @@
-import { chatstateAction } from "Lib/reducer";
+import { chatStateAction } from "Lib/reducer";
 
 export const setDoFlush =
     (doFlush: boolean) =>
-        chatstateAction<{ doFlush: boolean; }>(
+        chatStateAction<{ doFlush: boolean; }>(
             s => ({ ...s, doFlush })
         )
 
 export const setBufferedInputEnabled =
     (bufferedInputEnabled: boolean) =>
-        chatstateAction<{ bufferedInputEnabled: boolean; }>(
+        chatStateAction<{ bufferedInputEnabled: boolean; }>(
             s => ({ ...s, bufferedInputEnabled })
         );

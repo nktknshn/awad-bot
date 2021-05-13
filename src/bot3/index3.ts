@@ -1,5 +1,5 @@
 import { pipe } from "fp-ts/lib/function";
-import { application, chatState } from "Lib/application";
+import { chatState } from "Lib/chatstate";
 import * as FL from "Lib/components/actions/flush";
 import * as TR from "Lib/components/actions/tracker";
 import { withUserMessages } from 'Lib/context';
@@ -8,7 +8,7 @@ import { defaultFlushAction, DefaultState, myDefaultBehaviour, withDefaults, wit
 import * as AP from 'Lib/newapp';
 import { select } from 'Lib/state';
 import { storef, StoreF2 } from 'Lib/storeF';
-import { buildApp, GetState } from 'Lib/types-util';
+import { buildApp, ComponentReqs, GetState } from 'Lib/types-util';
 import { TelegrafContext } from "telegraf/typings/context";
 import { PhotoSize } from 'telegraf/typings/telegram-types';
 import { App } from './app';
@@ -58,7 +58,8 @@ const state = () => chatState([
     }),
 ])
 
-const app = pipe(
+
+const { createApplication } = pipe(
     buildApp(App, state)
     , myDefaultBehaviour
     , a => withStore(a, { storeKey: 'store' })
@@ -68,4 +69,4 @@ const app = pipe(
     , AP.withCreateApplication
 )
 
-export const createApp = app.ext.createApplication
+export const createApp = createApplication

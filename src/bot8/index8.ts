@@ -1,71 +1,90 @@
-import * as AP from 'Lib/newapp';
-import * as TR from "Lib/components/actions/tracker";
-import { chatState } from 'Lib/application';
-import { myDefaultBehaviour, withDefaults } from 'Lib/defaults';
-import { select } from 'Lib/state';
-import { connected } from 'Lib/component';
-import { storef } from 'Lib/storeF';
-import { button, keyboardButton, message } from 'Lib/elements-constructors';
-import { KeyboardButtonElement } from 'Lib/elements';
-import { pipe } from 'fp-ts/lib/pipeable';
-import { buildApp, ComponentTypes, GetChatState, GetState } from 'Lib/types-util';
 import { createLevelTracker } from 'bot3/leveltracker';
-import { chatstateAction } from 'Lib/reducer';
+import { pipe } from 'fp-ts/lib/pipeable';
+import { chatState, empty, stateSelector } from 'Lib/chatstate';
+import { connected } from 'Lib/component';
+import * as TR from "Lib/components/actions/tracker";
+import { myDefaultBehaviour, withDefaults } from 'Lib/defaults';
+import { button, keyboardButton, message } from 'Lib/elements-constructors';
+import { action, caseText, inputHandler, on } from 'Lib/input';
+import * as AP from 'Lib/newapp';
+import * as CA from 'Lib/chatactions';
+
+import { chatStateAction } from 'Lib/reducer';
+import { select } from 'Lib/state';
+import { buildApp, GetChatState } from 'Lib/types-util';
 import { contextSelector } from 'Lib/context';
+import { renderTimerState, renderWithTimer } from 'Lib/components/actions/rendertimer';
 
+const KeyboardMenu = connected(
+    select(),
+    function* <R>({ }, props: {
+        buttons: string[][],
+        actions: (btnText: string) => R
+    }) {
+        yield message(`для клавы`)
 
-// export type Bot8StoreState = {
-//     a: number
-// }
+        yield inputHandler([
+            on(caseText, action(({ messageText }) => props.actions(messageText)))
+        ])
 
-// export const store = () => storef<Bot8StoreState>({ a: 1 })
+        for (const btnRow of props.buttons) {
+            yield keyboardButton(btnRow)
+        }
+    }
+)
 
-const state = () => chatState([
-    TR.withTrackingRenderer(createLevelTracker('./mydb_bot8')),
-    withDefaults({}),
-    async () => ({
-        // store: store(),
-        a: 1
-    }),
-])
-
-type State = GetChatState<typeof state>
-const context = contextSelector<State>()('a', 'error')
+export const context = contextSelector<GetChatState<typeof state>>()('error', 'gameMessage', 'a')
 
 export const App = connected(
     context.fromContext,
-    function* ({ a, error }) {
+    function* ({ a, error, gameMessage }) {
 
-        yield message(`error: ${error}`)
+        yield message(`gameMessage: ${gameMessage}`)
 
         yield message(`Монстр 1 ${a}`)
         yield button('ударить', () => [
-            chatstateAction<{ a: number }>(s => ({ ...s, a: a + 1 }))
+            chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 }))
         ])
 
         yield message(`Монстр 2`)
         yield button('ударить', () => [
-            chatstateAction<{ a: number }>(s => ({ ...s, a: a + 1 }))
+            chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 }))
         ])
 
-        yield message(`месааг`)
-
-        yield keyboardButton(['Убежать', 'Инвентарь'])
-
-        if(a > 2)
-            yield keyboardButton('Кастовать')
-
-        yield keyboardButton('button4')
+        yield KeyboardMenu({
+            buttons: [
+                ['Убежать', 'Инвентарь'],
+                ['Кастовать'],
+                ['Кастовать aa']
+            ],
+            actions: (btn) =>
+                chatStateAction<{ gameMessage?: string }>(s => ({ ...s, gameMessage: btn }))
+        })
 
     }
 )
 
-const app = pipe(
+export const bot8state = async () => ({
+    a: 0,
+    gameMessage: empty<string>()
+})
+
+const state = () => chatState([
+    TR.withTrackingRenderer(createLevelTracker('./mydb_bot8')),
+    withDefaults({}),
+    bot8state,
+    renderTimerState
+])
+
+const { createApplication } = pipe(
     buildApp(App, state)
-    , myDefaultBehaviour
-    , AP.context(cs => context.fromState(cs))
+    , renderWithTimer
+    , a => myDefaultBehaviour(a, {
+        render: a.ext.renderWithTimer
+    })
+    , AP.context(context.fromState)
     , AP.complete
     , AP.withCreateApplication
 )
 
-export const createApp = app.ext.createApplication
+export const createApp = createApplication
