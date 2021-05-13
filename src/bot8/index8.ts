@@ -3,16 +3,17 @@ import { pipe } from 'fp-ts/lib/pipeable';
 import { AppBuilder, finishBuild, startBuild } from "Lib/appbuilder";
 import { chatState, empty } from 'Lib/chatstate';
 import { connected } from 'Lib/component';
-import { addRenderWithTimer, renderTimerState } from 'Lib/components/actions/rendertimer';
+import { withTimer, renderTimerState, WithRenderTimerState } from 'Lib/components/actions/rendertimer';
 import * as TR from "Lib/components/actions/tracker";
 import { contextSelector } from 'Lib/context';
-import { addDefaultBehaviour, withDefaults } from 'Lib/defaults';
+import { addDefaultBehaviour, DefaultRender, DefaultState, withDefaults } from 'Lib/defaults';
 import { buttonsRow, keyboardButton, message } from 'Lib/elements-constructors';
 import { action, caseText, inputHandler, on } from 'Lib/input';
 import * as AP from 'Lib/newapp';
 import { chatStateAction } from 'Lib/reducer';
 import { select } from 'Lib/state';
 import { GetChatState } from 'Lib/types-util';
+import * as CA from 'Lib/chatactions';
 
 
 const KeyboardMenu = connected(
@@ -40,12 +41,12 @@ export const App = connected(
     function* ({ a, b, error, gameMessage },
         //  { ss }: { ss: number }, 
         // XXX
-         ) {
+    ) {
 
         yield message(`gameMessage: ${gameMessage}`)
 
         yield message(`Монстр 1 = ${a}, Монстр 2 = ${b}`)
-        yield buttonsRow(['ударить 1', 'ударить 2'], (idx, ) => [
+        yield buttonsRow(['ударить 1', 'ударить 2'], (idx,) => [
             chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 })),
             chatStateAction<{ b: number }>(s => ({ ...s, b: b + 1 })),
         ][idx])
@@ -82,12 +83,42 @@ const state = () => chatState([
 ])
 
 // const gettype2 = <RootComp, Ext, H, R>(a: AppBuilder<R, H, Ext, RootComp>) => a
+const ctor = DefaultRender
+type Constructor<T = {}> = new (...args: any[]) => T;
 
+// function Timestamped<TBase extends Constructor>(Base: TBase) {
+//     // User is considered as Base and Base is extended by new class
+//     // return a class, combining "name" and "timestamp"  
+//     return class extends Base {
+//         timestamp = Date.now(); // goes inside new class constructor 
+//     };
+// }
+
+
+// class DefaultRender1<R extends DefaultState & WithRenderTimerState, H, Ext, ReqContext>
+//     extends DefaultRender<R, H, Ext &, ReqContext> {
+//     constructor(a: AppBuilder<R, H, Ext, ReqContext>) {
+//         super(a)
+//     }
+
+//     applyInputHandler = this.a.actions([this.a.ext.startTimer, super.applyInputHandler])
+//     applyActionHandler = this.a.actions([this.a.ext.startTimer, super.applyActionHandler])
+//     render = this.a.actions([super.render, this.a.ext.stopTimer])
+//     flushAction = this.a.actions([
+//         CA.flush,
+//         CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
+//             CA.onTrue(!!useTrackingRenderer && forgetFlushed,
+//                 useTrackingRenderer!.untrackRendererElementsAction))
+//     ])
+// }
+
+// const t = Timestamped(DefaultRender)
+// const z = t()
 const app = pipe(
     startBuild(App, state)
-    , addRenderWithTimer
+    , withTimer
     , a => addDefaultBehaviour(a, {
-        render: a.ext.renderWithTimer()
+        render: a.ext.wrapInTimer(CA.render)
     })
     , AP.context(context.fromState)
     , finishBuild()

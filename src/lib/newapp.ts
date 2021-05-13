@@ -17,8 +17,8 @@ import { RenderFunc, AppBuilder } from "./appbuilder";
 export function attachStore<K extends keyof R,
     R extends Record<K, StoreF2<unknown, unknown>>>(key: K) {
     return function attachStore<H, Ext, RootComp>
-        (a: AppBuilder<R, H,  Ext, RootComp>)
-        : AppBuilder<R, H, 
+        (a: AppBuilder<R, H, Ext, RootComp>)
+        : AppBuilder<R, H,
             Ext & Record<`attachStore_${string & K}`,
                 CA.AppChatAction<R, H>>, RootComp> {
 
@@ -35,7 +35,7 @@ export type WithHandleEvent<R, H> = {
 }
 
 export function handleEventExtension<Ext, R extends FlushState, H, T, RootComp>
-    (a: AppBuilder<R, H,  Ext & WithState<T>, RootComp>)
+    (a: AppBuilder<R, H, Ext, RootComp>)
     : WithHandleEvent<R, H> {
     return {
         handleEvent: a.eventFunc(
@@ -53,17 +53,17 @@ export type WithInit<R, H, Deps> = {
 
 export function withInit<
     R extends FlushState & UseTrackingRenderer, H, Ext, RootComp>
-    (f: (a: AppBuilder<R, H,  Ext, RootComp>, ext: Ext) =>
+    (f: (a: AppBuilder<R, H, Ext, RootComp>, ext: Ext) =>
         CA.AppChatAction<R, H, BasicAppEvent<R, H>>)
-    : (a: AppBuilder<R, H,  Ext, RootComp>) =>
-        AppBuilder<R, H,  Ext & WithInit<R, H, void>, RootComp> {
-    return (a: AppBuilder<R, H,  Ext, RootComp>) => a.extend(a => ({ init: () => f(a, a.ext) }))
+    : (a: AppBuilder<R, H, Ext, RootComp>) =>
+        AppBuilder<R, H, Ext & WithInit<R, H, void>, RootComp> {
+    return (a: AppBuilder<R, H, Ext, RootComp>) => a.extend(a => ({ init: () => f(a, a.ext) }))
 }
 
 
 export function props<P>(props: P) {
     return function <R, H, Ext, RootComp>
-        (a: AppBuilder<R, H,  Ext, RootComp>)
+        (a: AppBuilder<R, H, Ext, RootComp>)
         : AppBuilder<R, H, Ext & WithProps<P>, RootComp> {
         return a.extend(_ => ({ props }))
     }
@@ -72,8 +72,8 @@ export function props<P>(props: P) {
 export function context<Ctx, R, H>(
     contextCreator: (cs: ChatState<R, H>) => Ctx) {
     return function withContextCreator<Ext, RootComp>
-        (a: AppBuilder<R, H,  Ext, RootComp>)
-        : AppBuilder<R, H,  Ext & WithContextCreator<R, H, Ctx>, RootComp> {
+        (a: AppBuilder<R, H, Ext, RootComp>)
+        : AppBuilder<R, H, Ext & WithContextCreator<R, H, Ctx>, RootComp> {
         return a.extend(_ => ({ contextCreator }))
     }
 }
@@ -82,7 +82,7 @@ export function renderExtension<
     R, H, RootComp, P,
     Ctx extends RootComp
 >
-    (a: AppBuilder<R, H,  WithComponent<P, RootComp>, RootComp>)
+    (a: AppBuilder<R, H, WithComponent<P, RootComp>, RootComp>)
     : WithRender<R, H, P, Ctx> {
     return ({
         render(
@@ -129,11 +129,11 @@ export type WithRenderFunc<R, H> = {
 export function renderFuncExtension<
     R, H, RootComp, P, Ctx, Ext
 >
-    (a: AppBuilder<R, H, 
+    (a: AppBuilder<R, H,
         Ext & WithProps<P>
         & WithContextCreator<R, H, Ctx>
         & WithRender<R, H, P, Ctx>, RootComp>)
-    : AppBuilder<R, H, 
+    : AppBuilder<R, H,
         WithRenderFunc<R, H> & Ext
         , RootComp> {
     return a.extend(a => ({
@@ -154,24 +154,24 @@ export type WithReducer<T1, R, H,> = {
 export type DefaultActions<R, H> = LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined
 
 export function withDefaultReducer<R, H, Ext, RootComp>(
-    a: AppBuilder<R, H,  Ext, RootComp>,
+    a: AppBuilder<R, H, Ext, RootComp>,
 ): WithReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined, R, H> {
     return { reducer: a.reducerFunc(defaultReducer()) }
 }
 
 export function addReducer<T1, T2, R, H, Ext, RootComp>(
-    f: (a: AppBuilder<R, H,  WithReducer<T2, R, H> & Ext, RootComp>) =>
+    f: (a: AppBuilder<R, H, WithReducer<T2, R, H> & Ext, RootComp>) =>
         ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>
 ) {
-    return (a: AppBuilder<R, H,  WithReducer<T2, R, H> & Ext, RootComp>) =>
+    return (a: AppBuilder<R, H, WithReducer<T2, R, H> & Ext, RootComp>) =>
         a.extend(a => ({
             reducer: composeReducers(a.ext.reducer, f(a))
         }))
 }
 
 export function withActionReducer<R, H extends H1, Ext, RootComp, H1>(
-    a: AppBuilder<R, H,  Ext & WithReducer<H1, R, H>, RootComp>,
-): AppBuilder<R, H, 
+    a: AppBuilder<R, H, Ext & WithReducer<H1, R, H>, RootComp>,
+): AppBuilder<R, H,
     Ext
     & WithReducer<H1, R, H>
     & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>,
@@ -181,20 +181,20 @@ export function withActionReducer<R, H extends H1, Ext, RootComp, H1>(
     }))
 }
 
-export function extend<RootComp, R, H, Ext, RR>(f: (a: AppBuilder<R, H,  Ext, RootComp>) => RR) {
-    return function (a: AppBuilder<R, H,  Ext, RootComp>)
-        : AppBuilder<R, H,  Ext & RR, RootComp> {
+export function extend<RootComp, R, H, Ext, RR>(f: (a: AppBuilder<R, H, Ext, RootComp>) => RR) {
+    return function (a: AppBuilder<R, H, Ext, RootComp>)
+        : AppBuilder<R, H, Ext & RR, RootComp> {
         return a.extend(f)
     }
 }
 
 export function extendKey<RootComp, R, H, Ext, RR, K extends keyof any>(
     key: K,
-    f: (a: AppBuilder<R, H,  Ext, RootComp>) => RR
+    f: (a: AppBuilder<R, H, Ext, RootComp>) => RR
 ) {
-    return function (a: AppBuilder<R, H,  Ext, RootComp>)
-        : AppBuilder<R, H,  Ext & Record<K, RR>, RootComp> {
-        return a.extend(a => ({[key]: f(a)}) as Record<K, RR>)
+    return function (a: AppBuilder<R, H, Ext, RootComp>)
+        : AppBuilder<R, H, Ext & Record<K, RR>, RootComp> {
+        return a.extend(a => ({ [key]: f(a) }) as Record<K, RR>)
     }
 }
 
@@ -202,10 +202,12 @@ export function extendKey<RootComp, R, H, Ext, RR, K extends keyof any>(
 export function defaultBuild<
     R extends FlushState & UseTrackingRenderer,
     H, Ext, RootComp, Ctx extends RootComp, T, P>
-    (u: AppBuilder<R, H, 
-        WithComponent<P, RootComp> & WithState<T> & Ext,
+    (u: AppBuilder<R, H,
+        WithComponent<P, RootComp>
+        & WithState<T> 
+        & Ext,
         RootComp
-    >): AppBuilder<R, H, 
+    >): AppBuilder<R, H,
         WithComponent<P, RootComp>
         & WithState<T>
         & WithReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined, R, H>
@@ -227,10 +229,10 @@ export function defaultBuild<
 export const finishBuild = () => complete
 
 export function complete<
-P, Ctx extends RootComp, RootComp, R, H extends H1, Ext, H1,
+    P, Ctx extends RootComp, RootComp, R, H extends H1, Ext, H1,
     StateDeps,
->
-    (a: AppBuilder<R, H, 
+    >
+    (a: AppBuilder<R, H,
         & Ext
         & WithRender<R, H, P, Ctx>
         & WithContextCreator<R, H, Ctx>
@@ -239,7 +241,7 @@ P, Ctx extends RootComp, RootComp, R, H extends H1, Ext, H1,
         & WithProps<P>
         & WithState<(d: StateDeps) => (tctx: TelegrafContext) => Promise<ChatState<R, H>>>
         , RootComp>)
-    : AppBuilder<R, H, 
+    : AppBuilder<R, H,
         Ext & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
         & WithRenderFunc<R, H>
         , RootComp> {
@@ -256,7 +258,7 @@ export type OnUndefined<T> = If<T, undefined, {}, T>
 export function withCreateApplication<
     R, H, RootComp, Ext, InitDeps, StateDeps
 >
-    (a: AppBuilder<R, H, 
+    (a: AppBuilder<R, H,
         & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
         & WithRenderFunc<R, H>
         & WithState<(d: StateDeps) => (tctx: TelegrafContext) => Promise<ChatState<R, H>>>

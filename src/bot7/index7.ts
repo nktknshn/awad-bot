@@ -9,7 +9,7 @@ import { chatState, empty, stateSelector, subStateSelector } from "Lib/chatstate
 import { ComponentElement, connected } from "Lib/component"
 import * as FL from "Lib/components/actions/flush"
 import { reloadInterface } from "Lib/components/actions/misc"
-import { renderTimerState, addRenderWithTimer } from "Lib/components/actions/rendertimer"
+import { renderTimerState, withTimer } from "Lib/components/actions/rendertimer"
 import * as TR from "Lib/components/actions/tracker"
 import { contextFromKey, contextSelector } from "Lib/context"
 import * as DE from "Lib/defaults"
@@ -72,8 +72,8 @@ type ChatState = GetChatState<typeof state>
 
 const infoContext = contextSelector<ChatState>()(
     'activeApp', 'error', 'reloadOnStart', 'bufferedInputEnabled',
-    'renderFinished', 'renderStarted', 'bufferActions', 'deferRender', 'doFlush',
-    'renderDuration'
+    'timerStarted', 'timerFinished', 'bufferActions', 'deferRender', 'doFlush',
+    'timerDuration',
 )
 
 const Info = connected(
@@ -86,7 +86,7 @@ const Info = connected(
         yield messagePart(`bufferActions=${c.bufferActions}`)
         yield messagePart(`doFlush=${c.doFlush}`)
 
-        yield messagePart(`render duration=${c.renderDuration}`)
+        yield messagePart(`render duration=${c.timerDuration}`)
 
         yield nextMessage()
         yield button('refresh', refresh)
@@ -120,7 +120,7 @@ const App = connected(
 
         if (showInfo)
             yield contextFromKey('info', Info({}))
-        else   
+        else
             yield button('show', toggleInfo)
 
         yield inputHandler([
@@ -166,13 +166,38 @@ const state = ({ services, t }: Deps) =>
     ])
 
 
+// , a => DE.addDefaultBehaviour(a, {
+//     applyInputHandler: a.actions([a.ext.startTimer, CA.applyInputHandler]),
+//     applyActionHandler: a.actions([a.ext.startTimer, CA.applyActionHandler]),
+//     render: a.actions([CA.render, a.ext.stopTimer]),
+//     flushAction: a.actions([
+//         CA.flush,
+//         CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
+//             CA.onTrue(!!useTrackingRenderer && forgetFlushed,
+//                 useTrackingRenderer!.untrackRendererElementsAction))
+//     ]),
+// })
+// , DE.addEnv(a => d => ({
+//     ...d,
+//     applyInputHandler: a.actions([a.ext.startTimer, d.applyInputHandler]),
+//     applyActionHandler: a.actions([a.ext.startTimer, d.applyActionHandler]),
+//     render: a.actions([d.render, a.ext.stopTimer]),
+//     flushAction: a.actions([
+//         CA.flush,
+//         CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
+//             CA.onTrue(!!useTrackingRenderer && forgetFlushed,
+//                 useTrackingRenderer!.untrackRendererElementsAction))
+//     ])
+// }))
 export const app = <RootComponent extends ComponentElement, P>(
     app: (props: P) => RootComponent, st: typeof state
 ) => pipe(
     startBuild(app, st)
-    , addRenderWithTimer
+    , withTimer
     , a => DE.addDefaultBehaviour(a, {
-        render: a.ext.renderWithTimer(CA.render),
+        applyInputHandler: a.actions([a.ext.startTimer, CA.applyInputHandler]),
+        applyActionHandler: a.actions([a.ext.startTimer, CA.applyActionHandler]),
+        render: a.actions([CA.render, a.ext.stopTimer]),
         flushAction: a.actions([
             CA.flush,
             CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
@@ -183,7 +208,7 @@ export const app = <RootComponent extends ComponentElement, P>(
     , a => DE.withStore(a, {
         storeKey: 'store',
         storeAction: apply => a.actions([
-            apply, a.ext.chatActions.render
+            a.ext.startTimer, apply, a.ext.chatActions.render
         ])
     })
     , AP.extend(a => ({

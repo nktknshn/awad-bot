@@ -112,12 +112,13 @@ export type RenderFunc<R, H> = (state: ChatState<R, H>) => {
     effects: Effect<H>[];
 };
 
-export interface AppBuilder<R, H, Ext, RootComp, E = BasicAppEvent<R, H>
+export interface AppBuilder<R, H, Ext, ReqContext, E = BasicAppEvent<R, H>
     // A extends ApplicationUtil<R, H, RootComp> = ApplicationUtil<R, H, RootComp>
     > {
     action: (f: CA.AppChatAction<R, H, E>) => CA.AppChatAction<R, H, E>;
     actionF: (f: () => CA.AppChatAction<R, H, E>) => CA.AppChatAction<R, H, E>;
-    actionFF: <T extends any[]>(f: (...args: T) => CA.AppChatAction<R, H, E>) => (...args: T) => CA.AppChatAction<R, H, E>;
+    actionFF: <T extends any[]>(f: (...args: T) => CA.AppChatAction<R, H, E>) =>
+        (...args: T) => CA.AppChatAction<R, H, E>;
     actions: (fs: CA.AppChatAction<R, H, E>[]) => CA.AppChatAction<R, H, E>;
     mapState: <R>(f: (s: ChatState<R, H>) => R) => (s: ChatState<R, H>) => R;
     mapState2: <S>() => <R>(f: (s: S) => R) => (s: S) => R;
@@ -125,16 +126,17 @@ export interface AppBuilder<R, H, Ext, RootComp, E = BasicAppEvent<R, H>
         ctx: CA.ChatActionContext<R, H, E>,
         event: E
     ) => Promise<ChatState<R, H>>) => typeof handleEvent;
-    extend<RR>(adds: (u: AppBuilder<R, H, Ext, RootComp>) => RR): AppBuilder<R, H, Merge<Ext, RR>, RootComp>;
+    extend<RR>(adds: (u: AppBuilder<R, H, Ext, ReqContext>) => RR): AppBuilder<R, H, Merge<Ext, RR>, ReqContext>;
     extendF<RR>(
-        adds: (u: AppBuilder<R, H, Ext, RootComp>) => AppBuilder<R, H, Merge<Ext, RR>, RootComp>
-    ): AppBuilder<R, H, Merge<Ext, RR>, RootComp>;
+        adds: (u: AppBuilder<R, H, Ext, ReqContext>) => AppBuilder<R, H, Merge<Ext, RR>, ReqContext>
+    ): AppBuilder<R, H, Merge<Ext, RR>, ReqContext>;
     ext: Ext;
+    // with<RR>(adds: (u: AppBuilder<R, H, Ext, RootComp>) => RR): AppBuilder<R, H, Merge<Ext, RR>, RootComp>;
     reducer: <H1, H2>(f: ReducerFunction<R, H, H1, E>) => ReducerFunction<R, H, H1, E>;
     reducerFunc: <T1>(
         f: ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>) => ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>;
 
     renderFunc: (f: RenderFunc<R, H>) => RenderFunc<R, H>;
-    extendState<RR>(adds: (u: AppBuilder<R, H, Ext, RootComp>) => AppBuilder<R & RR, H, Ext, RootComp>): AppBuilder<R & RR, H, Ext, RootComp>;
+    extendState<RR>(adds: (u: AppBuilder<R, H, Ext, ReqContext>) => AppBuilder<R & RR, H, Ext, ReqContext>): AppBuilder<R & RR, H, Ext, ReqContext>;
 }
 export type Defined<T> = T extends (infer R) ? R extends undefined ? never : R : never;

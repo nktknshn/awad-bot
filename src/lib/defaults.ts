@@ -79,15 +79,6 @@ export const withStore = <
         , AP.addReducer(_ => storeReducer(storeKey, storeAction))
     )
 
-type DefaultRenderActions<R extends DefaultState, H> = {
-    render: CA.AppChatAction<R, H>,
-    renderMessage: CA.AppChatAction<R, H>,
-    renderAction: CA.AppChatAction<R, H>,
-    reloadInterfaceAction: () => CA.AppChatAction<R, H>,
-    flushAction: CA.AppChatAction<R, H>,
-    flushIfNeeded: CA.AppChatAction<R, H>,
-    applyEffects: CA.AppChatAction<R, H>,
-}
 // , AP.extend(a => ({
 //     chatActions: defaults({
 //         render: a.action(CA.render),
@@ -100,83 +91,166 @@ type DefaultRenderActions<R extends DefaultState, H> = {
 //         // useTracking: true,
 //     })
 // }))
+export type AnyFunction<A = any> = (...input: any[]) => A
+export type AnyConstructor<A = object> = new (...input: any[]) => A
 
-function getdef<R extends DefaultState, H, Ext, RootComp, P, T>
-    (a: AppBuilder<R, H, WithComponent<P, RootComp> & AP.WithState<T> & Ext, RootComp>) {
+export type Mixin<T extends AnyFunction> = InstanceType<ReturnType<T>>
+
+export class DefaultRender<R extends DefaultState, H, Ext, ReqContext> {
+    constructor(public readonly a: AppBuilder<R, H, Ext, ReqContext>) { }
+
+    render = this.a.action(CA.render)
+    flushAction = this.a.action(CA.withChatState(s => s.flushAction()))
+    flushIfNeeded = this.a.action(FL.flushIfNeeded(this.flushAction))
+    renderMessage = this.a.actions([this.render, this.flushIfNeeded])
+    renderAction = this.a.actions([this.render, this.flushIfNeeded, CA.replyCallback])
+    reloadInterfaceAction = reloadInterface
+    applyEffects = CA.applyEffects
+    applyInputHandler = this.a.action(CA.applyInputHandler)
+    applyActionHandler = this.a.action(CA.applyActionHandler)
+    renderWrapperMessage = FL.deferredRender
+    renderWrapperAction = (action: CA.AppChatAction<R, H>) => this.a.action(
+        CA.chain(({ chatdata }) => chatdata.bufferActions
+            ? FL.deferredRender(action)
+            : action)
+    )
+}
+
+function getdef<R extends DefaultState, H, Ext, ReqContext, P, T>
+    (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>) {
     class DefaultRender {
         render = a.action(CA.render)
-        renderMessage = a.action(this.render)
-        renderAction = a.actions([this.render, CA.replyCallback])
-        reloadInterfaceAction = reloadInterface
         flushAction = a.action(CA.withChatState(s => s.flushAction()))
         flushIfNeeded = a.action(FL.flushIfNeeded(this.flushAction))
+        renderMessage = a.actions([this.render, this.flushIfNeeded])
+        renderAction = a.actions([this.render, this.flushIfNeeded, CA.replyCallback])
+        reloadInterfaceAction = reloadInterface
         applyEffects = CA.applyEffects
+        applyInputHandler = a.action(CA.applyInputHandler)
+        applyActionHandler = a.action(CA.applyActionHandler)
+        renderWrapperMessage = FL.deferredRender
+        renderWrapperAction = (action: CA.AppChatAction<R, H>) => a.action(
+            CA.chain(({ chatdata }) => chatdata.bufferActions
+                ? FL.deferredRender(action)
+                : action)
+        )
     }
 
     return new DefaultRender()
 }
 
+export type DefaultEnv<R extends DefaultState, H, Ext> = WithEnv<DefaultRenderActions<R, H>>
 
-export const addDefaultBehaviour = <R extends DefaultState, H, Ext, RootComp, P, T>(a: AppBuilder<R, H, WithComponent<P, RootComp> & AP.WithState<T> & Ext, RootComp>,
+type WithEnv<T> = {
+    env?: (e: T) => T
+}
+
+export function addEnv<R extends DefaultState, H, Ext, ReqContext, P, T>(
+    f: (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>) =>
+        (d: DefaultRenderActions<R, H>) => DefaultRenderActions<R, H>
+) {
+    return function (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>): AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & DefaultEnv<R, H, Ext> & Ext, ReqContext> {
+        return pipe(a, AP.extend(a => ({
+            env: f(a)
+        })))
+    }
+}
+
+export type DefaultRenderActions<R extends DefaultState, H> = {
+    render: CA.AppChatAction<R, H>,
+    renderMessage: CA.AppChatAction<R, H>,
+    renderAction: CA.AppChatAction<R, H>,
+    reloadInterfaceAction: () => CA.AppChatAction<R, H>,
+    flushAction: CA.AppChatAction<R, H>,
+    flushIfNeeded: CA.AppChatAction<R, H>,
+    applyEffects: CA.AppChatAction<R, H>,
+    applyInputHandler: CA.AppChatAction<R, H>,
+    applyActionHandler: CA.AppChatAction<R, H>,
+    renderWrapperMessage: (action: CA.AppChatAction<R, H>) => CA.AppChatAction<R, H>,
+    renderWrapperAction: (action: CA.AppChatAction<R, H>) => CA.AppChatAction<R, H>,
+}
+
+// let defaultActions: DefaultRenderActions<R, H> = {
+//     render: a.action(CA.render),
+//     flushAction: a.action(CA.withChatState(s => s.flushAction())),
+//     flushIfNeeded: a.action(FL.flushIfNeeded(flushAction)),
+//     renderMessage: a.actions([render, flushIfNeeded]),
+//     renderAction: a.actions([render, flushIfNeeded, CA.replyCallback]),
+//     reloadInterfaceAction: reloadInterface,
+//     applyEffects: CA.applyEffects,
+//     applyInputHandler: a.action(CA.applyInputHandler),
+//     applyActionHandler: a.action(CA.applyActionHandler),
+//     renderWrapperMessage: FL.deferredRender,
+//     renderWrapperAction: (action: CA.AppChatAction<R, H>) => a.action(
+//         CA.chain(({ chatdata }) => chatdata.bufferActions
+//             ? FL.deferredRender(action)
+//             : action)
+//     ),
+// }
+// if (a.ext.env) {
+//     defaultActions = a.ext.env(defaultActions)
+// }
+
+export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, P, T>(a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & DefaultEnv<R, H, Ext> & Ext, ReqContext>,
     {
         render = a.action(CA.render),
-        renderMessage = a.action(render),
-        renderAction = a.actions([render, CA.replyCallback]),
-        reloadInterfaceAction = reloadInterface,
         flushAction = a.action(CA.withChatState(s => s.flushAction())),
         flushIfNeeded = a.action(FL.flushIfNeeded(flushAction)),
+        renderMessage = a.actions([render, flushIfNeeded]),
+        renderAction = a.actions([render, flushIfNeeded, CA.replyCallback]),
+        reloadInterfaceAction = reloadInterface,
         applyEffects = CA.applyEffects,
+        applyInputHandler = a.action(CA.applyInputHandler),
+        applyActionHandler = a.action(CA.applyActionHandler),
+        renderWrapperMessage = FL.deferredRender,
+        renderWrapperAction = (action: CA.AppChatAction<R, H>) => a.action(
+            CA.chain(({ chatdata }) => chatdata.bufferActions
+                ? FL.deferredRender(action)
+                : action)
+        ),
         useTracking = true,
     } = {}
-    // defaults: (d: DefaultRenderActions<R, H>) => DefaultRenderActions<R, H>
-    // defaults = getdef(a)
-) => pipe(a
-    , AP.defaultBuild
-    , AP.addReducer(_ => FL.flushReducer(flushAction))
-    , AP.extend(a => ({
-        chatActions: ({
-            render, renderMessage, renderAction, reloadInterfaceAction,
-            flushAction, flushIfNeeded, applyEffects
-        })
-        , defaultMessageHandler: a.actions([
-            CA.applyInputHandler,
-            TR.saveToTrackerAction(),
-            // FL.addUserMessageIfNeeded(),
-            CA.addRenderedUserMessage(),
-            applyEffects,
-            FL.deferredRender(a.actions([
-                renderMessage,
-                flushIfNeeded
-            ]))
-        ])
-        , handleAction: a.actions([
-            CA.applyActionHandler,
-            applyEffects,
-            CA.chain(({ chatdata }) => chatdata.bufferActions
-                ? FL.deferredRender(a.actions([
-                    renderAction,
-                    flushIfNeeded
-                ]))
-                : a.actions([
-                    renderAction,
-                    flushIfNeeded
-                ])),
-        ])
-    }))
-    , AP.extend(a => ({
-        handleMessage: a.action(CA.chain(
-            ({ tctx, chatdata }) =>
-                chatdata.reloadOnStart && CA.ifStart(tctx)
-                    ? a.actionF(reloadInterfaceAction)
-                    : a.ext.defaultMessageHandler))
+) => {
 
-        , defaultInit: ({ cleanOldMessages = true } = {}) => a.actions([
-            CA.onTrue(useTracking, TR.initTrackingRenderer({ cleanOldMessages })),
-        ])
-    }))
-    , AP.extend(_ => ({
-        init: _.ext.defaultInit
-    }))
-    , AP.props({})
-)
+    return pipe(a
+        // , a.ext.mapContext
+        , AP.defaultBuild
+        , AP.addReducer(_ => FL.flushReducer(flushAction))
+        , AP.extend(a => ({
+            chatActions: ({
+                render, renderMessage, renderAction, reloadInterfaceAction,
+                flushAction, flushIfNeeded, applyEffects, applyInputHandler,
+                applyActionHandler, renderWrapperMessage, renderWrapperAction
+            })
+            , defaultMessageHandler: a.actions([
+                applyInputHandler,
+                TR.saveToTrackerAction(),
+                // FL.addUserMessageIfNeeded(),
+                CA.addRenderedUserMessage(),
+                applyEffects,
+                renderWrapperMessage(renderMessage)
+            ])
+            , handleAction: a.actions([
+                applyActionHandler,
+                applyEffects,
+                renderWrapperAction(renderAction),
+            ])
+        }))
+        , AP.extend(a => ({
+            handleMessage: a.action(CA.chain(
+                ({ tctx, chatdata }) =>
+                    chatdata.reloadOnStart && CA.ifStart(tctx)
+                        ? a.actionF(reloadInterfaceAction)
+                        : a.ext.defaultMessageHandler))
 
+            , defaultInit: ({ cleanOldMessages = true } = {}) => a.actions([
+                CA.onTrue(useTracking, TR.initTrackingRenderer({ cleanOldMessages })),
+            ])
+        }))
+        , AP.extend(_ => ({
+            init: _.ext.defaultInit
+        }))
+        , AP.props({})
+    )
+
+}
