@@ -20,7 +20,7 @@ export type DefaultState =
     & TR.UseTrackingRenderer
     & ReloadOnStart
 
-export const withDefaults = ({
+export const defaultState = ({
     reloadOnStart = true,
     deferRender = 1500,
     bufferedInputEnabled = false,
@@ -170,27 +170,6 @@ export type DefaultRenderActions<R extends DefaultState, H> = {
     renderWrapperAction: (action: CA.AppChatAction<R, H>) => CA.AppChatAction<R, H>,
 }
 
-// let defaultActions: DefaultRenderActions<R, H> = {
-//     render: a.action(CA.render),
-//     flushAction: a.action(CA.withChatState(s => s.flushAction())),
-//     flushIfNeeded: a.action(FL.flushIfNeeded(flushAction)),
-//     renderMessage: a.actions([render, flushIfNeeded]),
-//     renderAction: a.actions([render, flushIfNeeded, CA.replyCallback]),
-//     reloadInterfaceAction: reloadInterface,
-//     applyEffects: CA.applyEffects,
-//     applyInputHandler: a.action(CA.applyInputHandler),
-//     applyActionHandler: a.action(CA.applyActionHandler),
-//     renderWrapperMessage: FL.deferredRender,
-//     renderWrapperAction: (action: CA.AppChatAction<R, H>) => a.action(
-//         CA.chain(({ chatdata }) => chatdata.bufferActions
-//             ? FL.deferredRender(action)
-//             : action)
-//     ),
-// }
-// if (a.ext.env) {
-//     defaultActions = a.ext.env(defaultActions)
-// }
-
 export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, P, T>(a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & DefaultEnv<R, H, Ext> & Ext, ReqContext>,
     {
         render = a.action(CA.render),
@@ -202,7 +181,7 @@ export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, 
         applyEffects = CA.applyEffects,
         applyInputHandler = a.action(CA.applyInputHandler),
         applyActionHandler = a.action(CA.applyActionHandler),
-        renderWrapperMessage = FL.deferredRender,
+        renderWrapperMessage = (action: CA.AppChatAction<R, H>) => a.action(FL.deferredRender(action)),
         renderWrapperAction = (action: CA.AppChatAction<R, H>) => a.action(
             CA.chain(({ chatdata }) => chatdata.bufferActions
                 ? FL.deferredRender(action)
@@ -211,9 +190,7 @@ export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, 
         useTracking = true,
     } = {}
 ) => {
-
     return pipe(a
-        // , a.ext.mapContext
         , AP.defaultBuild
         , AP.addReducer(_ => FL.flushReducer(flushAction))
         , AP.extend(a => ({

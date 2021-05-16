@@ -19,6 +19,11 @@ export const setBufferedInputEnabled = (bufferedInputEnabled: boolean) =>
     chatStateAction<{ bufferedInputEnabled: boolean }>(s =>
         ({ ...s, bufferedInputEnabled })
     )
+
+export const setBufferedOnce = (bufferedOnce: boolean) =>
+    chatStateAction<{ bufferedOnce: boolean }>(s =>
+        ({ ...s, bufferedOnce })
+    ) 
 // export type WithFlushArgs = 
 export const withFlush = ({
     deferRender = 1500,

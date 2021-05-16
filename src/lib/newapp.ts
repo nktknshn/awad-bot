@@ -10,7 +10,7 @@ import { applyActionEventReducer, makeEventReducer } from "./event";
 import { ChatActionReducer, ChatStateAction, composeReducers, defaultReducer, ReducerFunction, reducerToFunction } from "./reducer";
 import { StoreF2 } from "./storeF";
 import { LocalStateAction } from "./tree2";
-import { BasicAppEvent, If } from "./types-util";
+import { BasicAppEvent, If, IfDef } from "./types-util";
 import { RenderFunc, AppBuilder } from "./appbuilder";
 
 
@@ -56,7 +56,7 @@ export function withInit<
     (f: (a: AppBuilder<R, H, Ext, RootComp>, ext: Ext) =>
         CA.AppChatAction<R, H, BasicAppEvent<R, H>>)
     : (a: AppBuilder<R, H, Ext, RootComp>) =>
-        AppBuilder<R, H, Ext & WithInit<R, H, void>, RootComp> {
+        AppBuilder<R, H, Ext & WithInit<R, H, {}>, RootComp> {
     return (a: AppBuilder<R, H, Ext, RootComp>) => a.extend(a => ({ init: () => f(a, a.ext) }))
 }
 
@@ -228,9 +228,10 @@ export function defaultBuild<
 
 export const finishBuild = () => complete
 
+
 export function complete<
-    P, Ctx extends RootComp, RootComp, R, H extends H1, Ext, H1,
-    StateDeps,
+H extends H1, P, Ctx extends RootComp, RootComp, R,Ext, H1,
+    StateDeps, TypeAssert extends IfDef<H, {}, never> = IfDef<H, {}, never>
     >
     (a: AppBuilder<R, H,
         & Ext
@@ -269,7 +270,7 @@ export function withCreateApplication<
         & Ext
         , RootComp>) {
 
-    const app = pipe(a, extend(_ => ({
+    const app = a.extend(_ => ({
         createApplication: (deps: InitDeps & StateDeps): Application<R, H> => {
             const state = _.ext.state(deps)
             const actionReducer = _.ext.actionReducer
@@ -288,7 +289,7 @@ export function withCreateApplication<
                 renderFunc,
             })
         }
-    })))
+    }))
 
     return {
         app,

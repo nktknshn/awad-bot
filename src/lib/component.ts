@@ -18,7 +18,7 @@ export interface ComponentStateless<P, R extends ComponentGenerator<E>, E> {
 
 export type ComponentWithState<P, S, E> = ComponentConnected<P, S, {}, {}, E>
 
-export interface ComponentConnected<P extends M, S, M, RootState, E, E2=E> {
+export interface ComponentConnected<P extends M, S, M, RootState, E, E2 = E> {
     cons: CompConstructorWithState<P, S, E>;
     mapper: (state: RootState) => M;
     props: Subtract<P, M>;
@@ -62,6 +62,13 @@ export function ConnectedComp<P extends M, S, M, State, E>(
     };
 }
 
+export function connected0<P, S, E>(
+    cons: CompConstructorWithState<P, S, E>
+) {
+    return (props: P) => ConnectedComp(cons, _ => ({}))(props);
+}
+
+
 export function connected1<P extends M, S, M, State, E>(
     mapper: (state: State) => M,
     cons: CompConstructorWithState<P, S, E>
@@ -86,6 +93,7 @@ export function connected2<P extends M, S, M, State, PP, E>(
 
 export type LazyType<T> = T
 
+
 export function connected<P extends M, S, M, State, PP, E>(
     mapper: (state: State) => M,
     cons: (reqs: Readonly<P>, props: PP, getset: GetSetState<S>) => ComponentGenerator<E>
@@ -100,6 +108,24 @@ export function connected<P extends M, S, M, State, PP, E>(
         }
     );
 }
+
+export type ConnectedM<P = {}, PP = unknown, S = {}> = { reqs?: Readonly<P>, props?: PP, getset: GetSetState<S> }
+
+export function connectedR<P extends M, S, M, State, PP, E>(
+    mapper: (state: State) => M,
+    cons: (rec: { reqs?: Readonly<P>, props?: PP, getset: GetSetState<S> }) => ComponentGenerator<E>
+): (props: PP) => ComponentConnected<P & PP, S, M, State, E> {
+    return (props: PP) => (
+        {
+            cons: (reqs: P, getset: GetSetState<S>) => cons({ reqs, props, getset }),
+            props: (props as unknown) as Subtract<P & PP, M>,
+            mapper,
+            kind: 'component-with-state-connected',
+            id: cons.toString()
+        }
+    );
+}
+
 
 export function connectedMap<P extends M, S, M, State, PP, E, E2 = E>(
     mapper: (state: State) => M,

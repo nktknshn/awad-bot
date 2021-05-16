@@ -5,7 +5,6 @@ import { createApp } from './bot8/index8'
 import { initLogging, mylog } from "Lib/logging"
 import { attachAppToBot } from "Lib/util"
 import { token } from "./telegram-token.json"
-import { levelDatabase, levelTracker } from "bot3/leveltracker"
 
 async function main() {
     initLogging([

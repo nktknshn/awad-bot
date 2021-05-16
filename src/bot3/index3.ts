@@ -1,15 +1,13 @@
 import { pipe } from "fp-ts/lib/function";
+import { finishBuild, startBuild } from "Lib/appbuilder";
 import { chatState } from "Lib/chatstate";
-import * as FL from "Lib/components/actions/flush";
 import * as TR from "Lib/components/actions/tracker";
 import { withUserMessages } from 'Lib/context';
-import { defaultFlushAction, DefaultState, addDefaultBehaviour, withDefaults, withStore } from "Lib/defaults";
+import { addDefaultBehaviour, defaultState, withStore } from "Lib/defaults";
 // import { defaultBehaviour } from "Lib/defaults";
 import * as AP from 'Lib/newapp';
 import { select } from 'Lib/state';
 import { storef, StoreF2 } from 'Lib/storeF';
-import { ComponentReqs, GetState } from 'Lib/types-util';
-import { finishBuild, startBuild } from "Lib/appbuilder";
 import { TelegrafContext } from "telegraf/typings/context";
 import { PhotoSize } from 'telegraf/typings/telegram-types';
 import { App } from './app';
@@ -49,7 +47,7 @@ const tracker = createLevelTracker('./mydb')
 
 const state = () => chatState([
     TR.withTrackingRenderer(tracker),
-    withDefaults(),
+    defaultState(),
     async () => ({
         store: store(),
     }),

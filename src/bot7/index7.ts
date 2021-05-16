@@ -2,14 +2,14 @@ import { bot2Reducers, contextCreatorBot2, initBot2 } from "bot2/index2"
 import { AwadServices } from "bot2/services"
 import { createAwadStore } from "bot2/store"
 import { setDoFlush } from "bot5/actions"
-import { pipe } from "fp-ts/lib/function"
+import { identity, pipe } from "fp-ts/lib/function"
 import * as CA from 'Lib/chatactions'
 import { Tracker } from "Lib/chatrenderer"
 import { chatState, empty, stateSelector, subStateSelector } from "Lib/chatstate"
 import { ComponentElement, connected } from "Lib/component"
 import * as FL from "Lib/components/actions/flush"
 import { reloadInterface } from "Lib/components/actions/misc"
-import { renderTimerState, withTimer } from "Lib/components/actions/rendertimer"
+import { timerState, withTimer } from "Lib/components/actions/rendertimer"
 import * as TR from "Lib/components/actions/tracker"
 import { contextFromKey, contextSelector } from "Lib/context"
 import * as DE from "Lib/defaults"
@@ -18,7 +18,7 @@ import { action, caseTextEqual, inputHandler, on } from "Lib/input"
 import * as AP from "Lib/newapp"
 import { chatStateAction, hasKind, reducer } from "Lib/reducer"
 import { composeStores } from "Lib/storeF"
-import { BasicAppEvent, GetChatState } from "Lib/types-util"
+import { AppActionsFlatten, BasicAppEvent, GetChatState } from "Lib/types-util"
 import { finishBuild, startBuild } from "Lib/appbuilder"
 import { TelegrafContext } from "telegraf/typings/context"
 import { App as App2 } from '../bot2/app'
@@ -120,7 +120,7 @@ const App = connected(
 
         if (showInfo)
             yield contextFromKey('info', Info({}))
-        else
+        else   
             yield button('show', toggleInfo)
 
         yield inputHandler([
@@ -148,7 +148,7 @@ type Deps = { services: AwadServices, t?: Tracker }
 
 const state = ({ services, t }: Deps) =>
     chatState([
-        DE.withDefaults(),
+        DE.defaultState(),
         TR.withTrackingRenderer(t),
         async () => ({
             activeApp: empty<ActiveApp>(),
@@ -161,34 +161,11 @@ const state = ({ services, t }: Deps) =>
             // XXX
         }),
         bot8state,
-        renderTimerState,
+        timerState,
         userId,
     ])
 
 
-// , a => DE.addDefaultBehaviour(a, {
-//     applyInputHandler: a.actions([a.ext.startTimer, CA.applyInputHandler]),
-//     applyActionHandler: a.actions([a.ext.startTimer, CA.applyActionHandler]),
-//     render: a.actions([CA.render, a.ext.stopTimer]),
-//     flushAction: a.actions([
-//         CA.flush,
-//         CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
-//             CA.onTrue(!!useTrackingRenderer && forgetFlushed,
-//                 useTrackingRenderer!.untrackRendererElementsAction))
-//     ]),
-// })
-// , DE.addEnv(a => d => ({
-//     ...d,
-//     applyInputHandler: a.actions([a.ext.startTimer, d.applyInputHandler]),
-//     applyActionHandler: a.actions([a.ext.startTimer, d.applyActionHandler]),
-//     render: a.actions([d.render, a.ext.stopTimer]),
-//     flushAction: a.actions([
-//         CA.flush,
-//         CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
-//             CA.onTrue(!!useTrackingRenderer && forgetFlushed,
-//                 useTrackingRenderer!.untrackRendererElementsAction))
-//     ])
-// }))
 export const app = <RootComponent extends ComponentElement, P>(
     app: (props: P) => RootComponent, st: typeof state
 ) => pipe(
@@ -197,6 +174,7 @@ export const app = <RootComponent extends ComponentElement, P>(
     , a => DE.addDefaultBehaviour(a, {
         applyInputHandler: a.actions([a.ext.startTimer, CA.applyInputHandler]),
         applyActionHandler: a.actions([a.ext.startTimer, CA.applyActionHandler]),
+        renderWrapperMessage: ac => ac ?? a.action(CA.doNothing),
         render: a.actions([CA.render, a.ext.stopTimer]),
         flushAction: a.actions([
             CA.flush,
@@ -239,9 +217,11 @@ export const app = <RootComponent extends ComponentElement, P>(
 
 // const gettype2 = <RootComp, Ext, H, R>(a: Utils<R, H, BasicAppEvent<R, H>, Ext, RootComp>) => a
 
+type HHH = AppActionsFlatten<typeof App>
+
 export const { createApplication } = pipe(
     app(App, state)
-    , finishBuild()
+    , a => AP.complete(a)
     , AP.withCreateApplication
 )
 

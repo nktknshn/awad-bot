@@ -33,11 +33,9 @@ export const applyActionEventReducer = <R, H, E>() =>
             : event is ApplyActionsEvent<R, H, E> =>
             'kind' in event && event.kind === 'apply-actions-event',
         event => async (ctx: CA.ChatActionContext<R, H, E>) => {
-            return await CA.sequence(event.actions)(ctx)
-            // return ctx.app.renderFunc(
-                // await CA.sequence(event.actions)(ctx)
-            // )
-            // .renderFunction(ctx.chatdata.renderer);
+            return await CA.sequence(event.actions)(ctx).then(s => {
+                console.log(s); return s
+            })
         }
     )
 

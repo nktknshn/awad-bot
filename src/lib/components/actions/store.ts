@@ -12,7 +12,7 @@ export const connectFStore =
         u.action(
             async ({ app, queue, chatdata }) => ({
                 ...chatdata,
-                store: chatdata[key].withDispatch(
+                [key]: chatdata[key].withDispatch(
                     F.flow(
                         app.actionReducer,
                         createActionEvent,

@@ -1,13 +1,14 @@
 import { Lens } from "monocle-ts";
 import { mylog } from "./logging";
+import { RequiredKeepUndefined } from "./types-util";
 
 
 type LensObject<S> = {
     [k in keyof S]-?: Lens<S, S[k]>
 }
 
-export function storef<S extends {}>(initial: S): StoreF2<S, StoreAction<S>> {
-    return new StoreF<S>(initial)
+export function storef<S extends {}>(initial: RequiredKeepUndefined<S>): StoreF2<S, StoreAction<S>> {
+    return new Store2F<S>(initial)
 }
 
 // true

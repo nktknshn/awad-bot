@@ -315,7 +315,8 @@ export function rerunComponentTree<C, S>(
 
     if (!equal(props, result.input.props)) {
         console.log('needs rerender by props');
-
+        console.log(`props: ${JSON.stringify(props)}`);
+        
         rerender = true
     }
 

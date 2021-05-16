@@ -268,22 +268,6 @@ export type AppEventsOf<C> =
     ? E : never
 
 
-// <TypeAssert extends If<{}, E, never, {}> = If<{}, E, never, {}>>
-export function initApplication<R, H, E>(app: Application<R, H, E>) {
-    return async (ctx: TelegrafContext): Promise<InitializedApp<R, H, E>> => {
-        const { chatdata } = app.renderFunc(await app.state(ctx))
-
-        return {
-            app: {
-                ...app,
-                handleAction: app.handleAction ?? defaultHandleAction(),
-                init: app.init ?? CA.doNothing,
-                queueStrategy: app.queueStrategy ?? (() => { })
-            },
-            chatdata,
-        }
-    }
-}
 
 export function createQueuedChatHandler<R, H, E>(
     { app, chatdata }: InitializedApp<R, H, E>
@@ -327,6 +311,22 @@ export function createQueuedChatHandler<R, H, E>(
         }
     }), true)
 }
+// <TypeAssert extends If<{}, E, never, {}> = If<{}, E, never, {}>>
+export function initApplication<R, H, E>(app: Application<R, H, E>) {
+    return async (ctx: TelegrafContext): Promise<InitializedApp<R, H, E>> => {
+        const { chatdata } = app.renderFunc(await app.state(ctx))
+
+        return {
+            app: {
+                ...app,
+                handleAction: app.handleAction ?? defaultHandleAction(),
+                init: app.init ?? CA.doNothing,
+                queueStrategy: app.queueStrategy ?? (() => { })
+            },
+            chatdata,
+        }
+    }
+}
 
 export const createOpaqueChatHandler = <R, H, E>(app: Application<R, H, E>) =>
     async (ctx: TelegrafContext): Promise<OpaqueChatHandler<E>> => {
@@ -336,12 +336,12 @@ export const createOpaqueChatHandler = <R, H, E>(app: Application<R, H, E>) =>
         if (app.init) {
             chat._chat.setChatData(
                 chat._chat,
-                await app.init({
+                app.renderFunc(await app.init({
                     app,
                     tctx: ctx,
                     queue: chat,
-                    chatdata: a.chatdata
-                })
+                    chatdata: {...a.chatdata, treeState: undefined}
+                })).chatdata
             )
         }
 

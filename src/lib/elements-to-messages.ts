@@ -37,6 +37,9 @@ export function completeDraft<H>(d: RenderDraft<H>): RenderDraft<H> {
             acc.addKeyboardButton(cur), lastMessage.message)
     }
 
+    if(!lastMessage)
+        return d
+
     return {
         ...d,
         messages: getOrElse(() => d.messages)(A.updateAt(

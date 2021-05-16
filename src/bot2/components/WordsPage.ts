@@ -202,7 +202,7 @@ function getAllTags(words: WordEntityState[]) {
 }
 
 
-function* InputBox<R1, R2, R3>({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Cancel' }: {
+export function* InputBox<R1, R2, R3>({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Cancel' }: {
   title: string,
   cancelTitle?: string,
   onCancel: () => R1,

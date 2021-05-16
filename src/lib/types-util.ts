@@ -93,9 +93,9 @@ export type AppActionsFlatten<T> = Flatten<GetAllComps<T> extends infer B
     ? E extends infer EE
     ? EE extends ButtonElement<infer R> ? R
     : EE extends ButtonsRowElement<infer R> ? R
-    : EE extends InputHandlerElement<infer R> ? R extends Matcher2<infer G> ? G : never
+    : EE extends InputHandlerElement<infer R> ? R
     : EE extends EffectElement<infer R> ? R
-    : never : never : never : never>
+    : never : never : never : never> extends infer R ? R extends Matcher2<infer G> ? Flatten<G> : R : never
 
 export type IsFunction<T> = T extends (props: infer P) =>
     ComponentConnected<infer P, infer S, infer M, infer RootState, infer E, infer E2> ? true : false
@@ -189,6 +189,9 @@ export type Merge<A, B> = A & B
 // type Merge<A, B> = {
 //     [P in keyof A ]
 // }
+export type RequiredKeepUndefined<T> = { [K in keyof T]-?: [T[K]] } extends infer U
+? U extends Record<keyof U, [any]> ? { [K in keyof U]: U[K][0] } : never
+: never;
 
 import { ChatState } from "./chatstate";
 import { Defined } from "./appbuilder";

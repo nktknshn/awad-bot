@@ -250,6 +250,7 @@ export function composeReducers<R, H, E>(...ms: ChatActionReducer<any, R, H, E>[
         },
         f: (a: any) => {
             console.log('composeReducers.f');
+            console.log(`a: ${JSON.stringify(a)}`);
 
             for (const m of ms) {
                 if (m.isA(a))

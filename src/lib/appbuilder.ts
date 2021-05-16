@@ -69,14 +69,6 @@ export const startBuild = <
         reducerFunc: f => f
     });
 };
-// type Merge<T1 extends {}, T2 extends {}> = { [K1 in (keyof T1 | keyof T2)]: K1 extends keyof T2 ? T2[K1] : K1 extends keyof T1 ? T1[K1] : never }
-// export type Merge<A, B> = A & B
-// type Merge<T1 extends {}, T2 extends {}> = { [K1 in keyof T1]: T1[K1]} & T2
-// type OA = Merge<Merge<{a: number}, {c: 1}>, {sasas: 1}>
-// Object.keys(a)
-// .filter(_ => Object.keys(b).indexOf(_) > -1)
-// .reduce((acc, cur) => ({...acc, [cur]: a[cur]}))
-// ({ ...a, ...b })
 
 export function createBuilder<R, H, Ext, RootComponent>(
     ext: Ext
