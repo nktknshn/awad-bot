@@ -111,7 +111,7 @@ export class DefaultRender<R extends DefaultState, H, Ext, ReqContext> {
     renderWrapperMessage = FL.deferredRender
     renderWrapperAction = (action: CA.AppChatAction<R, H>) => this.a.action(
         CA.chain(({ chatdata }) => chatdata.bufferActions
-            ? FL.deferredRender(action)
+            ? FL.deferredRender({ action })
             : action)
     )
 }
@@ -131,7 +131,7 @@ function getdef<R extends DefaultState, H, Ext, ReqContext, P, T>
         renderWrapperMessage = FL.deferredRender
         renderWrapperAction = (action: CA.AppChatAction<R, H>) => a.action(
             CA.chain(({ chatdata }) => chatdata.bufferActions
-                ? FL.deferredRender(action)
+                ? FL.deferredRender({ action })
                 : action)
         )
     }
@@ -176,16 +176,16 @@ export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, 
         flushAction = a.action(CA.withChatState(s => s.flushAction())),
         flushIfNeeded = a.action(FL.flushIfNeeded(flushAction)),
         renderMessage = a.actions([render, flushIfNeeded]),
-        renderAction = a.actions([render, flushIfNeeded, CA.replyCallback]),
+        renderAction = a.actions([CA.replyCallback, render, flushIfNeeded]),
         reloadInterfaceAction = reloadInterface,
         applyEffects = CA.applyEffects,
         applyInputHandler = a.action(CA.applyInputHandler),
         applyActionHandler = a.action(CA.applyActionHandler),
-        renderWrapperMessage = (action: CA.AppChatAction<R, H>) => a.action(FL.deferredRender(action)),
-        renderWrapperAction = (action: CA.AppChatAction<R, H>) => a.action(
+        renderWrapperMessage = (c: { action: CA.AppChatAction<R, H> }) => a.action(FL.deferredRender(c)),
+        renderWrapperAction = (c: { action: CA.AppChatAction<R, H> }) => a.action(
             CA.chain(({ chatdata }) => chatdata.bufferActions
-                ? FL.deferredRender(action)
-                : action)
+                ? FL.deferredRender(c)
+                : c.action)
         ),
         useTracking = true,
     } = {}
@@ -205,12 +205,12 @@ export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, 
                 // FL.addUserMessageIfNeeded(),
                 CA.addRenderedUserMessage(),
                 applyEffects,
-                renderWrapperMessage(renderMessage)
+                renderWrapperMessage({ action: renderMessage })
             ])
             , handleAction: a.actions([
                 applyActionHandler,
                 applyEffects,
-                renderWrapperAction(renderAction),
+                renderWrapperAction({ action: renderAction }),
             ])
         }))
         , AP.extend(a => ({

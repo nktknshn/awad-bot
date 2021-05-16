@@ -14,15 +14,24 @@ const parseCommand = <T>(prefix: string, getData: (s: string) => T) => (text: st
 }
 
 const parseFileId = O.fromNullableK(parseCommand('file', Number.parseInt))
-const caseFileId = flow(
-    caseText,
-    O.chain(a => pipe(
-        a, a => parseFileId(a.messageText),
-        O.map(fileId => ({
-            ...a, fileId
-        }))
-    ))
-)
+
 const parseDirId = O.fromNullableK(parseCommand('dir', Number.parseInt))
 
-export { parseFileId, caseFileId, parseCommand, parseDirId }
+const parseVaultFileId = O.fromNullableK(parseCommand('vault_file', Number.parseInt))
+
+
+const caseSomeId = <T, K extends keyof any>(parser: (text: string) => O.Option<T>, key: K) => flow(
+    caseText,
+    O.chain(a => pipe(
+        a, a => parser(a.messageText),
+        O.map(res => ({
+           [key]: res,
+        })),
+        O.map(b => ({...b}))
+    ))
+)
+
+const caseFileId = caseSomeId(parseFileId, 'fileId')
+const caseVaultFileId = caseSomeId(parseVaultFileId, 'fileId')
+
+export { parseFileId, caseFileId, parseCommand, parseDirId, caseSomeId, caseVaultFileId }

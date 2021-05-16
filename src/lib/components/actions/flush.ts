@@ -23,7 +23,7 @@ export const setBufferedInputEnabled = (bufferedInputEnabled: boolean) =>
 export const setBufferedOnce = (bufferedOnce: boolean) =>
     chatStateAction<{ bufferedOnce: boolean }>(s =>
         ({ ...s, bufferedOnce })
-    ) 
+    )
 // export type WithFlushArgs = 
 export const withFlush = ({
     deferRender = 1500,
@@ -37,7 +37,7 @@ export const withFlush = ({
     bufferedOnce,
 })
 
-export const deferRender = (n: number) => ({
+export const setDeferRender = (n: number) => ({
     kind: 'chatstate-action' as 'chatstate-action',
     f: <R extends { deferRender: number }>(s: R) =>
         ({ ...s, deferRender: n })
@@ -48,20 +48,30 @@ export const flushIfNeeded = <R extends FlushState, H>(a: CA.AppChatAction<R, H>
         c => c.doFlush ? a : CA.doNothing)
 
 export const deferredRender = <R extends FlushState & FlushAction, H>(
-    render: CA.AppChatAction<R, H> = CA.render,
-    enabled = true
+    { action = CA.render,
+        enabled = true,
+        waitForTimer = true
+    }: {
+        action?: CA.AppChatAction<R, H>,
+        enabled?: boolean,
+        waitForTimer?: boolean,
+    } = {}
 ) =>
-    CA.withChatState<R, H, BasicAppEvent<R, H>>(({ deferRender, bufferedInputEnabled }) =>
-        enabled && bufferedInputEnabled && deferRender > 0
-            ? CA.scheduleEvent(
-                deferRender,
-                createActionEvent([
-                    render,
-                    CA.mapState(s =>
-                        setBufferedInputEnabled(!s.bufferedOnce).f(s)
-                    ),
-                ]))
-            : render
+    CA.withChatState<R, H, BasicAppEvent<R, H>>(({ deferRender, deferredRenderTimer, bufferedInputEnabled }) =>
+        enabled && bufferedInputEnabled && waitForTimer && deferRender > 0
+            ? deferredRenderTimer
+                ? CA.doNothing
+                : CA.scheduleEvent(
+                    deferRender,
+                    createActionEvent([
+                        action,
+                        CA.sequence([
+                            CA.mapState(s => ({ ...s, deferredRenderTimer: undefined })),
+                            CA.mapState(s =>
+                                setBufferedInputEnabled(!s.bufferedOnce).f(s),
+                            )]),
+                    ]))
+            : action
     )
 
 export const addUserMessageIfNeeded = <R extends FlushState, H, E>() =>

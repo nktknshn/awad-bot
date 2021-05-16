@@ -55,12 +55,13 @@ export function locationButton(text: string) {
 
 export function button<R>(
     text: (string | [string, string]),
-    callback: () => R
+    callback: () => R,
+    nextLine = false
 ) {
 
     let [buttonText, data] = Array.isArray(text) ? text : [text, text]
 
-    return new ButtonElement(buttonText, data, callback)
+    return new ButtonElement(buttonText, data, callback, nextLine)
 }
 
 export function radioRow<R>(

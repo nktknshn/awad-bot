@@ -5,7 +5,7 @@ import { connected, connected0, connected1, connectedR } from "Lib/component";
 import { withTrackingRenderer } from "Lib/components/actions/tracker";
 import { addDefaultBehaviour, defaultState, withStore } from "Lib/defaults";
 import { button, buttonsRow, keyboardButton, messagePart, nextMessage } from "Lib/elements-constructors";
-import { CA, A, AP, B, chatState, message, EC, inputHandler, O } from 'Lib/lib'
+import { CA, A, AP, B, chatState, message, EC, inputHandler, O, FL } from 'Lib/lib'
 import { finishBuild } from "Lib/newapp";
 import { select } from "Lib/state";
 import { GetSetState } from "Lib/tree2";
@@ -15,14 +15,14 @@ import * as E from 'fp-ts/lib/Either'
 
 import fs from 'fs/promises'
 import path from "path";
-import { lens, storeAction, StoreF, storef, StoreF2 } from "Lib/storeF";
+import { lens, StoreAction, storeAction, StoreF, storef, StoreF2 } from "Lib/storeF";
 import { action, caseText, ifTrue, on } from "Lib/input";
 import { flow, identity } from "fp-ts/lib/function";
-import { dirToVault, getVaultDirs, itemByPath, normPath, ObsidianDir, ObsidianFile, ObsidianVault, readdirRe1, Vault, withIndex } from "./obs";
-import { caseFileId, parseDirId } from "./util";
+import { dirToVault, getVaultDirs, itemByPath, itemByUrl, normPath, ObsidianDir, ObsidianFile, ObsidianVault, readdirRe1, Vault, withIndex } from "./obs";
+import { caseFileId, caseSomeId, caseVaultFileId, parseDirId } from "./util";
 import { AppActions, AppActionsFlatten, GetChatState, GetState, RequiredKeepUndefined } from "Lib/types-util";
 import { InputHandlerData } from "Lib/textmessage";
-import { deferRender, setBufferedOnce, setBufferedInputEnabled } from "Lib/components/actions/flush";
+import { setDeferRender, setBufferedOnce, setBufferedInputEnabled } from "Lib/components/actions/flush";
 
 
 const InputBox = connected0(function* InputBox<R1, R2, R3>({ title, onCancel, onSuccess, onWrongInput, cancelTitle = 'Cancel' }: {
@@ -55,19 +55,22 @@ const storeActions = (store: StoreF2<Store>) => {
     const setOpenFile = storeAction(lens(store).openFile.set)
     const setOpenFileContent = storeAction(lens(store).openFileContent.set)
 
-    const openFile = storeAction((file?: ObsidianFile) => {
+    const openFile = storeAction((file?: ObsidianFile, onReadyActions: StoreAction<Store>[] = [
+        setOpenFile(file ? file.path : store.state.openFile ?? undefined)
+    ]) => {
         const filePath = file ? file.path : store.state.openFile ?? undefined
 
         if (filePath) {
             fs.readFile(filePath)
                 .then(content => {
-                    store.dispatch({
-                        kind: 'store-action', f:
-                            lens(store).openFileContent.set(content.toLocaleString())
-                    })
+                    store.dispatch(
+                        [
+                            setOpenFileContent(content.toLocaleString()),
+                            ...onReadyActions,
+                        ])
                 })
 
-            return lens(store).openFile.set(filePath)
+            return lens(store).error.modify(identity)
         }
 
         return lens(store).error.modify(identity)
@@ -76,20 +79,21 @@ const storeActions = (store: StoreF2<Store>) => {
     const appendLine = storeAction(
         (line: string) => {
             if (store.state.openFile)
-                fs.appendFile(store.state.openFile, line + '\n').then(_ =>
+                fs.appendFile(store.state.openFile, line).then(_ =>
                     store.dispatch(
-                        openFile()
+                        [openFile()]
                     ))
 
             return lens(store).error.modify(identity)
         }
     )
+
     const setContent = storeAction(
         (content: string) => {
             if (store.state.openFile)
                 fs.writeFile(store.state.openFile, content).then(_ =>
                     store.dispatch(
-                        openFile()
+                        [openFile()]
                     ))
 
             return lens(store).error.modify(identity)
@@ -103,24 +107,18 @@ const storeActions = (store: StoreF2<Store>) => {
 
             vaultPath = vaultPath ?? store.state.vault!.path
 
-            console.log('vaultPath vaultPath vaultPath');
-            console.log(vaultPath);
-
             readdirRe1(vaultPath).then(
                 flow(
                     E.fold(
                         error => lens(store).error.set(error.message),
                         v => {
-                            console.log('dirToVault(vault).files')
-                            console.log(dirToVault(v).files);
-
                             const vault = dirToVault(v)
                             return flow(
                                 lens(store).vault.set(vault),
                                 // lens(store).openDir.set(),
                             )
                         })
-                    , f => store.dispatch({ kind: 'store-action', f })
+                    , f => store.dispatch([{ kind: 'store-action', f }])
                 ))
 
             return lens(store).error.modify(identity)
@@ -131,7 +129,7 @@ const storeActions = (store: StoreF2<Store>) => {
         (parentDir: ObsidianDir, dirname: string) => {
             fs.mkdir(path.join(parentDir.path, dirname))
                 .then(_ =>
-                    store.dispatch(openVault())
+                    store.dispatch([openVault()])
                 )
 
             return lens(store).error.modify(identity)
@@ -143,7 +141,7 @@ const storeActions = (store: StoreF2<Store>) => {
             fs.writeFile(path.join(parentDir.path, `${filename}.md`), '')
                 .then(_ =>
                     store.dispatch(
-                        openVault()
+                        [openVault()]
                     ))
 
             return lens(store).error.modify(identity)
@@ -158,7 +156,7 @@ const storeActions = (store: StoreF2<Store>) => {
             fs.rename(oldfile, newPath)
                 .then(_ =>
                     store.dispatch(
-                        openVault()
+                        [openVault()]
                     ))
 
 
@@ -199,15 +197,14 @@ type WithStoreActions = Record<'storeActions', ReturnType<typeof storeActions>>
 const VaultDirs = connected(
     select((c: { vault: ObsidianVault, openFile?: string, openDir?: string } & WithStoreActions) =>
     ({
-        currentDir: itemByPath(c.openDir)(c.vault.dirs),
         dirs: getVaultDirs(c.vault),
         openDir: c.openDir,
         vaultPath: c.vault.path,
         openFile: c.openFile,
         storeActions: c.storeActions
     })),
-    function* ({ dirs, openDir, vaultPath, storeActions, openFile, currentDir }
-        , { showEmpty }: { showEmpty: boolean }
+    function* ({ dirs, openDir, vaultPath, storeActions, openFile }
+        , { showEmpty, expandedDirs }: { showEmpty: boolean, expandedDirs: string[] }
         , { lenses, getState, setState }: GetSetState<{
             createItem?: 'file' | 'dir',
             itemName?: string
@@ -215,10 +212,16 @@ const VaultDirs = connected(
     ) {
         const { createItem, itemName } = getState({})
 
+        const { item: currentDir } = itemByPath(openDir)(dirs)
+
         const resetCreateItem = [
             setState(lenses('createItem').set(undefined)),
             setState(lenses('itemName').set(undefined))
         ]
+
+        // yield message(expandedDirs)
+        // yield message(itemName ?? 'none')
+        // yield message(createItem ?? 'none')
 
         yield nextMessage()
 
@@ -232,13 +235,14 @@ const VaultDirs = connected(
             const title = boldify(
                 _ => openDir == d.path,
                 d.files.length
-                    ? `${name}`
+                    ? `<code>${name}</code>`
                     : `${name} <code>(empty)</code>`)
 
             yield messagePart(`/dir_${idx}      ${title}`)
 
-            if (openDir == d.path)
-                yield VaultOpenDirFiles({})
+            // if (openDir == d.path)
+            if (expandedDirs.includes(d.path))
+                yield VaultOpenDirFiles({ dpath: d.path })
         }
 
         if (!openFile && openDir) {
@@ -252,7 +256,7 @@ const VaultDirs = connected(
                 cancelTitle: 'Cancel',
                 onCancel: () => [setState(lenses('createItem').set(undefined))],
                 onSuccess: name => [setState(lenses('itemName').set(name))],
-                onWrongInput: () => []
+                onWrongInput: () => resetCreateItem
             })
         }
         else if (createItem && itemName && currentDir) {
@@ -274,30 +278,33 @@ const VaultOpenDirFiles = connected(
         & WithStoreActions) =>
     ({
         vaultDirs: c.vault.dirs,
-        openDir: c.openDir,
+        vaultFiles: c.vault.files,
+        // openDir: c.openDir,
         vaultPath: c.vault.path,
-        storeActions: c.storeActions,
+        // storeActions: c.storeActions,
         openFile: c.openFile
     })),
-    function* ({ vaultDirs, openDir, vaultPath, storeActions, openFile }, { }: {},
+    function* ({ vaultDirs, vaultFiles, vaultPath, openFile }, { dpath }: { dpath: string },
         { getState, setState, lenses }: GetSetState<{
             createItem?: 'file' | 'dir',
             itemName?: string
         }>
     ) {
 
-        const currentDir = itemByPath(openDir)(vaultDirs)
+        const { item: currentDir } = itemByPath(dpath)(vaultDirs)
 
-        if (!openDir || !currentDir)
+        if (!currentDir)
             return
 
-        for (const [f, idx] of withIndex(currentDir.files)) {
+        for (const f of currentDir.files) {
+            const { idx } = itemByPath(f.path)(vaultFiles)
+
             const title = boldify(
                 _ => openFile == f.path,
                 italify(_ => true, path.basename(normPath(vaultPath, f.path))
                     .replace('.md', '')))
 
-            yield messagePart(`/file_${idx}          ${title}`)
+            yield messagePart(`/file_${idx}            ${title}`)
         }
 
     })
@@ -317,39 +324,80 @@ const OpenedFile = connected(
         { getState, setState, lenses }: GetSetState<{
             overwright: boolean,
             rename: boolean,
+            autoNl: boolean,
+            doAddSpace: boolean,
+            addSymbol: string,
+            addListItems: boolean,
             newFileName?: string
         }>) {
-        const { overwright, rename, newFileName } = getState({
+        const { overwright, rename, newFileName, addListItems, addSymbol } = getState({
             overwright: false,
+            addListItems: true,
+            autoNl: true,
+            doAddSpace: false,
+            addSymbol: '\n',
             rename: false,
         })
 
+        if (!openFile)
+            return
+
         const setOverwright = (b: boolean) => setState(lenses('overwright').set(b))
+        const setAddListItems = (b: boolean) => setState(lenses('addListItems').set(b))
+        const setAutoNl = (b: boolean) => setState(lenses('autoNl').set(b))
+        const setAddSymbol = (addSymbol: string) => setState(lenses('addSymbol').set(addSymbol))
+
+
         const setRename = (b: boolean) => setState(lenses('rename').set(b))
         const setNewFileName = (fname?: string) => setState(lenses('newFileName').set(fname))
         const resetRename = [setRename(false), setNewFileName(undefined)]
+
+        const mapMessageText = (messageText: string) => addListItems ? '- ' + messageText : messageText
+        const addNil = (messageText: string) => messageText + addSymbol
+
+        // const addSpace = (messageText: string) => doAddSpace ? messageText + ' ' : messageText
+
         yield inputHandler([
             on(caseText
                 , ifTrue(_ => openFileContent !== undefined)
                 , ifTrue(c => !c.messageText.startsWith('/'))
                 , action(({ messageText }) =>
                     overwright
-                        ? [setOverwright(false), storeActions.setContent(messageText)]
-                        : storeActions.appendLine(messageText)
+                        ? [setOverwright(false), storeActions.setContent(
+                            pipe(
+                                messageText
+                                , messageText =>
+                                    messageText[messageText.length - 2] == '\n'
+                                        && messageText[messageText.length - 1] == '>'
+                                        ? messageText.slice(0, messageText.length - 1)
+                                        : messageText
+                            ))]
+                        : storeActions.appendLine(
+                            pipe(messageText
+                                , mapMessageText
+                                , addNil
+                            ))
                 ))
         ])
 
-        if (!openFile)
-            return
+        const formatContent = (content: string) => pipe(
+            content.split('\n')
+            , A.map(line => boldify(_ => line.startsWith('#'), line))
+            , A.map(line => line.replace(/\[\[(.+)\]\]/, '<code>[[$1]]</code>'))
+            , list => list.join('\n')
+            , text => text.length && text[text.length - 1] == '\n'
+                ? text + '<code>></code>'
+                : text
+        )
 
         if (openFileContent !== undefined)
-            yield message(openFileContent.length ? openFileContent : '<code>empty</code>')
+            yield message(openFileContent.length ? formatContent(openFileContent) : '<code>empty</code>')
         else
             return
 
         if (rename && !newFileName) {
             yield InputBox({
-                title: `Rename ${path.basename(openFile)} to ?`,
+                title: `Rename ${path.basename(openFile).replace('.md', '')} to ...`,
                 cancelTitle: 'Cancel',
                 onCancel: () => resetRename,
                 onSuccess: name => [setNewFileName(name)],
@@ -358,7 +406,7 @@ const OpenedFile = connected(
             return
         }
         else if (rename && newFileName) {
-            yield message(`Rename ${path.basename(openFile)} to ${newFileName}?`)
+            yield message(`Rename ${path.basename(openFile).replace('.md', '')} to ${newFileName}?`)
             yield button('Yes', () => [
                 resetRename,
                 storeActions.renameFile(openFile, newFileName),
@@ -367,12 +415,30 @@ const OpenedFile = connected(
             return
         }
 
-        yield button(`Overwright ${overwright ? '☑' : '☐'}`,
-            () => setOverwright(!overwright))
+        // yield button(`space (${doAddSpace})`,
+        //     () => setDoAddSpace(!doAddSpace))
+        if (!overwright) {
+            if (!addListItems)
+                yield button(`auto NL (${addSymbol.charCodeAt(0)})`,
+                    () => addSymbol == '\n' ? setAddSymbol(' ') : addSymbol == ' ' ? setAddSymbol('') : setAddSymbol('\n'))
+
+            yield button(`\\n`,
+                () => storeActions.appendLine('\n'))
+
+            yield button(`List ${addListItems ? '☑' : '☐'}`,
+                () => setAddListItems(!addListItems))
+        }
+
+        yield button(`Replace ${overwright ? '☑' : '☐'}`,
+            () => setOverwright(!overwright), true)
 
         yield button(`Rename`,
             () => setRename(true))
 
+        if (openFile)
+            yield button('Close file', () => [
+                storeActions.setOpenFile(undefined)
+            ])
     })
 
 
@@ -381,12 +447,11 @@ const App = connected(
         storeActions: s.storeActions,
         error: s.error,
         vault: s.vault,
-        openFile: s.openFile,
-        openFileContent: s.openFileContent,
         openDir: s.openDir
     })),
-    function* ({ error, vault, openFile, storeActions, openDir }, props: {}, local: GetSetState<{
-        showEmpty: boolean
+    function* ({ error, vault, storeActions, openDir }, props: { expandAll: boolean }, local: GetSetState<{
+        showEmpty: boolean,
+
     }>) {
 
         if (error)
@@ -400,56 +465,82 @@ const App = connected(
         yield inputHandler([
             on(caseFileId, action(
                 ({ fileId }) => [
-                    openDir
-                        ? [
-                            // setBufferedOnce(true),
-                            // setBufferedInputEnabled(true),
-                            // deferRender(1000),
-                            storeActions.openFile(
-                                getVaultDirs(vault).find(_ => _.path == openDir)?.files[fileId]
-                            )
-                        ]
-                        : []]
-            )),
-            on(caseText, O.map((a) => a.messageText), O.chain(parseDirId), action(
+                    storeActions.openFile(
+                        vault.files[fileId]
+                    ),
+                    setDeferRender(1),
+                    setBufferedInputEnabled(true),
+                    setBufferedOnce(true),
+                ]
+            ))
+            // on(caseVaultFileId, action(({ fileId }) => storeActions.openFile(
+            //     vault.files[fileId]
+            // )))
+            , on(caseText, O.map((a) => a.messageText), O.chain(parseDirId), action(
                 (dirId) => [storeActions.setOpenDir(getVaultDirs(vault)[dirId].path)]
             )),
         ])
 
-        yield message(`<b>${vault.name}</b>`)
+        const links = [
+            itemByUrl('игра/дела/идеи дел')
+            , itemByUrl('incoming')
+            , itemByUrl('прочее/записки')
+        ]
 
-        yield button('🔄', () => [
-            storeActions.openVault(),
-        ])
+        const [ideasItem, incomingItem, notesItem] = links.map(
+            link => link(vault.path, vault.files)
+        )
 
-        yield button(`Empty (${showEmpty ? 1 : 0})`, () => [
-            local.setState(local.lenses('showEmpty').set(!showEmpty)),
-        ])
+        yield messagePart(`<b>${vault.name}</b>`)
+        yield nextMessage()
+
 
         yield button(`Close all`, () => [
             storeActions.setOpenFile(undefined),
             storeActions.setOpenDir(undefined)
         ])
 
-        const incomingFile = itemByPath(path.join(vault.path, 'incoming.md'))(vault.files)
+        yield button('🔄', () => [
+            storeActions.openVault(),
+        ])
 
-        if (incomingFile)
+        if (vault.dirs.find((_) => _.files.length == 0))
+            yield button(`Empty (${showEmpty ? 1 : 0})`, () => [
+                local.setState(local.lenses('showEmpty').set(!showEmpty)),
+            ], true)
+
+
+        // const incomingFile = itemByPath(path.join(vault.path, 'incoming.md'))(vault.files)
+
+        if (incomingItem.item)
             yield button(`Incoming`, () => [
-                storeActions.setOpenDir(vault.path),
-                storeActions.openFile(incomingFile)
+                storeActions.openFile(incomingItem.item, [
+                    storeActions.setOpenFile(incomingItem.item!.path),
+                ])
             ])
 
-        yield VaultDirs({ showEmpty })
+        if (notesItem.item)
+            yield button(`Записки`, () => [
+                storeActions.openFile(notesItem.item, [
+                    storeActions.setOpenFile(notesItem.item!.path),
+                ])
+            ])
+
+        yield VaultDirs({
+            showEmpty, expandedDirs: [
+                // incomingItem.item?.parentDirPath
+                // , notesItem.item?.parentDirPath
+                // , openDir
+                ...(props.expandAll ? vault.dirs.map(_ => _.path) : [openDir])
+            ].filter((b): b is string => !!b)
+        })
 
         yield OpenedFile({})
 
-        if (openFile || openDir)
-            yield button(openFile ? 'Close file' : 'Close dir', () => [
-                openFile
-                    ? storeActions.setOpenFile(undefined)
-                    : storeActions.setOpenDir(undefined),
-            ])
-
+        // if (!openFile && openDir)
+        //     yield button('Close dir', () => [
+        //         storeActions.setOpenDir(undefined)
+        //     ])
     })
 
 export const stateToContext = (cs: GetState<typeof state>) => ({
@@ -464,8 +555,19 @@ export const stateToContext = (cs: GetState<typeof state>) => ({
 const { createApplication } = pipe(
     startBuild(App, state)
     , addDefaultBehaviour
-    , a => withStore(a, { storeKey: 'store' })
+    , a => withStore(a, {
+        storeKey: 'store', storeAction: apply => a.actions([
+            apply,
+            FL.deferredRender({
+                waitForTimer: true
+            }),
+            // CA.render,
+        ])
+    })
     , AP.context(stateToContext)
+    , AP.props({
+        expandAll: false
+    })
     , AP.withInit(a => a.actions([a.ext.defaultInit(), a.ext.attachStore_store]))
     , a => AP.complete(a)
     , AP.withCreateApplication

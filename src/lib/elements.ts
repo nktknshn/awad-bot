@@ -129,6 +129,7 @@ export class ButtonElement<R> {
         readonly text: string,
         readonly data?: string,
         readonly callback?: () => R,
+        readonly nextLine = false
     ) { }
 
     mapCallback<R2>(f: (h: R) => R2): ButtonElement<R2>  {

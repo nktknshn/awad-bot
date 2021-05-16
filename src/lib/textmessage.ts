@@ -96,7 +96,10 @@ export class OutcomingTextMessage<H> {
             buttons.push([])
         }
 
-        buttons[0].push(btn)
+        buttons[buttons.length - 1].push(btn)
+
+        if(btn.nextLine)
+            buttons.push([])
 
         return new OutcomingTextMessage(
             this.text,

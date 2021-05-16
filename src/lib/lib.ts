@@ -1,5 +1,7 @@
 export { chatState, empty, stateSelector, subStateSelector } from 'Lib/chatstate'
 export * as CA from 'Lib/chatactions'
+export * as FL from 'Lib/components/actions/flush'
+
 export * as AP from 'Lib/newapp'
 export * as B from 'Lib/appbuilder'
 export { button, message } from 'Lib/elements-constructors'

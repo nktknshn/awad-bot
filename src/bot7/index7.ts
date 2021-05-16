@@ -99,8 +99,8 @@ const Info = connected(
         yield buttonsRow([`Acts (${asn(c.bufferActions)})`, '+ defer', '- defer', 'flush'],
             (idx, _) => [
                 DE.setbufferActions(!c.bufferActions),
-                FL.deferRender(c.deferRender + 200),
-                FL.deferRender(c.deferRender - 200),
+                FL.setDeferRender(c.deferRender + 200),
+                FL.setDeferRender(c.deferRender - 200),
                 FL.flush()
             ][idx])
 
@@ -174,7 +174,7 @@ export const app = <RootComponent extends ComponentElement, P>(
     , a => DE.addDefaultBehaviour(a, {
         applyInputHandler: a.actions([a.ext.startTimer, CA.applyInputHandler]),
         applyActionHandler: a.actions([a.ext.startTimer, CA.applyActionHandler]),
-        renderWrapperMessage: ac => ac ?? a.action(CA.doNothing),
+        renderWrapperMessage: ({action}) => action ?? a.action(CA.doNothing),
         render: a.actions([CA.render, a.ext.stopTimer]),
         flushAction: a.actions([
             CA.flush,

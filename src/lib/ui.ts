@@ -146,8 +146,14 @@ export async function renderActions(
     mylog(
         JSON.stringify(acts, null, 2)
     );
+    
 
-    for (const action of actions) {
+    const actionsOther = actions.filter(_ => _.kind !== 'Remove')
+    const actionsRemove = actions.filter(_ => _.kind === 'Remove')
+
+    for (const action of [...actionsOther, ...actionsRemove]) {
+        // await new Promise(resolve => setTimeout(() => resolve(0), 300))
+
         if (action.kind === 'Create') {
             const ret = await CreateTextMessage(action)(renderer)()
 

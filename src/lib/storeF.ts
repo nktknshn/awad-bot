@@ -24,7 +24,7 @@ type Z3 = 1 extends 1 | 2 ? true : false
 export interface StoreF2<S, H = StoreAction<S>> {
     applyAction(a: H): StoreF2<S, H>
     state: S
-    dispatch: <SS extends H>(a: SS) => void
+    dispatch: <SS extends H>(a: TypeOrArray<SS>) => void
     withDispatch: (f: (a: any) => void) => StoreF2<S, H>
 }
 
@@ -58,10 +58,12 @@ export function composeStores(ss: StoreF2<any, any>[]): ComposedStore<any, any> 
     return new Store2F<any>(state) as ComposedStore<any, any> 
 }
 
+type TypeOrArray<T> = T | T[]
+
 export class Store2F<S> implements StoreF2<S,StoreAction<S>>{
     state: Readonly<S>
 
-    constructor(initial: S, dispatch = <SS extends StoreAction<S>>(a: SS) => { mylog("set notify function"); }) {
+    constructor(initial: S, dispatch = <SS extends StoreAction<S>>(a: TypeOrArray<SS>) => { mylog("set notify function"); }) {
         this.state = { ...initial }
         this.dispatch = dispatch
     }
@@ -72,8 +74,8 @@ export class Store2F<S> implements StoreF2<S,StoreAction<S>>{
         )
     }
 
-    public dispatch = <SS extends StoreAction<S>>(a: SS) => { mylog("set notify function"); }
-    public withDispatch = (d: (a: StoreAction<S>) => void) => {
+    public dispatch = <SS extends StoreAction<S>>(a: TypeOrArray<SS>) => { mylog("set notify function"); }
+    public withDispatch = (d: (a: TypeOrArray<StoreAction<S>>) => void) => {
         const n = new Store2F(this.state, d)
         return n
     };
@@ -90,9 +92,9 @@ export class StoreF<S extends {}> implements StoreF2<S, StoreAction<S>> {
         this.state = { ...initial }
     }
 
-    public dispatch = <SS extends StoreAction<S>>(a: SS) => { mylog("set notify function"); }
+    public dispatch = <SS extends StoreAction<S>>(a: TypeOrArray<SS>) => { mylog("set notify function"); }
 
-    public withDispatch = (d: (a: StoreAction<S>) => void) => {
+    public withDispatch = (d: (a: TypeOrArray<StoreAction<S>>) => void) => {
         const n = new StoreF(this.state)
         n.dispatch = d
         return n
