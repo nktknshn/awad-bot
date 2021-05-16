@@ -87,8 +87,6 @@ export function elementsToMessagesAndHandlers<H>(
     draft: RenderDraft<H>
 ): RenderDraft<H> {
 
-    mylog(`elementsToMessagesAndHandlers: ${compel.kind}`);
-
     let messages: OutcomingMessageType[] = draft.messages
     let effects: Effect<H>[] = draft.effects
     let keyboards: KeyboardButtonElement[] = draft.keyboards

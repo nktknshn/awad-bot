@@ -80,8 +80,6 @@ export const createChatRendererE = (ctx: TelegrafContext): ChatRenderer => ({
         )
     },
     delete(messageId: number): Response<boolean> {
-        mylog(`renderer.delete(${messageId})`)
-
         return pipe(
             tryCatch(
                 () => ctx.deleteMessage(messageId)
@@ -143,8 +141,6 @@ export const messageTrackingRendererE: (tracker: Tracker, r: ChatRenderer) => Ch
             )
         },
         delete(messageId) {
-            console.log(`delete: ${messageId}`);
-
             return pipe(
                 tryCatch(
                     () => tracker.untrackRenderedMessage(r.chatId, messageId)
@@ -211,7 +207,6 @@ export function getTrackingRendererE(t: Tracker) {
         cleanChatAction: async <R, H, E>(ctx: ChatActionContext<R, H, E>): Promise<ChatState<R, H>> => {
 
             const res = await cleanChatTask(ctx.tctx.chat?.id!)(ctx.chatdata.renderer!)()
-            console.log(res);
 
             return ctx.chatdata
         },

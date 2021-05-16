@@ -222,8 +222,6 @@ export function callHandlersChain<R>(
     idx: number = 0,
 ): R | undefined {
 
-    mylog(`callHandler(${idx})`);
-
     if (idx > inputHandlers.length - 1)
         return
 

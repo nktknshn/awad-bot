@@ -6,7 +6,6 @@ import { isArray, isBoolean } from 'util'
 import { flattenList, makeKeyboardRows } from '../util'
 import deq from 'fast-deep-equal'
 import {Callback, Root, InputHandler, ButtonElement, Element, Message, RootFactory} from './types'
-import { StateFactory } from '../chat'
 
 Debug.enable('awad-bot')
 const log = Debug('awad-bot')
@@ -190,7 +189,6 @@ export class ChatUI<S> {
             try {
                 await this.telegram.deleteMessage(this.chatId, el.message_id)
             } catch (e) {
-                console.error(e);
                 continue
             }
         }

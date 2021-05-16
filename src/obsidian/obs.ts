@@ -88,15 +88,17 @@ type ObsidianVault = {
 }
 
 export const withIndex = <T>(items?: T[]) => items?.map((f, idx) => [f, idx] as const) ?? []
-export const normPath = (vaultPath: string, p: string) => vaultPath == p ? '/' : p.replace(vaultPath + '/', '')
+export const normPath = (vaultPath: string, p: string) =>
+    vaultPath == p ? '/' : p.replace(vaultPath, '')
+
 export const itemByPath = (p?: string) => <T extends { path: string, }>(items: T[]): {
     idx: number,
     item: T
 } | undefined => {
     const idx = items.findIndex(_ => _.path == p)
-    
-    if(idx == -1)
-        return 
+
+    if (idx == -1)
+        return
 
     return {
         idx, item: items[idx]
@@ -105,11 +107,10 @@ export const itemByPath = (p?: string) => <T extends { path: string, }>(items: T
 
 export const getVaultDirs = (vault: ObsidianVault) => vault.dirs
 export const itemByUrl = (p: string) =>
-    <T extends { path: string }>(vaultPath: string, items: T[]) =>
-        {
-            const idx = items.findIndex(_ => normPath(vaultPath, _.path).startsWith(p))
-            return {idx: idx > -1 ? idx : undefined, item: idx > -1 ? items[idx] : undefined}
-        }
+    <T extends { path: string }>(vaultPath: string, items: T[]) => {
+        const idx = items.findIndex(_ => normPath(vaultPath, _.path).startsWith(p))
+        return { idx: idx > -1 ? idx : undefined, item: idx > -1 ? items[idx] : undefined }
+    }
 
 function Vault(vault: ObsidianVault) {
     const dirByPath = (p?: string) => vault.dirs.find(_ => _.path == p)

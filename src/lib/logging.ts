@@ -1,4 +1,5 @@
 import st from 'stacktrace-js'
+import chalk from 'chalk';
 
 interface State<C> {
     currentContext: C,
@@ -27,7 +28,7 @@ export function mylog(...ss: string | any) {
 
         if (fpath != state.lastF) {
             output += "\n"
-            output += fpath + "\n"
+            output += chalk.gray(fpath) + "\n"
         }
 
         output += str.split('\n').map(_ => `${_}`).join("\n")

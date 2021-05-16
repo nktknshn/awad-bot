@@ -1,22 +1,24 @@
 import { connected } from "Lib/component";
 import { setBufferedInputEnabled, setBufferedOnce, setDeferRender } from "Lib/components/actions/flush";
 import { button, messagePart, nextMessage } from "Lib/elements-constructors";
-import { action, caseText, on } from "Lib/input";
+import { action, caseText, ifTrue, on } from "Lib/input";
 import { inputHandler, message, O } from 'Lib/lib';
-import { select } from "Lib/state";
+import { combineSelectors, select } from "Lib/state";
 import { GetSetState } from "Lib/tree2";
-import { getDirs, getVaultPath, getOpenDir, getStoreActions, getFiles, getVaultName } from '../selectors';
+import { getDirs, getVaultPath, getOpenDir, getStoreActions, getFiles, getVaultName, getExpandedDirs } from '../selectors';
 import { itemByUrl } from "../obs";
 import { caseFileId, parseDirId } from "../util";
 import { VaultDirs } from './VaultDirs';
 import { OpenedFile } from './OpenedFile';
+import { ifTextEqual } from "Lib/chatactions";
 
 
 export const App = connected(
-    select(getDirs, getStoreActions, getOpenDir, getFiles, getVaultPath, getVaultName,
+    select(getDirs, getStoreActions, getOpenDir, getFiles, getVaultPath,
+        combineSelectors(getExpandedDirs, getVaultName),
         ({ error }: { error?: string; }) => ({ error })),
     function* (
-        { error, vaultPath, vaultName, storeActions, openDir, files, dirs },
+        { error, vaultPath, vaultName, storeActions, openDir, files, dirs, expandedDirs },
         props: { expandAll: boolean; },
         local: GetSetState<{
             showEmpty: boolean;
@@ -31,22 +33,38 @@ export const App = connected(
             on(caseFileId, action(
                 ({ fileId }) => [
                     storeActions.openFile(
-                        files[fileId]
+                        files[fileId].path
                     ),
-                    setDeferRender(20),
-                    setBufferedInputEnabled(true),
-                    setBufferedOnce(true),
+                    // setDeferRender(20),
+                    // setBufferedInputEnabled(true),
+                    // setBufferedOnce(true),
                 ]
             )),
             on(caseText, O.map((a) => a.messageText), O.chain(parseDirId), action(
-                (dirId) => [storeActions.setOpenDir(dirs[dirId].path)]
+                (dirId) => [
+                    dirs[dirId].path == openDir
+                        ? storeActions.setOpenDir(undefined) :
+                        !expandedDirs.includes(dirs[dirId].path)
+                            ? storeActions.toggleExpanded(dirs[dirId].path)
+                            : storeActions.toggleExpanded(dirs[dirId].path)
+                ]
             )),
+            on(caseText,
+                ifTrue(c => c.messageText == '/expand'),
+                action(() =>
+                    storeActions.setExpanded(dirs.map(_ => _.path))
+                )),
+            on(caseText,
+                ifTrue(c => c.messageText == '/collapse'),
+                action(() =>
+                    storeActions.setExpanded([])
+                ))
         ]);
 
         const links = [
-            itemByUrl('игра/дела/идеи дел'),
-            itemByUrl('incoming'),
-            itemByUrl('прочее/записки')
+            itemByUrl('/игра/дела/идеи дел'),
+            itemByUrl('/incoming'),
+            itemByUrl('/прочее/записки')
         ];
 
         const [ideasItem, incomingItem, notesItem] = links.map(
@@ -58,8 +76,7 @@ export const App = connected(
 
 
         yield button(`Close all`, () => [
-            storeActions.setOpenFile(undefined),
-            storeActions.setOpenDir(undefined)
+            storeActions.resetOpens()
         ]);
 
         yield button('🔄', () => [
@@ -75,20 +92,19 @@ export const App = connected(
         // const incomingFile = itemByPath(path.join(vault.path, 'incoming.md'))(vault.files)
         if (incomingItem.item)
             yield button(`⭐ Incoming`, () => [
-                storeActions.openFile(incomingItem.item, [
-                    storeActions.setOpenFile(incomingItem.item!.path),
-                ])
+                storeActions.openFileComposed(incomingItem.item!)
             ]);
 
         if (notesItem.item)
             yield button(`⭐ Записки`, () => [
-                storeActions.openFile(notesItem.item, [
-                    storeActions.setOpenFile(notesItem.item!.path),
-                ])
+                storeActions.openFile(notesItem.item?.path)
             ]);
 
         yield VaultDirs({
-            showEmpty, expandedDirs: [
+            showEmpty,
+            showDirLinks: !props.expandAll,
+            expandedDirs: [
+                ...expandedDirs,
                 // incomingItem.item?.parentDirPath
                 // , notesItem.item?.parentDirPath
                 // , openDir

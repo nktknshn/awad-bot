@@ -27,8 +27,6 @@ const VisibleSecrets = connected(
     function* (
         { items, secondsLeft, dispatcher: { onDeleteItem, onSetVisible, onSetSecondsLeft } }
     ) {
-        mylog(`TRACE ${items}`)
-
         const strings = pipe(
             items,
             A.partition((_): _ is string => typeof _ === 'string'),
@@ -52,7 +50,6 @@ const VisibleSecrets = connected(
         yield message("Secrets!")
         yield button(`Hide`, () => onSetVisible(false))
         yield button([`More time (${secondsLeft} secs)`, 'more'], () => {
-            mylog(`TRACE More time clicked ${secondsLeft} -> onSetSecondsLeft(${secondsLeft + 30})`)
             return onSetSecondsLeft(secondsLeft + 30)
         })
     }
@@ -69,8 +66,6 @@ export const App = connected(
             stringCandidate?: string
         }>
     ) {
-        mylog('App');
-
         const { photoCandidates, stringCandidate, userMessages } = getState({
             photoCandidates: [],
             userMessages: []

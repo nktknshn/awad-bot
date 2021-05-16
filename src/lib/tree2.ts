@@ -306,7 +306,6 @@ export function rerunComponentTree<C, S>(
     let rerender = false;
 
     if (prevComp.id != comp.id) {
-        console.log('needs rerender by comp.id');
         rerender = true
     }
 
@@ -314,22 +313,16 @@ export function rerunComponentTree<C, S>(
     const { generator, props } = runComponent(compMapped, context, getset)
 
     if (!equal(props, result.input.props)) {
-        console.log('needs rerender by props');
-        console.log(`props: ${JSON.stringify(props)}`);
-        
         rerender = true
     }
 
     if (!equal(closure, result.input.localState)) {
-        console.log(`needs rerender by localstate for ${comp.id}`);
         // console.log(`old children ${comp.id}`);
 
         rerender = true
     }
 
     if (rerender) {
-        console.log('needs rerender');
-
         return {
             ...runComponentTree(
                 comp, context,

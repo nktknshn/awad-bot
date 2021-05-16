@@ -157,8 +157,6 @@ export async function removeMessages(renderedMessagesIds: number[], renderer: Ch
 export function getTrackingRenderer(t: Tracker) {
     const cleanChat = (chatId: number) => async (renderer: ChatRenderer) => {
         const messages = await t.getRenderedMessage(chatId)
-        console.log(messages);
-        
         await removeMessages(messages, renderer)
     }
 

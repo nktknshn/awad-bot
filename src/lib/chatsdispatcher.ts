@@ -15,7 +15,7 @@ export class ChatsDispatcher<T extends OpaqueChatHandler<E>, E> {
 
     constructor(
         readonly chatFactory: ChatHandlerFactory<T, E>,
-        readonly logger: (s: string) => void = mylog
+        readonly logger: (s: string) => void = () => {}
     ) { }
 
     async getChat(ctx: TelegrafContext) {

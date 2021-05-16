@@ -5,7 +5,7 @@ import { reloadInterface } from 'Lib/components/actions/misc';
 import * as TR from "Lib/components/actions/tracker";
 import * as AP from 'Lib/newapp';
 import { WithComponent, WithReducer } from "Lib/newapp";
-import { chatStateAction, reducer, storeReducer } from 'Lib/reducer';
+import { chatStateAction, defaultReducer, reducer, storeReducer } from 'Lib/reducer';
 import { StoreF2 } from 'Lib/storeF';
 import { AppBuilder } from "Lib/appbuilder";
 
@@ -187,11 +187,14 @@ export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, 
                 ? FL.deferredRender(c)
                 : c.action)
         ),
+        defaultReducerCons = defaultReducer,
         useTracking = true,
     } = {}
 ) => {
     return pipe(a
-        , AP.defaultBuild
+        , a => a.extend(AP.handleEventExtension2)
+            .extend(AP.renderExtension)
+            .extend(AP.withDefaultReducer2(defaultReducerCons))
         , AP.addReducer(_ => FL.flushReducer(flushAction))
         , AP.extend(a => ({
             chatActions: ({
@@ -201,9 +204,9 @@ export const addDefaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, 
             })
             , defaultMessageHandler: a.actions([
                 applyInputHandler,
+                CA.addRenderedUserMessage(),
                 TR.saveToTrackerAction(),
                 // FL.addUserMessageIfNeeded(),
-                CA.addRenderedUserMessage(),
                 applyEffects,
                 renderWrapperMessage({ action: renderMessage })
             ])

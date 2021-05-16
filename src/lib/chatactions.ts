@@ -21,6 +21,8 @@ import { ChatState } from './chatstate';
 export async function render<R, H, E>(
     ctx: ChatActionContext<R, H, E>
 ): Promise<ChatState<R, H>> {
+    // mylog("CA.render")
+
     return ctx.app.renderFunc(ctx.chatdata).renderFunction(ctx.chatdata.renderer)
 }
 
@@ -29,8 +31,6 @@ export async function applyEffects<R, H, E>(
 ): Promise<ChatState<R, H>> {
 
     const r = ctx.app.renderFunc(ctx.chatdata)
-
-    mylog(`Applying Effects: ${r.effects}`)
 
     const cd = await sequence<R, H, E>(
         ctx.app.actionReducer(r.effects.map(_ => _.element.callback()))
@@ -84,7 +84,6 @@ export function sequence<R, H, E = BasicAppEvent<R, H>>(
 ): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {
         let data = ctx.chatdata
-        console.log(handlers);
         
         for (const h of handlers) {
             data = await h({ ...ctx, chatdata: data })
@@ -146,15 +145,18 @@ export function replyCallback<R, H, E>(
 }
 
 export function log<R, H, E>(
-
+    f: (ctx: ChatActionContext<R, H, E>) => void
 ): AppChatAction<R, H, E> {
     return async (
         ctx: ChatActionContext<R, H, E>
     ) => {
-        console.log("LOGGINMG")
-        console.log(
-            JSON.stringify({ ...(ctx.chatdata as any).store })
-        )
+
+        f(ctx)
+        // console.log("LOGGINMG")
+
+        // console.log(
+        //     JSON.stringify({ ...(ctx.chatdata as any).store })
+        // )
         return ctx.chatdata
     }
 }

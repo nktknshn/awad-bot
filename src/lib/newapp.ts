@@ -47,6 +47,19 @@ export function handleEventExtension<Ext, R extends FlushState, H, T, RootComp>
     }
 }
 
+export function handleEventExtension2<Ext, R extends FlushState, H, T, RootComp>
+    (a: AppBuilder<R, H, Ext, RootComp>)
+    : WithHandleEvent<R, H> {
+    return {
+        handleEvent: a.eventFunc(
+            makeEventReducer(
+                composeReducers(
+                    applyActionEventReducer(),
+                )
+            ))
+    }
+}
+
 export type WithInit<R, H, Deps> = {
     init?: (deps: Deps) => CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
 }
@@ -157,6 +170,17 @@ export function withDefaultReducer<R, H, Ext, RootComp>(
     a: AppBuilder<R, H, Ext, RootComp>,
 ): WithReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined, R, H> {
     return { reducer: a.reducerFunc(defaultReducer()) }
+}
+// ChatActionReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined, R, H, E>
+
+export function withDefaultReducer2(
+    defaultReducer: <R, H, E>() => ChatActionReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined, R, H, E>
+) {
+    return function <R, H, Ext, RootComp>(
+        a: AppBuilder<R, H, Ext, RootComp>,
+    ): WithReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>> | undefined, R, H> {
+        return { reducer: a.reducerFunc(defaultReducer()) }
+    }
 }
 
 export function addReducer<T1, T2, R, H, Ext, RootComp>(

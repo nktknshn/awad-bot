@@ -135,9 +135,6 @@ export function createRenderActions(renderedElements: RenderedElement[], nextEle
 
     const actions: RenderActions[] = []
 
-    mylog({ "renderedElements": renderedElements });
-    mylog({ "nextElements": nextElements });
-
     createRenderTasks(
         renderedElements,
         nextElements,

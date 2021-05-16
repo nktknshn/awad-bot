@@ -146,5 +146,3 @@ export const { createApplication } = pipe(
     , a => AP.complete(a)
     , AP.withCreateApplication
 )
-
-console.log('ok');

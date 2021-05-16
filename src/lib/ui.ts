@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import * as E from "fp-ts/lib/Either";
 import { pipe } from "fp-ts/lib/pipeable";
 import * as TE from "fp-ts/lib/TaskEither";
@@ -142,9 +143,13 @@ export async function renderActions(
         )
     }))
 
-    mylog("actions")
+    const kinds = acts.map(_ => _.kind)
+    const updated = kinds.map(_ => _ == 'Keep').includes(false)
+    const color = updated ? chalk.yellow : chalk.green
+
+    // mylog(color("renderActions"))
     mylog(
-        JSON.stringify(acts, null, 2)
+        color(`${JSON.stringify(kinds)}`)
     );
     
 
@@ -228,7 +233,6 @@ export async function deleteAll(renderer: ChatRenderer, messages: RenderedElemen
                 else if (el.kind === 'RenderedUserMessage')
                     await renderer.delete(el.output)()
         } catch (e) {
-            console.error(e);
             continue
         }
     }

@@ -4,6 +4,7 @@ import { StoreF2, storeAction, lens, StoreAction } from "Lib/storeF"
 import { ObsidianVault, ObsidianFile, readdirRe1, dirToVault, ObsidianDir } from "./obs"
 import path from "path";
 import fs from 'fs/promises';
+import { append } from "bot3/util";
 
 export type Store = {
     vault?: ObsidianVault,
@@ -11,31 +12,43 @@ export type Store = {
     openFile?: string,
     openFileContent?: string,
     openDir?: string,
+    expandedDirs: string[]
 }
+
+const nop = (s: Store) => s
 
 export const storeActions = (store: StoreF2<Store>) => {
     const setOpenFile = storeAction(lens(store).openFile.set)
+    const setOpenDir = storeAction(lens(store).openDir.set)
+
+    const setOpenFileContentComposed = storeAction(
+        (content: string, filePath?: string) => flow(
+            setOpenFileContent(content).f, setOpenFile(filePath).f
+        )
+    )
     const setOpenFileContent = storeAction(lens(store).openFileContent.set)
 
-    const openFile = storeAction((file?: ObsidianFile, onReadyActions: StoreAction<Store>[] = [
-        setOpenFile(file ? file.path : store.state.openFile ?? undefined)
-    ]) => {
-        const filePath = file ? file.path : store.state.openFile ?? undefined
+    const openFile = storeAction((
+        file?: string, onReadyActions: StoreAction<Store>[] = [
+            setOpenFile(file ?? store.state.openFile ?? undefined)
+        ]) => {
+
+        const filePath = file ?? store.state.openFile ?? undefined
 
         if (filePath) {
             fs.readFile(filePath)
                 .then(content => {
                     store.dispatch(
                         [
-                            setOpenFileContent(content.toLocaleString()),
+                            setOpenFileContentComposed(content.toLocaleString(), file),
                             ...onReadyActions,
                         ])
                 })
 
-            return lens(store).error.modify(identity)
+            return nop
         }
 
-        return lens(store).error.modify(identity)
+        return nop
     })
 
     const appendLine = storeAction(
@@ -43,10 +56,10 @@ export const storeActions = (store: StoreF2<Store>) => {
             if (store.state.openFile)
                 fs.appendFile(store.state.openFile, line).then(_ =>
                     store.dispatch(
-                        [openFile()]
+                        [openFile(store.state.openFile)]
                     ))
 
-            return lens(store).error.modify(identity)
+            return nop
         }
     )
 
@@ -55,14 +68,12 @@ export const storeActions = (store: StoreF2<Store>) => {
             if (store.state.openFile)
                 fs.writeFile(store.state.openFile, content).then(_ =>
                     store.dispatch(
-                        [openFile()]
+                        [openFile(store.state.openFile)]
                     ))
 
-            return lens(store).error.modify(identity)
+            return nop
         }
     )
-
-    const setOpenDir = storeAction(lens(store).openDir.set)
 
     const openVault = storeAction(
         (vaultPath?: string) => {
@@ -83,7 +94,7 @@ export const storeActions = (store: StoreF2<Store>) => {
                     , f => store.dispatch([{ kind: 'store-action', f }])
                 ))
 
-            return lens(store).error.modify(identity)
+            return nop
         }
     )
 
@@ -94,7 +105,7 @@ export const storeActions = (store: StoreF2<Store>) => {
                     store.dispatch([openVault()])
                 )
 
-            return lens(store).error.modify(identity)
+            return nop
         }
     )
 
@@ -106,7 +117,7 @@ export const storeActions = (store: StoreF2<Store>) => {
                         [openVault()]
                     ))
 
-            return lens(store).error.modify(identity)
+            return nop
         }
     )
 
@@ -122,12 +133,29 @@ export const storeActions = (store: StoreF2<Store>) => {
                     ))
 
 
-            return lens(store).error.modify(identity)
+            return nop
         }
+    )
+
+    const resetOpens = storeAction(
+        () => flow(setOpenDir(undefined).f, setOpenFile(undefined).f)
+    )
+    const openFileComposed = storeAction(
+        (item: ObsidianFile) => flow(openFile(item.path).f, setOpenFile(item.path).f)
+    )
+
+    const toggleExpanded = storeAction(
+        (dir: string) => !store.state.expandedDirs.includes(dir)
+            ? lens(store).expandedDirs.modify(append(dir))
+            : lens(store).expandedDirs.modify(ds => ds.filter(_ => _ != dir))
+    )
+    const setExpanded = storeAction(
+        lens(store).expandedDirs.set
     )
 
     return ({
         setOpenFile, setOpenFileContent, openFile, appendLine, setContent
-        , setOpenDir, newDir, newFile, openVault, renameFile
+        , setOpenDir, newDir, newFile, openVault, renameFile, resetOpens,
+        openFileComposed, toggleExpanded, setExpanded
     })
 }

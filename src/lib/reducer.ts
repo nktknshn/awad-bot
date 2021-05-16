@@ -187,6 +187,7 @@ export function storeReducer<
         key: K,
         actions: (apply: CA.AppChatAction<R, H, E>) => CA.AppChatAction<R, H, E> = apply => apply
     ) {
+        
     const m = stateReducerToChatActionReducer<R, H, E>(
         actions
     )
@@ -249,16 +250,11 @@ export function composeReducers<R, H, E>(...ms: ChatActionReducer<any, R, H, E>[
             return false
         },
         f: (a: any) => {
-            console.log('composeReducers.f');
-            console.log(`a: ${JSON.stringify(a)}`);
 
             for (const m of ms) {
                 if (m.isA(a))
                     return m.f(a)
             }
-
-            console.log('HANDLER NOT FOUND');
-            console.log(a);
 
             return 123 as any
         }

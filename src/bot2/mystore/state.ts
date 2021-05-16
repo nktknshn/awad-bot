@@ -11,8 +11,6 @@ export const currentComponent: {
 }
 
 export function useState<T>(initialValue: T): [() => T, (value: T) => Promise<void>] {
-    console.log('useState');
-
     if (currentComponent.current.state.length >
         currentComponent.current.index) {
         

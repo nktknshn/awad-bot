@@ -37,5 +37,6 @@ const caseVaultFileId = caseSomeId(parseVaultFileId, 'fileId')
 const boldify = (pred: (t: string) => boolean, text: string) => pred(text) ? `<b>${text}</b>` : text
 const italify = (pred: (t: string) => boolean, text: string) => pred(text) ? `<i>${text}</i>` : text
 
+export const brailleSymbol = '⠀'
 export { parseFileId, caseFileId, parseCommand, parseDirId, 
     caseSomeId, caseVaultFileId, boldify, italify }

@@ -63,7 +63,9 @@ type TypeOrArray<T> = T | T[]
 export class Store2F<S> implements StoreF2<S,StoreAction<S>>{
     state: Readonly<S>
 
-    constructor(initial: S, dispatch = <SS extends StoreAction<S>>(a: TypeOrArray<SS>) => { mylog("set notify function"); }) {
+    constructor(initial: S, dispatch = <SS extends StoreAction<S>>(a: TypeOrArray<SS>) => { 
+        mylog("set notify function"); 
+    }) {
         this.state = { ...initial }
         this.dispatch = dispatch
     }

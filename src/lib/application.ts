@@ -151,10 +151,11 @@ const renderFunction = <Ctx, HandlerReturn, Els>(
     renderActions: RenderActions[],
     chatState: ChatState<Ctx, HandlerReturn>,
     scheme: RenderScheme<Els, HandlerReturn>,
+    applyRenderActionsFunc = applyRenderActions
 ) =>
     async (renderer: ChatRenderer): Promise<ChatState<Ctx, HandlerReturn>> => {
 
-        const renderedElementsE = await applyRenderActions(renderer, renderActions);
+        const renderedElementsE = await applyRenderActionsFunc(renderer, renderActions);
 
         const { renderedElements, error } = pipe(
             renderedElementsE,
@@ -165,9 +166,6 @@ const renderFunction = <Ctx, HandlerReturn, Els>(
                 }),
                 rs => ({ renderedElements: rs, error: undefined }),
             ))
-
-        console.log(`ERROR: ${error}`);
-
 
         const actionHandler = scheme.getActionHandler(renderedElements);
 
@@ -192,11 +190,11 @@ export const genericRenderComponent = <
         source: RenderSource<
             Props,
             RootComponent,
-            ContextReqs, State, HandlerReturn>) => {
+            ContextReqs, State, HandlerReturn>,
+        renderFunctionArg = renderFunction
+    ) => {
 
     return (chatState: ChatState<State, HandlerReturn>) => {
-
-        console.log('genericRenderComponent');
 
         const { elements, treeState, removedElements, newElements } =
             createElements(
@@ -206,18 +204,8 @@ export const genericRenderComponent = <
                 chatState.treeState
             )
 
-        console.log('newElements');
-        console.log(newElements);
-
-        console.log('removedElements');
-        console.log(removedElements);
-
         const draft = completeDraft(scheme.createDraft(elements))
-
         const els = scheme.getEffects(removedElements, newElements)
-
-        console.log('els');
-        console.log(els);
 
         const effects =
             scheme.getEffects(removedElements, newElements)
@@ -234,7 +222,7 @@ export const genericRenderComponent = <
         return {
             effects: [...effects, ...draft.effects],
             chatdata: nextChatState,
-            renderFunction: renderFunction<State, HandlerReturn, CompEls>(
+            renderFunction: renderFunctionArg<State, HandlerReturn, CompEls>(
                 renderActions, nextChatState, scheme
             )
         };
@@ -282,19 +270,13 @@ export function createQueuedChatHandler<R, H, E>(
                 ))
         },
         handleMessage: async (self, ctx) => {
-            mylog(`QueuedChatHandler.chat: ${ctx.message?.text} ${ctx.message?.message_id}`);
-
             self.setChatData(
                 self,
                 await app.handleMessage!(
                     { app, tctx: ctx, queue: chat, chatdata: self.chatdata }
                 ))
-            mylog(`QueuedChatHandler.chat done ${ctx.message?.message_id}}`)
-
         },
         handleEvent: async (self, ctx, event: E) => {
-            mylog(`handleEvent: ${event}`);
-
             if (app.handleEvent)
                 self.setChatData(
                     self,
@@ -305,9 +287,7 @@ export function createQueuedChatHandler<R, H, E>(
                 )
         },
         setChatData: (self, d) => {
-            // mylog(self.chatdata.treeState.nextStateTree?.state)
             self.chatdata = d
-            // mylog(self.chatdata.treeState.nextStateTree?.state)
         }
     }), true)
 }
@@ -340,7 +320,7 @@ export const createOpaqueChatHandler = <R, H, E>(app: Application<R, H, E>) =>
                     app,
                     tctx: ctx,
                     queue: chat,
-                    chatdata: {...a.chatdata, treeState: undefined}
+                    chatdata: { ...a.chatdata, treeState: undefined }
                 })).chatdata
             )
         }

@@ -1,5 +1,4 @@
 import { PhotoSize } from "telegraf/typings/telegram-types"
-import { mylog } from "../lib/logging"
 import { createStoreF, StoreAction, storeAction, storef, StoreF2 } from "../lib/storeF"
 
 export type Bot3StoreState = {

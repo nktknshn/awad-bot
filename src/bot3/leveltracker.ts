@@ -21,8 +21,6 @@ export const levelTracker = (trackerDb: LevelUp<LevelDown>): Tracker => ({
 
     },
     untrackRenderedMessage: async (chatId: number, messageId: number) => {
-        console.log('untrackRenderedMessage');
-
         const messagesStr = await trackerDb.get(`chat: ${chatId}`)
         const messages: number[] = JSON.parse(messagesStr.toString())
 

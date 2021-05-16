@@ -7,7 +7,7 @@ import { select } from "Lib/state";
 import { GetSetState } from "Lib/tree2";
 import path from "path";
 import { getOpenFile, getStoreActions, getOpenFileContent } from '../selectors';
-import { boldify } from "../util";
+import { boldify, brailleSymbol } from "../util";
 import { InputBox } from './InputBox';
 
 export const OpenedFile = connected(
@@ -76,7 +76,7 @@ export const OpenedFile = connected(
             A.map(line => line.replace(/\[\[(.+)\]\]/, '<code>[[$1]]</code>')),
             list => list.join('\n'),
             text => text.length && text[text.length - 1] == '\n'
-                ? text + '<code>></code>'
+                ? text + `<code>></code>`
                 : text
         );
 
@@ -89,12 +89,12 @@ export const OpenedFile = connected(
             () => setRename(true));
 
         if (mode === 'replace') {
-            yield button('Replace', () => setMode('list'));
+            yield button('Replace', () => setMode('append'));
         }
         if (mode === 'list') {
             yield button(`\\n`,
                 () => storeActions.appendLine('\n'));
-            yield button('List', () => setMode('append'));
+            yield button('List', () => setMode('replace'));
 
         }
         if (mode === 'append') {
@@ -104,7 +104,7 @@ export const OpenedFile = connected(
                 () => addSymbol == '\n' ?
                     setAddSymbol(' ')
                     : addSymbol == ' ' ? setAddSymbol('') : setAddSymbol('\n'));
-            yield button('Append', () => setMode('replace'));
+            yield button('Append', () => setMode('list'));
         }
 
         yield message(openFileContent.length ? formatContent(openFileContent) : '<code>empty</code>');

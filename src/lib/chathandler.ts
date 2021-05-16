@@ -55,15 +55,15 @@ export class QueuedChatHandler<R, E> implements OpaqueChatHandler<E> {
     async push(item: IncomingItem<E>) {
 
         if (this.busy) {
-            mylog(`busy so item was queued: ${item.kind}`);
+            // mylog(`busy so item was queued: ${item.kind}`);
             this.incomingQueue.push(item)
         } else {
-            mylog(`processing ${item.kind} ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
+            // mylog(`processing ${item.kind} ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
 
             await this.processItem(item)
 
-            mylog(`done ${item.kind} ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
-            mylog(`queue has ${this.incomingQueue.length} elements ${this.incomingQueue.map(_ => _.kind).join()}`)
+            // mylog(`done ${item.kind} ${item.kind !== 'IncomingEvent' && item.ctx.message?.message_id}`);
+            // mylog(`queue has ${this.incomingQueue.length} elements ${this.incomingQueue.map(_ => _.kind).join()}`)
 
             while (this.incomingQueue.length) {
                 const nextItem = this.incomingQueue.shift()
@@ -72,7 +72,7 @@ export class QueuedChatHandler<R, E> implements OpaqueChatHandler<E> {
                 // this.busy = true
             }
 
-            mylog(`queue finished`)
+            // mylog(`queue finished`)
             this.busy = false
         }
     }
@@ -81,7 +81,7 @@ export class QueuedChatHandler<R, E> implements OpaqueChatHandler<E> {
         this.busy = true
         this.currentItem = item
 
-        mylog(`processItem: ${item.kind} ${item}`)
+        // mylog(`processItem: ${item.kind} ${item}`)
 
         if (item.kind === 'IncomingMessage') {
             await this._chat.handleMessage(this._chat, item.ctx)
@@ -93,19 +93,19 @@ export class QueuedChatHandler<R, E> implements OpaqueChatHandler<E> {
             await this._chat.handleEvent(this._chat, item.ctx, item.event)
         }
 
-        mylog(`done processItem: ${item.kind}`)
+        // mylog(`done processItem: ${item.kind}`)
 
         this.currentItem = undefined
         this.busy = false
     }
 
     async handleAction(ctx: TelegrafContext) {
-        mylog(`handleAction: ${ctx.message?.message_id}`)
+        // mylog(`handleAction: ${ctx.message?.message_id}`)
         await this.push(new IncomingAction(ctx))
     }
 
     async handleMessage(ctx: TelegrafContext) {
-        mylog(`handleMessage: ${ctx.message?.message_id}`)
+        // mylog(`handleMessage: ${ctx.message?.message_id}`)
         await this.push(new IncomingMessage(ctx))
     }
 

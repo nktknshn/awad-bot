@@ -10,6 +10,7 @@ export const getVaultPath = flow(getVault, c => ({ vaultPath: c.vault.path }));
 export const getOpenDir = ({ openDir }: { openDir?: string; }) => ({ openDir });
 export const getOpenFile = ({ openFile }: { openFile?: string; }) => ({ openFile });
 export const getStoreActions = ({ storeActions }: WithStoreActions) => ({ storeActions });
+export const getExpandedDirs = ({ expandedDirs }: {expandedDirs: string[]}) => ({ expandedDirs });
 export const getOpenFileContent = ({ openFileContent }: { openFileContent?: string; }) => ({ openFileContent });
 type WithStoreActions = Record<'storeActions', ReturnType<typeof storeActions>>;
 export const getCurrentDir = createSelector(

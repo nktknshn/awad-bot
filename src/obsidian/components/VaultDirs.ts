@@ -5,14 +5,14 @@ import { select } from "Lib/state";
 import { GetSetState } from "Lib/tree2";
 import { getCurrentDir, getDirs, getVaultPath, getOpenDir, getOpenFile, getStoreActions } from '../selectors';
 import { itemByPath, normPath, withIndex } from "../obs";
-import { boldify } from "../util";
+import { boldify, brailleSymbol } from "../util";
 import { InputBox } from './InputBox';
 import { VaultOpenDirFiles } from "./VaultOpenDirFiles";
 
 export const VaultDirs = connected(
     select(getCurrentDir, getDirs, getVaultPath, getOpenDir, getOpenFile, getStoreActions),
     function* ({ dirs, openDir, vaultPath, storeActions, openFile, currentDir },
-        { showEmpty, expandedDirs }: { showEmpty: boolean; expandedDirs: string[]; },
+        { showEmpty, expandedDirs, showDirLinks }: { showDirLinks: boolean, showEmpty: boolean; expandedDirs: string[]; },
         { setter, getState }: GetSetState<{
             createItem?: 'file' | 'dir';
             itemName?: string;
@@ -34,17 +34,23 @@ export const VaultDirs = connected(
 
             const name = normPath(vaultPath, d.path);
 
+            const isRoot = name == '/'
+
             const title = boldify(
                 _ => openDir == d.path,
                 d.files.length
                     ? `<code>${name}</code>`
                     : `${name} <code>(empty)</code>`);
 
-            yield messagePart(`/dir_${idx}      ${title}`);
+            if (!isRoot)
+                if (showDirLinks)
+                    yield messagePart(`/dir_${idx}          ${title}`);
+                else
+                    yield messagePart(`${brailleSymbol}           ${title}`);
 
-            if (expandedDirs.includes(d.path)) {
+            if (expandedDirs.includes(d.path) || isRoot) {
                 const dir = itemByPath(d.path)(dirs)?.item;
-                
+
                 if (!dir)
                     continue
 
@@ -53,7 +59,7 @@ export const VaultDirs = connected(
         }
 
         yield messagePart('');
-        yield messagePart('/expand_all    /as_list');
+        yield messagePart('/expand   /collapse   /as_list');
 
         if (!openFile && openDir) {
             yield button(`New file`, () => setter('createItem').set('file'));
