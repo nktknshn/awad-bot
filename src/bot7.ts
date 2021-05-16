@@ -21,7 +21,8 @@ async function main() {
         new Telegraf(token),
         createApplication({
             services,
-            t: createLevelTracker('./mydb_bot7')
+            t: createLevelTracker('./mydb_bot7'),
+            vaultPath: '/home/horn/Documents/my1'
         })
     ).launch()
 

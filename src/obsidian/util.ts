@@ -34,4 +34,8 @@ const caseSomeId = <T, K extends keyof any>(parser: (text: string) => O.Option<T
 const caseFileId = caseSomeId(parseFileId, 'fileId')
 const caseVaultFileId = caseSomeId(parseVaultFileId, 'fileId')
 
-export { parseFileId, caseFileId, parseCommand, parseDirId, caseSomeId, caseVaultFileId }
+const boldify = (pred: (t: string) => boolean, text: string) => pred(text) ? `<b>${text}</b>` : text
+const italify = (pred: (t: string) => boolean, text: string) => pred(text) ? `<i>${text}</i>` : text
+
+export { parseFileId, caseFileId, parseCommand, parseDirId, 
+    caseSomeId, caseVaultFileId, boldify, italify }

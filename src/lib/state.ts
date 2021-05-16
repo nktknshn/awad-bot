@@ -52,6 +52,36 @@ export function select<S1, S2, S3, R1, R2, R3>(
     sel2: Selector<S2, R2>,
     sel3: Selector<S3, R3>,
 ): Selector<S1 & S2 & S3, R1 & R2 & R3>
+export function select<S1, S2, S3, S4, R1, R2, R3, R4>(
+    sel1: Selector<S1, R1>,
+    sel2: Selector<S2, R2>,
+    sel3: Selector<S3, R3>,
+    sel4: Selector<S4, R4>,
+): Selector<S1 & S2 & S3 & S4, R1 & R2 & R3 & R4>
+export function select<S1, S2, S3, S4, S5, R1, R2, R3, R4, R5>(
+    sel1: Selector<S1, R1>,
+    sel2: Selector<S2, R2>,
+    sel3: Selector<S3, R3>,
+    sel4: Selector<S4, R4>,
+    sel5: Selector<S5, R5>,
+): Selector<S1 & S2 & S3 & S4 & S5, R1 & R2 & R3 & R4 & R5>
+export function select<S1, S2, S3, S4, S5, S6, R1, R2, R3, R4, R5, R6>(
+    sel1: Selector<S1, R1>,
+    sel2: Selector<S2, R2>,
+    sel3: Selector<S3, R3>,
+    sel4: Selector<S4, R4>,
+    sel5: Selector<S5, R5>,
+    sel6: Selector<S6, R6>,
+): Selector<S1 & S2 & S3 & S4 & S5 & S6, R1 & R2 & R3 & R4 & R5 & R6>
+export function select<S1, S2, S3, S4, S5, S6, S7, R1, R2, R3, R4, R5, R6, R7>(
+    sel1: Selector<S1, R1>,
+    sel2: Selector<S2, R2>,
+    sel3: Selector<S3, R3>,
+    sel4: Selector<S4, R4>,
+    sel5: Selector<S5, R5>,
+    sel6: Selector<S6, R6>,
+    sel7: Selector<S7, R7>,
+): Selector<S1 & S2 & S3 & S4 & S5 & S6 & S7, R1 & R2 & R3 & R4 & R5 & R6 & R7>
 export function select(...args: any[]): any {
     return function (s: any) {
         let res = {}

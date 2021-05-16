@@ -89,11 +89,17 @@ type ObsidianVault = {
 
 export const withIndex = <T>(items?: T[]) => items?.map((f, idx) => [f, idx] as const) ?? []
 export const normPath = (vaultPath: string, p: string) => vaultPath == p ? '/' : p.replace(vaultPath + '/', '')
-export const itemByPath = (p?: string) => <T extends { path: string, }>(items: T[]) => {
+export const itemByPath = (p?: string) => <T extends { path: string, }>(items: T[]): {
+    idx: number,
+    item: T
+} | undefined => {
     const idx = items.findIndex(_ => _.path == p)
+    
+    if(idx == -1)
+        return 
 
     return {
-        idx: idx > -1 ? idx : undefined, item: idx > -1 ? items[idx] : undefined
+        idx, item: items[idx]
     }
 }
 

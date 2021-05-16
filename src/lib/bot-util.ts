@@ -29,7 +29,8 @@ export const parseFromContext = (ctx: TelegrafContext) => {
         float = parseFloat(messageText)
     
     const photo = ctx.message?.photo
-
+    const isForwarded = ctx.message?.forward_from
+    
     return {
         messageText,
         location,
@@ -37,7 +38,8 @@ export const parseFromContext = (ctx: TelegrafContext) => {
         integer,
         float,
         photo,
-        ctx
+        ctx,
+        isForwarded
     }
 }
 
