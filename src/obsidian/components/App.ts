@@ -5,21 +5,24 @@ import { action, caseText, ifTrue, on } from "Lib/input";
 import { inputHandler, message, O } from 'Lib/lib';
 import { combineSelectors, select } from "Lib/state";
 import { GetSetState } from "Lib/tree2";
-import { getDirs, getVaultPath, getOpenDir, getStoreActions, getFiles, getVaultName, getExpandedDirs } from '../selectors';
-import { itemByUrl } from "../obs";
+import { getDirs, getVaultPath, getOpenDir, getVaultConfig, getStoreActions, getFiles, getVaultName, getExpandedDirs, getOpenFile, getOpenFileContent, getBookmarks } from '../selectors';
+import { itemByPath, itemByUrl } from "../obs";
 import { caseFileId, parseDirId } from "../util";
 import { VaultDirs } from './VaultDirs';
 import { OpenedFile } from './OpenedFile';
 import { ifTextEqual } from "Lib/chatactions";
 
-
 export const App = connected(
-    select(getDirs, getStoreActions, getOpenDir, getFiles, getVaultPath,
+    select(getDirs, getStoreActions,
+        combineSelectors(getOpenDir, getBookmarks),
+        combineSelectors(getFiles, getOpenFileContent),
+        combineSelectors(getOpenFile, getVaultPath),
         combineSelectors(getExpandedDirs, getVaultName),
         ({ error }: { error?: string; }) => ({ error })),
     function* (
-        { error, vaultPath, vaultName, storeActions, openDir, files, dirs, expandedDirs },
-        props: { expandAll: boolean; },
+        { error, vaultPath, bookmarks, vaultName, storeActions, openDir, openFile,
+            openFileContent, files, dirs, expandedDirs },
+        props: {},
         local: GetSetState<{
             showEmpty: boolean;
         }>) {
@@ -44,9 +47,13 @@ export const App = connected(
                 (dirId) => [
                     dirs[dirId].path == openDir
                         ? storeActions.setOpenDir(undefined) :
-                        !expandedDirs.includes(dirs[dirId].path)
-                            ? storeActions.toggleExpanded(dirs[dirId].path)
-                            : storeActions.toggleExpanded(dirs[dirId].path)
+                        [
+                            storeActions.setOpenDir(dirs[dirId].path),
+                            storeActions.setExpanded([dirs[dirId].path])]
+                    // !expandedDirs.includes(dirs[dirId].path)
+                    //     ? storeActions.setExpanded([dirs[dirId].path])
+                    //     : storeActions.setExpanded([dirs[dirId].path])
+                    // ]
                 ]
             )),
             on(caseText,
@@ -61,19 +68,8 @@ export const App = connected(
                 ))
         ]);
 
-        const links = [
-            itemByUrl('/игра/дела/идеи дел'),
-            itemByUrl('/incoming'),
-            itemByUrl('/прочее/записки')
-        ];
-
-        const [ideasItem, incomingItem, notesItem] = links.map(
-            link => link(vaultPath, files)
-        );
-
         yield messagePart(`<b>${vaultName}</b>`);
         yield nextMessage();
-
 
         yield button(`Close all`, () => [
             storeActions.resetOpens()
@@ -81,38 +77,28 @@ export const App = connected(
 
         yield button('🔄', () => [
             storeActions.openVault(),
-        ]);
+        ], true);
 
         if (dirs.find(_ => _.files.length == 0))
             yield button(`Empty (${showEmpty ? 1 : 0})`, () => [
-                local.setState(local.lenses('showEmpty').set(!showEmpty)),
-            ], true);
-
-
-        // const incomingFile = itemByPath(path.join(vault.path, 'incoming.md'))(vault.files)
-        if (incomingItem.item)
-            yield button(`⭐ Incoming`, () => [
-                storeActions.openFileComposed(incomingItem.item!)
+                local.set('showEmpty')(!showEmpty),
             ]);
 
-        if (notesItem.item)
-            yield button(`⭐ Записки`, () => [
-                storeActions.openFile(notesItem.item?.path)
+        for (const {item} of bookmarks) {
+            yield button(`⭐ ${item.name.replace('.md', '')}`, () => [
+                storeActions.openFileComposed(item)
             ]);
+        }
 
         yield VaultDirs({
             showEmpty,
-            showDirLinks: !props.expandAll,
-            expandedDirs: [
-                ...expandedDirs,
-                // incomingItem.item?.parentDirPath
-                // , notesItem.item?.parentDirPath
-                // , openDir
-                ...(props.expandAll ? dirs.map(_ => _.path) : [openDir])
-            ].filter((b): b is string => !!b)
+            showDirLinks: true,
+            expandedDirs: expandedDirs.filter((b): b is string => !!b)
         });
 
-        yield OpenedFile({});
+        yield OpenedFile({
+            openFile, openFileContent
+        });
 
         // if (!openFile && openDir)
         //     yield button('Close dir', () => [

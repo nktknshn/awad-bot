@@ -121,7 +121,7 @@ export interface ChatAction<R, H, Returns, E> {
     (ctx: ChatActionContext<R, H, E>): Promise<Returns>
 }
 
-export interface ChatActionContext<R, H, E> {
+export interface ChatActionContext<R, H, E = BasicAppEvent<R, H>> {
     app: Application<R, H, E>,
     tctx: TelegrafContext,
     // renderer: ChatRenderer,
@@ -144,11 +144,11 @@ export function replyCallback<R, H, E>(
     )()
 }
 
-export function log<R, H, E>(
-    f: (ctx: ChatActionContext<R, H, E>) => void
-): AppChatAction<R, H, E> {
+export function log<R, H>(
+    f: (ctx: ChatActionContext<R, H>) => void
+): AppChatAction<R, H> {
     return async (
-        ctx: ChatActionContext<R, H, E>
+        ctx: ChatActionContext<R, H>
     ) => {
 
         f(ctx)

@@ -19,6 +19,6 @@ export const VaultOpenDirFiles = connected(
                 italify(_ => false, path.basename(normPath(vaultPath, f.path))
                     .replace('.md', '')));
 
-            yield messagePart(`/file_${idx}            ${title}`);
+            yield messagePart(`/file_${idx}                ${title}`);
         }
     });

@@ -1,6 +1,6 @@
 import { pipe } from 'fp-ts/lib/pipeable';
 import fs from 'fs/promises'
-import { A, TE } from 'Lib/lib';
+import { A, E, O, TE } from 'Lib/lib';
 import path from "path";
 
 // function printObsidianDir(d: ObsidianDir) {
@@ -12,13 +12,14 @@ import path from "path";
 
 const tasksArray = A.array.sequence(TE.taskEither)
 
-function readdirRe1(dirPath: string) {
+function readdirRe1(dirPath: string): TE.TaskEither<{ message: string }, ObsidianDir> {
     return pipe(
         TE.tryCatch(() => readdirRe(dirPath), reason => ({
             message: `error opening ${dirPath}`
         }))
-    )()
+    )
 }
+
 
 async function readdirRe(dirPath: string): Promise<ObsidianDir> {
     const items = await fs.readdir(dirPath)
@@ -112,20 +113,20 @@ export const itemByUrl = (p: string) =>
         return { idx: idx > -1 ? idx : undefined, item: idx > -1 ? items[idx] : undefined }
     }
 
-function Vault(vault: ObsidianVault) {
-    const dirByPath = (p?: string) => vault.dirs.find(_ => _.path == p)
-    const dirsWithIndex = vault.dirs.map((f, idx) => [f, idx] as const)
-    const filesWithIndex = (d?: ObsidianDir) => d?.files.map((f, idx) => [f, idx] as const) ?? []
+// function Vault(vault: ObsidianVault) {
+//     const dirByPath = (p?: string) => vault.dirs.find(_ => _.path == p)
+//     const dirsWithIndex = vault.dirs.map((f, idx) => [f, idx] as const)
+//     const filesWithIndex = (d?: ObsidianDir) => d?.files.map((f, idx) => [f, idx] as const) ?? []
 
-    const normPath = (p: string) => p.replace(vault.path + '/', '')
+//     const normPath = (p: string) => p.replace(vault.path + '/', '')
 
-    return {
-        dirByPath,
-        dirsWithIndex,
-        normPath,
-        filesWithIndex
-    }
-}
+//     return {
+//         dirByPath,
+//         dirsWithIndex,
+//         normPath,
+//         filesWithIndex
+//     }
+// }
 
 function vaultToStrings(v: ObsidianVault) {
     return [
@@ -153,6 +154,73 @@ function dirToVault(d: ObsidianDir): ObsidianVault {
     }
 }
 
+
+type ObsidianConfig = {
+    bookmarks: string[],
+    hidden: string[],
+}
+
+const readbookmarks = async (vault: ObsidianVault): Promise<string[]> => {
+    const { item: bookmarks } = itemByUrl('/config/bookmarks')(vault.path, vault.files)
+    if (!bookmarks) {
+        return []
+    }
+
+    const grepLink = (s: string) => {
+        const match = /\[\[(.+)\]\]/.exec(s)
+
+        if (!match || !match.length || match.length < 2)
+            return
+
+        return match[1]
+    }
+
+    const content = (await fs.readFile(bookmarks.path)).toLocaleString()
+
+    return pipe(
+        content.split('\n')
+        , A.filterMap(O.fromNullableK(grepLink))
+        , A.filterMap(name => O.fromNullable(vault.files.find(_ => _.path.endsWith(name + '.md'))))
+        , A.map(_ => _.path)
+    )
+}
+
+const readhidden = async (vault: ObsidianVault): Promise<string[]> => {
+    const { item: hidden } = itemByUrl('/config/hidden')(vault.path, vault.files)
+
+    if (!hidden)
+        return []
+
+    const grepListItem = (s: string) => {
+        const match = /- (.+)/.exec(s)
+
+        if (!match || !match.length || match.length < 2)
+            return
+
+        return match[1]
+    }
+
+    const content = (await fs.readFile(hidden.path)).toLocaleString()
+
+    return pipe(
+        content.split('\n')
+        , A.filterMap(O.fromNullableK(grepListItem))
+        // , A.filterMap(name => )
+        , hiddens => pipe([...vault.files, ...vault.dirs], A.filter(
+            file => !!hiddens.find(h => normPath(vault.path, file.path).startsWith(h))
+        ))
+        , A.map(_ => _.path)
+    )
+}
+
+export const readVaultConfig = async (vault: ObsidianVault): Promise<ObsidianConfig> => {
+
+    return {
+        bookmarks: await readbookmarks(vault),
+        hidden: await readhidden(vault)
+    }
+}
+
 export {
-    dirToVault, ObsidianVault, ObsidianDir, ObsidianFile, readdirRe1, vaultToStrings, Vault
+    dirToVault, ObsidianVault, ObsidianDir, ObsidianFile, readdirRe1, vaultToStrings, ObsidianConfig
 }

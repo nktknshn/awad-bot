@@ -1,13 +1,15 @@
 import { flow, identity } from "fp-ts/lib/function"
 import { E } from "Lib/lib"
 import { StoreF2, storeAction, lens, StoreAction } from "Lib/storeF"
-import { ObsidianVault, ObsidianFile, readdirRe1, dirToVault, ObsidianDir } from "./obs"
+import { ObsidianVault, ObsidianFile, readdirRe1, dirToVault, ObsidianDir, ObsidianConfig } from "./obs"
 import path from "path";
 import fs from 'fs/promises';
 import { append } from "bot3/util";
+import { readStore } from "./obsidian";
 
 export type Store = {
     vault?: ObsidianVault,
+    vaultConfig?: ObsidianConfig,
     error?: string,
     openFile?: string,
     openFileContent?: string,
@@ -16,6 +18,14 @@ export type Store = {
 }
 
 const nop = (s: Store) => s
+
+const openFile = storeAction((file?: string) => (state: Store) => {
+
+    const filePath = file ?? state.openFile ?? undefined
+
+    return state
+    // return nop
+})
 
 export const storeActions = (store: StoreF2<Store>) => {
     const setOpenFile = storeAction(lens(store).openFile.set)
@@ -28,10 +38,7 @@ export const storeActions = (store: StoreF2<Store>) => {
     )
     const setOpenFileContent = storeAction(lens(store).openFileContent.set)
 
-    const openFile = storeAction((
-        file?: string, onReadyActions: StoreAction<Store>[] = [
-            setOpenFile(file ?? store.state.openFile ?? undefined)
-        ]) => {
+    const openFile = storeAction((file?: string) => {
 
         const filePath = file ?? store.state.openFile ?? undefined
 
@@ -39,10 +46,8 @@ export const storeActions = (store: StoreF2<Store>) => {
             fs.readFile(filePath)
                 .then(content => {
                     store.dispatch(
-                        [
-                            setOpenFileContentComposed(content.toLocaleString(), file),
-                            ...onReadyActions,
-                        ])
+                        setOpenFileContentComposed(content.toLocaleString(), file)
+                    )
                 })
 
             return nop
@@ -80,19 +85,17 @@ export const storeActions = (store: StoreF2<Store>) => {
 
             vaultPath = vaultPath ?? store.state.vault!.path
 
-            readdirRe1(vaultPath).then(
-                flow(
-                    E.fold(
-                        error => lens(store).error.set(error.message),
-                        v => {
-                            const vault = dirToVault(v)
-                            return flow(
-                                lens(store).vault.set(vault),
-                                // lens(store).openDir.set(),
+            readStore(vaultPath)().then(state =>
+                store.dispatch([{
+                    kind: 'store-action', f:
+                        state.error
+                            ? lens(store).error.set(state.error)
+                            : flow(
+                                lens(store).vault.set(state.vault),
+                                lens(store).vaultConfig.set(state.vaultConfig)
                             )
-                        })
-                    , f => store.dispatch([{ kind: 'store-action', f }])
-                ))
+                }, openFile(store.state.openFile)])
+            )
 
             return nop
         }

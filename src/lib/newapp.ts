@@ -205,6 +205,18 @@ export function withActionReducer<R, H extends H1, Ext, RootComp, H1>(
     }))
 }
 
+export function overload<RootComp, R, H, Ext, K extends keyof Ext>(
+    key: K,
+    f: (a: AppBuilder<R, H, Ext, RootComp>) => Ext[K]
+) {
+    return function (a: AppBuilder<R, H, Ext, RootComp>)
+        : AppBuilder<R, H, Ext, RootComp> {
+        return a.extend(a => ({
+            [key]: f(a)
+        }))
+    }
+}
+
 export function extend<RootComp, R, H, Ext, RR>(f: (a: AppBuilder<R, H, Ext, RootComp>) => RR) {
     return function (a: AppBuilder<R, H, Ext, RootComp>)
         : AppBuilder<R, H, Ext & RR, RootComp> {
@@ -228,7 +240,7 @@ export function defaultBuild<
     H, Ext, RootComp, Ctx extends RootComp, T, P>
     (u: AppBuilder<R, H,
         WithComponent<P, RootComp>
-        & WithState<T> 
+        & WithState<T>
         & Ext,
         RootComp
     >): AppBuilder<R, H,
@@ -254,9 +266,9 @@ export const finishBuild = () => complete
 
 
 export function complete<
-H extends H1, P, Ctx extends RootComp, RootComp, R,Ext, H1,
+    H extends H1, P, Ctx extends RootComp, RootComp, R, Ext, H1,
     StateDeps, TypeAssert extends IfDef<H, {}, never> = IfDef<H, {}, never>
-    >
+>
     (a: AppBuilder<R, H,
         & Ext
         & WithRender<R, H, P, Ctx>

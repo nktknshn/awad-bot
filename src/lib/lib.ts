@@ -1,9 +1,11 @@
 export { chatState, empty, stateSelector, subStateSelector } from 'Lib/chatstate'
 export * as CA from 'Lib/chatactions'
 export * as FL from 'Lib/components/actions/flush'
+export * as DE from 'Lib/defaults'
+export * as TR from 'Lib/components/actions/tracker'
 
 export * as AP from 'Lib/newapp'
-export * as B from 'Lib/appbuilder'
+export * as BU from 'Lib/appbuilder'
 export { button, message } from 'Lib/elements-constructors'
 export * as EC from 'Lib/elements-constructors'
 export { inputHandler } from './input'

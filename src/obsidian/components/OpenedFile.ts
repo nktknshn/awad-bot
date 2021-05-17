@@ -11,9 +11,11 @@ import { boldify, brailleSymbol } from "../util";
 import { InputBox } from './InputBox';
 
 export const OpenedFile = connected(
-    select(getOpenFileContent, getOpenFile, getStoreActions),
-    function* ({ openFileContent, openFile, storeActions }, { }: {},
-        { getState, setter }: GetSetState<{
+    select(getStoreActions),
+    function* ({ storeActions }, { openFileContent, openFile }: {
+        openFileContent?: string, openFile?: string
+    },
+        { getState, set }: GetSetState<{
             rename: boolean;
             autoNl: boolean;
             doAddSpace: boolean;
@@ -28,46 +30,63 @@ export const OpenedFile = connected(
         if (openFileContent === undefined)
             return;
 
+        const detectMode = openFileContent ? () => {
+            const lines = openFileContent.split('\n').filter(_ => _.length)
+            return lines[lines.length - 1].startsWith('-') ? 'list' : 'append'
+        } : (): 'append' => 'append'
+
         const { rename, newFileName, addSymbol, mode } = getState({
             autoNl: true,
             doAddSpace: false,
             addSymbol: '\n',
             rename: false,
-            mode: 'append'
+            mode: detectMode()
         });
 
-        const setAddSymbol = setter('addSymbol').set;
-
-        const setRename = setter('rename').set;
-        const setNewFileName = setter('newFileName').set;
-        const setMode = setter('mode').set;
+        const setAddSymbol = set('addSymbol');
+        const setRename = set('rename');
+        const setNewFileName = set('newFileName');
+        const setMode = set('mode');
 
         const resetRename = [setRename(false), setNewFileName(undefined)];
 
-        const mapMessageText = (messageText: string) => mode === 'list' ? '- ' + messageText : messageText;
+        const firstLine = (text: string) => pipe(
+            text.split('\n'),
+            lines => lines.length > 0 ? lines[0] : undefined
+        )
+
+        const mapMessageText = (messageText: string) =>
+            pipe(messageText
+                , text => mode === 'list'
+                    ? '- ' + text
+                    : text
+                , text => openFileContent[openFileContent.length - 1] != '\n' ? '\n' + text : text
+            )
+
         const addNil = (messageText: string) => messageText + addSymbol;
 
-        const onTextAction = (messageText: string) => mode === 'replace'
-            ? [setMode('append'), storeActions.setContent(
-                pipe(
-                    messageText,
-                    text => text[text.length - 2] == '\n'
-                        && text[text.length - 1] == '>'
-                        ? text.slice(0, text.length - 1)
-                        : text
-                ))]
-            : storeActions.appendLine(
-                pipe(messageText,
-                    mapMessageText,
-                    addNil
-                ));
+        const onTextAction = (messageText: string) =>
+            (firstLine(messageText) == firstLine(openFileContent) ||
+                mode === 'replace')
+                ? [setMode('append'), storeActions.setContent(
+                    pipe(
+                        messageText,
+                        text => text[text.length - 2] == '\n'
+                            && text[text.length - 1] == '>'
+                            ? text.slice(0, text.length - 1)
+                            : text
+                    ))]
+                : storeActions.appendLine(
+                    pipe(messageText,
+                        mapMessageText,
+                        addNil
+                    ));
 
         yield inputHandler([
             on(caseText,
                 ifTrue(_ => openFileContent !== undefined),
                 ifTrue(c => !c.messageText.startsWith('/')),
-                action(({ messageText }) => onTextAction(messageText)
-                ))
+                action(({ messageText }) => onTextAction(messageText)))
         ]);
 
         const formatContent = (content: string) => pipe(

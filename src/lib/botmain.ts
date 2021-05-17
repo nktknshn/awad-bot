@@ -2,7 +2,7 @@ import Telegraf from "telegraf"
 import { initLogging, mylog } from "Lib/logging"
 import { attachAppToBot } from "Lib/util"
 import { token as awadtoken } from "../telegram-token.json"
-import { createLevelTracker } from "bot3/leveltracker"
+import { createLevelTracker } from "../bot3/leveltracker"
 import { Application } from "./application"
 
 async function runbot<R, H, E>(

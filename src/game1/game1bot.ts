@@ -5,7 +5,7 @@ import { connected } from "Lib/component";
 import { withTrackingRenderer } from "Lib/components/actions/tracker";
 import { addDefaultBehaviour, defaultState } from "Lib/defaults";
 import { button, buttonsRow, keyboardButton, messagePart, nextMessage } from "Lib/elements-constructors";
-import { CA, A, AP, B, chatState, message } from 'Lib/lib'
+import { CA, A, AP, BU, chatState, message } from 'Lib/lib'
 import { finishBuild } from "Lib/newapp";
 import { select } from "Lib/state";
 import { GetSetState } from "Lib/tree2";
