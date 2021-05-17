@@ -5,6 +5,7 @@ import { StoreAction, StoreF, StoreF2 } from "./storeF"
 import { TreeState } from "./tree"
 import { LocalStateAction } from 'Lib/tree2'
 import { ChatState } from './chatstate'
+import { mylog } from './logging'
 
 export const hasKind = <S extends {kind: any}>(kind: S['kind']) => (a: unknown): a is S =>
     isObject(a) && hasOwnProperty(a, 'kind') && a.kind === kind
@@ -250,8 +251,9 @@ export function composeReducers<R, H, E>(...ms: ChatActionReducer<any, R, H, E>[
             return false
         },
         f: (a: any) => {
-
             for (const m of ms) {
+                // mylog(m)
+
                 if (m.isA(a))
                     return m.f(a)
             }

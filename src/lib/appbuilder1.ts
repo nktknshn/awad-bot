@@ -68,46 +68,6 @@ export const startBuild0 = <
 }
 
 
-export const startBuild = <
-    P,
-    ReqContext extends ComponentReqs<RootComponent0>,
-    RootComponent0, T,
-    R = GetState<T>,
-    H = AppActionsFlatten<RootComponent0>
->(component: (props: P) => RootComponent0, state: T)
-    : AppBuilder<R, H, WithComponent<P, ReqContext>
-        & WithState<T>, ReqContext> => {
-
-    type B = WithComponent<P, ReqContext> & WithState<T>;
-
-    return ({
-        action: F.identity,
-        mapState: F.identity,
-        mapState2: () => f => f,
-        eventFunc: F.identity,
-        sequence: CA.sequence,
-        extend<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => RR): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
-            return createBuilder(merge({
-                state,
-                component: 'component',
-                realfunc: component
-            }, adds(this)));
-        },
-        extendF<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R, H, Merge<B, RR>, ReqContext>): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
-            return adds(this);
-        },
-        extendState<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R & RR, H, B, ReqContext>) {
-            return adds(this);
-        },
-        actionF: f => f(),
-        actionFF: (f) => (...args) => f(...args),
-        ext: { state, component: 'component', realfunc: component as any },
-        reducer: f => f,
-        renderFunc: f => f,
-        reducerFunc: f => f
-    });
-};
-
 export function createBuilder<R, H, Ext, RootComponent>(
     ext: Ext
 ): AppBuilder<R, H, Ext, RootComponent> {
@@ -131,7 +91,7 @@ export function createBuilder<R, H, Ext, RootComponent>(
         ext,
         reducer: f => f,
         renderFunc: f => f,
-        reducerFunc: f => f,
+        reducerFunc: f => f
         // , Types
     };
 }

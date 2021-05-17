@@ -95,7 +95,7 @@ export const app = <RootComponent extends ComponentElement, P>(
 ) => pipe(
     startBuild(app, st)
     , withTimer
-    , a => DE.addDefaultBehaviour(a, {
+    , a => DE.defaultBehaviour(a, {
         applyInputHandler: a.sequence([a.ext.startTimer, CA.applyInputHandler]),
         applyActionHandler: a.sequence([a.ext.startTimer, CA.applyActionHandler]),
         renderMessageWrapper: ({ action }) => action ?? a.action(CA.doNothing),

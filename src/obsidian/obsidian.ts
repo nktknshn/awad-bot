@@ -3,7 +3,7 @@ import { AppBuilder, Defined, startBuild, startBuild0 } from "Lib/appbuilder";
 import { createLevelTracker } from "Lib/botmain";
 import { timerState, withTimer } from 'Lib/components/actions/rendertimer';
 import { withTrackingRenderer } from "Lib/components/actions/tracker";
-import { addDefaultBehaviour, defaultState, getDefaultActions } from "Lib/defaults";
+import { defaultBehaviour, defaultState, getDefaultActions } from "Lib/defaults";
 import { withStore } from "Lib/components/actions/store";
 import { AP, CA, chatState, DE, T } from 'Lib/lib';
 import { mylog } from 'Lib/logging';
@@ -17,6 +17,8 @@ import { WithComponent, WithReducer, WithState } from "Lib/newapp";
 import { VaultDirs } from "./components/VaultDirs";
 import { VaultOpenDirFiles } from "./components/VaultOpenDirFiles";
 import { OpenedFile } from "./components/OpenedFile";
+import { AppDef, build, getApp, getApp2 } from "Lib/appbuilder0";
+import { build3 } from "Lib/appbuilder3";
 export { App } from './components/App';
 
 export const store = (dir: string) => pipe(
@@ -52,78 +54,102 @@ const log = <R, H>(f: ((chatdata: R) => string) | string, logger = mylog) => CA.
 })
 
 
-type AppDef<
-    ContextReq extends ComponentReqs<RootComponent0>,
-    P, T, RootComponent0, Ctx extends ContextReq, Ext1,
-    Ext0, R, H
-    > =
-    {
-        component: (props: P) => RootComponent0
-        state: T,
-        context: (cs: ChatState<R, unknown>) => Ctx,
-        extensions: (a: AppBuilder<R, H, Ext0, ContextReq>) =>
-            AppBuilder<R, H, Ext1, ContextReq>,
-    }
-
-const build = <
-    ContextReq extends ComponentReqs<RootComponent0>, P, T,
-    RootComponent0, Ctx extends ContextReq, Ext1,
-    >
-    (app: AppDef<ContextReq, P, T, RootComponent0, Ctx, Ext1,
-        WithComponent<P, ContextReq> & AP.WithState<T>, GetState<T>, AppActionsFlatten<RootComponent0>>) =>
-    app
-
 const app = build({
     component: App, state, context,
+    // base: DE.defaultBehaviour,
     extensions: flow(
+        // DE.defaultBehaviour
         withTimer
-        , DE.addDefaultBehaviour
-        , DE.updateActions
-        , ({ a, updateActions }) => updateActions(actions => ({
+        , DE.modifyActions
+        , ({ a, modify }) => modify(actions => ({
             render: a.sequence([
                 log('addDefaultBehaviour render')
                 , actions.render
                 , a.ext.stopTimer
                 , log(chatdata => `duration: ${chatdata.timerDuration}`)
             ])
-            , applyActionHandler: a.sequence([
-                a.ext.startTimer
-                , log('\n\n\n\n\napplyActionHandler')
-                , actions.applyActionHandler
-            ])
-            , applyInputHandler: a.sequence([
-                a.ext.startTimer
-                , log('\n\n\n\n\napplyInputHandler')
-                , actions.applyInputHandler
-            ])
+            // , applyActionHandler: a.sequence([
+            //     a.ext.startTimer
+            //     , log('\n\n\n\n\napplyActionHandler')
+            //     , actions.applyActionHandler
+            // ])
+            // , applyInputHandler: a.sequence([
+            //     a.ext.startTimer
+            //     , log('\n\n\n\n\napplyInputHandler')
+            //     , actions.applyInputHandler
+            // ])
         }))
-        , a => withStore(a, {
-            storeKey: 'store'
-            , storeAction: apply =>
-                a.sequence([
-                    log('storeAction apply')
-                    , apply
-                    , CA.render
-                    , log('storeAction render done')
-                    , a.ext.stopTimer
-                    , log(chatdata => `duration: ${chatdata.timerDuration}`)
-                ])
-        })
+        // , a => withStore(a, {
+        //     storeKey: 'store'
+        //     , storeAction: apply =>
+        //         a.sequence([
+        //             log('storeAction apply')
+        //             , apply
+        //             , CA.render
+        //             , log('storeAction render done')
+        //             , a.ext.stopTimer
+        //             , log(chatdata => `duration: ${chatdata.timerDuration}`)
+        //         ])
+        // })
+        // , AP.overload('handleEvent', _ => (ctx, e) => {
+        //     mylog(e);
+        //     return _.ext.handleEvent(ctx, e)
+        // })
     )
 })
 
+
+// export const { createApplication } = getApp2(app)
+// DE.defaultBehaviour(getApp2(app))
+
+const app2 = build3(
+    DE.defaultBehaviour,
+    {
+        component: App, state, context,
+        // extensions: a => a
+        extensions: flow(
+            withTimer
+            , DE.modifyActions
+            , ({ a, modify }) => modify(actions => ({
+                render: a.sequence([
+                    log('addDefaultBehaviour render')
+                    , actions.render
+                    , a.ext.stopTimer
+                    , log(chatdata => `duration: ${chatdata.timerDuration}`)
+                ])
+                , applyActionHandler: a.sequence([
+                    a.ext.startTimer
+                    , log('\n\n\n\n\napplyActionHandler')
+                    , actions.applyActionHandler
+                ])
+                , applyInputHandler: a.sequence([
+                    a.ext.startTimer
+                    , log('\n\n\n\n\napplyInputHandler')
+                    , actions.applyInputHandler
+                ])
+            }))
+            , a => withStore(a, {
+                storeKey: 'store'
+                , storeAction: apply =>
+                    a.sequence([
+                        log('storeAction apply')
+                        , apply
+                        , CA.render
+                        , log('storeAction render done')
+                        , a.ext.stopTimer
+                        , log(chatdata => `duration: ${chatdata.timerDuration}`)
+                    ])
+            })
+            , AP.overload('handleEvent', _ => (ctx, e) => {
+                mylog(e);
+                return _.ext.handleEvent(ctx, e)
+            })
+        )
+    }
+)
+
 export const { createApplication } = pipe(
-    startBuild(app.component, app.state)
-    , app.extensions
-    , AP.context(app.context)
+    app2
     , AP.complete
-    , AP.overload('actionReducer', _ => (a) => {
-        mylog(a);
-        return _.ext.actionReducer(a)
-    })
-    , AP.overload('handleEvent', _ => (ctx, e) => {
-        mylog(e);
-        return _.ext.handleEvent(ctx, e)
-    })
     , AP.withCreateApplication
 )

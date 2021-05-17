@@ -1,169 +1,129 @@
-import { Effect } from "./draft";
-import * as CA from 'Lib/chatactions';
-import * as F from 'fp-ts/lib/function';
-import { ChatRenderer } from "./chatrenderer";
-import { ChatActionReducer, ReducerFunction } from "./reducer";
-import { WithComponent, WithState } from "./newapp";
-import * as A from 'fp-ts/lib/Array';
-import { pipe } from "fp-ts/lib/pipeable";
-import { eqString } from "fp-ts/lib/Eq";
-import { ChatState } from "./chatstate";
-import { Merge, BasicAppEvent, ComponentReqs, GetState, AppActionsFlatten } from "./types-util";
+import { pipe } from 'fp-ts/lib/pipeable';
 import * as AP from 'Lib/newapp';
-import { WithTimer, WithTimerState } from "./components/actions/rendertimer";
+import { TelegrafContext } from 'telegraf/typings/context';
+import { AppBuilder, startBuild, startBuild0 } from "./appbuilder";
+import { ChatState } from "./chatstate";
+import { ComponentElement } from './component';
+import { BuildBase, DefaultBuild, DefaultChatActions, DefaultState } from './defaults';
+import { CA } from './lib';
+import { WithComponent, WithHandleEvent } from "./newapp";
+import { AppActionsFlatten, ComponentReqs, GetState } from "./types-util";
 
-const merge = <A, B>(a: A, b: B): Merge<A, B> => {
-    const bs = pipe(
-        Object.keys(b),
-        A.filter((k: keyof any): k is keyof B => true),
-        A.map((k) => [k, b[k]] as const)
-    );
+type AB<R, H, P, ReqContext, T> =
+    AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T>, ReqContext>
 
-    const as = pipe(
-        A.difference(eqString)(Object.keys(a), Object.keys(b)),
-        A.filter((k: keyof any): k is keyof A => true),
-        A.map((k) => [k, a[k]] as const));
+export type AppDef<
+    ContextReq extends ComponentReqs<RootComponent>, Props, T,
+    RootComponent extends ComponentElement, Ctx extends ContextReq,
+    Ext1, R , H
+    > =
+    {
+        component: (props: Props) => RootComponent
+        state: T,
+        props?: Props,
+        // behaviour
+        // base: (a: AB<R, H, Props, ContextReq, T>) =>
+            // DefaultBuild<R, H, Props, AP.DefaultActions<R, H>, DefaultChatActions<R, H>>
 
-    return pipe(
-        [...as, ...bs],
-        A.reduce({} as Merge<A, B>, (acc, [k, v]) => ({ ...acc, [k]: v }))
-    );
-};
+        context: (cs: ChatState<R, unknown>) => Ctx,
+        extensions: (a: AppBuilder<R, H,
 
-export const gettype = <RootComp, Ext, R, H>(a: AppBuilder<R, H, BasicAppEvent<R, H>, Ext, RootComp>) => a;
+            WithComponent<Props, ContextReq> & AP.WithState<T>
+            , ContextReq>) =>
+            
+            AppBuilder<R, H, WithComponent<Props, ContextReq>
+                & AP.WithState<T> & Ext1, ContextReq>,
+    }
 
-export const finishBuild = () => AP.complete
+export const build = <
+    ContextReq extends ComponentReqs<RootComponent>, Props, T,
+    RootComponent extends ComponentElement, Ctx extends ContextReq, Ext1, R 
+    >
+    (app: AppDef<ContextReq, Props, T, RootComponent, Ctx,
 
+        // WithComponent<Props, ContextReq>
+        // & AP.WithState<T>, 
 
-export const startBuild0 = <
-    ReqContext = unknown, H = unknown, R = unknown
->(): AppBuilder<R, H, {}, ReqContext> => {
-    type B = {};
+        Ext1 & WithComponent<Props, ContextReq>
+        & AP.WithState<T>,
+        // DefaultBuild<R, H, Props, ContextReq, T, {}>,
 
-    return ({
-        action: F.identity,
-        mapState: F.identity,
-        mapState2: () => f => f,
-        eventFunc: F.identity,
-        sequence: CA.sequence,
+        R, AppActionsFlatten<RootComponent>>) =>
+    app
 
-        extend<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => RR)
-        : AppBuilder<R, H, Merge<B, RR>, ReqContext> {
-            return createBuilder(merge({ }, adds(this)));
-        },
-        extendF<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R, H, Merge<B, RR>, ReqContext>): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
-            return adds(this);
-        },
-        extendFF<RR, R1, H1>(adds: (u: AppBuilder<R, H, B, ReqContext>) => 
-        AppBuilder<R1, H1, Merge<B, RR>, ReqContext>): AppBuilder<R1, H1, Merge<B, RR>, ReqContext> {
-            return adds(this);
-        },
-        extendState<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R & RR, H, B, ReqContext>) {
-            return adds(this);
-        },
-        actionF: f => f(),
-        actionFF: (f) => (...args) => f(...args),
-        ext: { },
-        reducer: f => f,
-        renderFunc: f => f,
-        reducerFunc: f => f
-    })
-}
+export const getApp = <
+    ContextReq extends ComponentReqs<RootComponent>, Props, T,
+    RootComponent extends ComponentElement, Ctx extends ContextReq,
+    Ext1, StateDeps, H1,
+    R extends GetState<T> = GetState<T> , H = AppActionsFlatten<RootComponent>
+>(app: AppDef<
 
+    ContextReq, Props, T, RootComponent, Ctx,
 
-// export function withTimer<R, H, Ext, ContextReq>
-//     (a: AppBuilder<R, H, Ext, ContextReq>)
-//     : AppBuilder<R & WithTimerState, H, Ext & WithTimer<R & WithTimerState, H>, ContextReq> {
+    Ext1
+    & WithComponent<Props, ContextReq>
+    & AP.WithState<T>
+    & WithHandleEvent<GetState<T>, AppActionsFlatten<RootComponent>>
+    & Record<'handleMessage', CA.AppChatAction<R, AppActionsFlatten<RootComponent>>>
+    & Record<'handleAction', CA.AppChatAction<R, AppActionsFlatten<RootComponent>>>
+    & AP.WithRender<GetState<T>, AppActionsFlatten<RootComponent>, Props, Ctx>
+    & AP.WithReducer<H1 | AppActionsFlatten<RootComponent>, R, AppActionsFlatten<RootComponent>>
+    & WithComponent<Props, ContextReq>
+    & AP.WithProps<Props>
+    & AP.WithState<(d: StateDeps) => (tctx: TelegrafContext) =>
+        Promise<ChatState<GetState<T>, AppActionsFlatten<RootComponent>>>>
+    ,
+    GetState<T>, AppActionsFlatten<RootComponent>
+>) =>
+    pipe(
+        startBuild0()
+        , AP.component(app.component)
+        , AP.state(app.state)
+        , app.extensions
+        , AP.context(app.context)
+        // , AP.complete
+        // , AP.overload('actionReducer', _ => (a) => {
+        //     mylog(a);
+        //     return _.ext.actionReducer(a)
+        // })
+        // , AP.overload('handleEvent', _ => (ctx, e) => {
+        //     mylog(e);
+        //     return _.ext.handleEvent(ctx, e)
+        // })
+        // , a => a
+        // , AP.withCreateApplication
+    )
 
-//     // const startTimer = a.action(
-//     //     CA.mapState(s => ({ ...s, timerStarted: Date.now() })))
+export const getApp2 = <
+    ContextReq extends ComponentReqs<RootComponent>, Props, T,
+    RootComponent extends ComponentElement, Ctx extends ContextReq,
+    Ext1, StateDeps, H1,
+    R , H = AppActionsFlatten<RootComponent>
+>(app: AppDef<
 
-//     // const stopTimer = a.action(CA.mapState(s => ({
-//     //     ...s,
-//     //     timerFinished: Date.now(),
-//     //     timerDuration: Date.now() - s.timerStarted!
-//     // })))
-    
-//     return a.extendFF(a => a.extend({
-//         startTimer: a.action(
-//             CA.mapState(s => ({ ...s, timerStarted: Date.now() })))
-//         , stopTimer: a.action(CA.mapState(s => ({
-//             ...s,
-//             timerFinished: Date.now(),
-//             timerDuration: Date.now() - s.timerStarted!
-//         })))
-//         , wrapInTimer: action =>
-//             a.sequence([startTimer, action, stopTimer])
-//     }))
+    ContextReq, Props, T, RootComponent, Ctx,
 
-// }
+    Ext1
+    // & WithComponent<Props, ContextReq>
+    // & AP.WithState<T>
+    // & WithHandleEvent<R, AppActionsFlatten<RootComponent>>
+    // & Record<'handleMessage', CA.AppChatAction<R, AppActionsFlatten<RootComponent>>>
+    // & Record<'handleAction', CA.AppChatAction<R, AppActionsFlatten<RootComponent>>>
+    // & AP.WithRender<R, AppActionsFlatten<RootComponent>, Props, Ctx>
+    // & AP.WithReducer<H1 | AppActionsFlatten<RootComponent>, R, AppActionsFlatten<RootComponent>>
+    // & WithComponent<Props, ContextReq>
+    // & AP.WithProps<Props>
+    // & AP.WithState<(d: StateDeps) => (tctx: TelegrafContext) =>
+    //     Promise<ChatState<R, AppActionsFlatten<RootComponent>>>>
+    ,
+    GetState<T>, AppActionsFlatten<RootComponent>
+>) =>
+    pipe(
+        startBuild0()
+        , AP.component(app.component)
+        , AP.state(app.state)
+        , AP.context(app.context)
+    )
 
-export function createBuilder<R, H, Ext, RootComponent>(
-    ext: Ext
-): AppBuilder<R, H, Ext, RootComponent> {
-    return {
-        action: F.identity,
-        mapState: F.identity,
-        mapState2: () => f => f,
-        eventFunc: F.identity,
-        sequence: CA.sequence,
-        extend<RR>(adds: (u: AppBuilder<R, H, Ext, RootComponent>) => RR): AppBuilder<R, H, Merge<Ext, RR>, RootComponent> {
-            return createBuilder(merge(ext, adds(this)));
-        },
-        extendF<RR>(adds: (u: AppBuilder<R, H, Ext, RootComponent>) => AppBuilder<R, H, Merge<Ext, RR>, RootComponent>): AppBuilder<R, H, Merge<Ext, RR>, RootComponent> {
-            return adds(this);
-        },
-        extendFF<RR, R1, H1>(adds: (u: AppBuilder<R, H, Ext, RootComponent>) => 
-        AppBuilder<R1, H1, Merge<Ext, RR>, RootComponent>): AppBuilder<R1, H1, Merge<Ext, RR>, RootComponent> {
-            return adds(this);
-        },
-        extendState<RR>(adds: (u: AppBuilder<R, H, Ext, RootComponent>) => AppBuilder<R & RR, H, Ext, RootComponent>) {
-            return adds(this);
-        },
-        actionF: f => f(),
-        actionFF: (f) => (...args) => f(...args),
-        ext,
-        reducer: f => f,
-        renderFunc: f => f,
-        reducerFunc: f => f
-        // , Types
-    };
-}
-
-export type RenderFunc<R, H> = (state: ChatState<R, H>) => {
-    chatdata: ChatState<R, H>;
-    renderFunction: (renderer: ChatRenderer) => Promise<ChatState<R, H>>;
-    effects: Effect<H>[];
-};
-
-export interface AppBuilder<R, H, Ext, ReqContext, E = BasicAppEvent<R, H>
-    // A extends ApplicationUtil<R, H, RootComp> = ApplicationUtil<R, H, RootComp>
-    > {
-    action: (f: CA.AppChatAction<R, H, E>) => CA.AppChatAction<R, H, E>;
-    actionF: (f: () => CA.AppChatAction<R, H, E>) => CA.AppChatAction<R, H, E>;
-    actionFF: <T extends any[]>(f: (...args: T) => CA.AppChatAction<R, H, E>) =>
-        (...args: T) => CA.AppChatAction<R, H, E>;
-    sequence: (fs: CA.AppChatAction<R, H, E>[]) => CA.AppChatAction<R, H, E>;
-    mapState: <R>(f: (s: ChatState<R, H>) => R) => (s: ChatState<R, H>) => R;
-    mapState2: <S>() => <R>(f: (s: S) => R) => (s: S) => R;
-    eventFunc: (handleEvent: (
-        ctx: CA.ChatActionContext<R, H, E>,
-        event: E
-    ) => Promise<ChatState<R, H>>) => typeof handleEvent;
-    extend<RR>(adds: (u: AppBuilder<R, H, Ext, ReqContext>) => RR): AppBuilder<R, H, Merge<Ext, RR>, ReqContext>;
-    extendF<RR>(
-        adds: (u: AppBuilder<R, H, Ext, ReqContext>) => AppBuilder<R, H, Merge<Ext, RR>, ReqContext>
-    ): AppBuilder<R, H, Merge<Ext, RR>, ReqContext>;
-    extendFF<RR, R1, H1>(adds: (u: AppBuilder<R, H, Ext, ReqContext>) => 
-        AppBuilder<R1, H1, Merge<Ext, RR>, ReqContext>): AppBuilder<R1, H1, Merge<Ext, RR>, ReqContext>
-
-    ext: Ext;
-    // with<RR>(adds: (u: AppBuilder<R, H, Ext, RootComp>) => RR): AppBuilder<R, H, Merge<Ext, RR>, RootComp>;
-    reducer: <H1, H2>(f: ReducerFunction<R, H, H1, E>) => ReducerFunction<R, H, H1, E>;
-    reducerFunc: <T1>(
-        f: ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>) => ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>;
-
-    renderFunc: (f: RenderFunc<R, H>) => RenderFunc<R, H>;
-    extendState<RR>(adds: (u: AppBuilder<R, H, Ext, ReqContext>) => AppBuilder<R & RR, H, Ext, ReqContext>): AppBuilder<R & RR, H, Ext, ReqContext>;
-}
-export type Defined<T> = T extends (infer R) ? R extends undefined ? never : R : never;
+type HHH<T> = T extends AppDef<infer ContextReq, infer Props, infer T,
+    infer RootComponent, infer Ctx, infer Ext1, infer R, infer H> ? Ext1 : never

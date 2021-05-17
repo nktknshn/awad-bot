@@ -78,7 +78,7 @@ export function component<
 }
 
 
-export function state<T, H, Ext, ReqContext, R = GetState<T>>(state: T) {
+export function state<T, H, Ext, ReqContext, R extends GetState<T>>(state: T) {
     return function (a: AppBuilder<unknown, H, Ext, ReqContext>)
         : AppBuilder<R, H, Ext & WithState<T>, ReqContext> {
         return a.extend(_ => ({ state })) as AppBuilder<R, H, Ext & WithState<T>, ReqContext>
@@ -112,7 +112,7 @@ export function context<R, Ctx>(
     contextCreator: (cs: ChatState<R, unknown>) => Ctx) {
     return function withContextCreator<Ext, RootComp, H>
         (a: AppBuilder<R, H, Ext, RootComp>)
-        : AppBuilder<R, H, Ext & WithContextCreator<R, H, Ctx>, RootComp> {
+        : AppBuilder<R, H, Ext & WithContextCreator<R, Ctx>, RootComp> {
         return a.extend(_ => ({ contextCreator }))
     }
 }
@@ -157,8 +157,8 @@ export type WithProps<P> = {
     props: P
 }
 
-export type WithContextCreator<R, H, Ctx> = {
-    contextCreator: (cs: ChatState<R, H>) => Ctx
+export type WithContextCreator<R, Ctx> = {
+    contextCreator: (cs: ChatState<R, unknown>) => Ctx
 }
 
 export type WithRenderFunc<R, H> = {
@@ -170,7 +170,7 @@ export function renderFuncExtension<
 >
     (a: AppBuilder<R, H,
         Ext & WithProps<P>
-        & WithContextCreator<R, H, Ctx>
+        & WithContextCreator<R, Ctx>
         & WithRender<R, H, P, Ctx>, RootComp>)
     : AppBuilder<R, H,
         WithRenderFunc<R, H> & Ext
@@ -298,23 +298,23 @@ export const finishBuild = () => complete
 
 
 export function complete<
-    H extends H1, P, Ctx extends RootComp, RootComp, R, Ext, H1,
+    H, Props, Ctx extends ContextReq, ContextReq, R, Ext, H1,
     StateDeps, TypeAssert extends IfDef<H, {}, never> = IfDef<H, {}, never>
 >
     (a: AppBuilder<R, H,
         & Ext
-        & WithRender<R, H, P, Ctx>
-        & WithContextCreator<R, H, Ctx>
-        & WithReducer<H1, R, H>
-        & WithComponent<P, RootComp>
-        & WithProps<P>
-        & WithState<(d: StateDeps) => (tctx: TelegrafContext) => Promise<ChatState<R, H>>>
-        , RootComp>)
+        & WithRender<R, H, Props, Ctx>
+        & WithContextCreator<R, Ctx>
+        & WithReducer<H1 | H, R, H>
+        & WithComponent<Props, ContextReq>
+        & WithProps<Props>
+        // & WithState<(d: StateDeps) => (tctx: TelegrafContext) => Promise<ChatState<R, H>>>
+        , ContextReq>)
     : AppBuilder<R, H,
         Ext 
         & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
         & WithRenderFunc<R, H>
-        , RootComp> {
+        , ContextReq> {
 
     return pipe(
         a,

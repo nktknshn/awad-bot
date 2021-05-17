@@ -4,7 +4,7 @@ import { chatState } from "Lib/chatstate";
 import { withStore } from "Lib/components/actions/store";
 import * as TR from "Lib/components/actions/tracker";
 import { withUserMessages } from 'Lib/context';
-import { addDefaultBehaviour, defaultState } from "Lib/defaults";
+import { defaultBehaviour, defaultState } from "Lib/defaults";
 // import { defaultBehaviour } from "Lib/defaults";
 import * as AP from 'Lib/newapp';
 import { select } from 'Lib/state';
@@ -57,7 +57,7 @@ const state = () => chatState([
 
 export const { createApplication } = pipe(
     startBuild(App, state)
-    , addDefaultBehaviour
+    , defaultBehaviour
     , a => withStore(a, { storeKey: 'store' })
     , AP.context(contextCreatorBot3)
     , AP.props({ password: 'a' })

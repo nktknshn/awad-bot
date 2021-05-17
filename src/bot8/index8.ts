@@ -6,7 +6,7 @@ import { connected } from 'Lib/component';
 import { withTimer, timerState, WithTimerState } from 'Lib/components/actions/rendertimer';
 import * as TR from "Lib/components/actions/tracker";
 import { contextSelector } from 'Lib/context';
-import { addDefaultBehaviour, DefaultState, defaultState } from 'Lib/defaults';
+import { defaultBehaviour, DefaultState, defaultState } from 'Lib/defaults';
 import { buttonsRow, keyboardButton, message } from 'Lib/elements-constructors';
 import { action, caseText, inputHandler, on } from 'Lib/input';
 import * as AP from 'Lib/newapp';
@@ -15,6 +15,8 @@ import { select } from 'Lib/state';
 import { GetChatState } from 'Lib/types-util';
 import * as CA from 'Lib/chatactions';
 import { flow } from 'fp-ts/lib/function';
+import { build } from 'Lib/appbuilder0';
+import { build3 } from 'Lib/appbuilder3';
 
 
 const KeyboardMenu = connected(
@@ -83,12 +85,21 @@ const state = () => chatState([
     timerState
 ])
 
-const app = pipe(
-    startBuild(App, state)
-    , withTimer
-    , addDefaultBehaviour
-    , AP.context(context.fromState)
-    , finishBuild()
-)
+const app = build3(
+    defaultBehaviour,
+    {
+        component: App, state, context: context.fromState,
+        extensions: flow(
+            withTimer
+        )
+    })
 
-export const { createApplication: createApp } = AP.withCreateApplication(app)
+// const app = pipe(
+//     startBuild(App, state)
+//     , withTimer
+//     , addDefaultBehaviour
+//     , AP.context(context.fromState)
+//     , finishBuild()
+// )
+
+export const { createApplication: createApp } = AP.withCreateApplication(AP.complete(app))
