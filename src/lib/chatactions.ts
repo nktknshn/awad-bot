@@ -31,10 +31,11 @@ export async function applyEffects<R, H, E>(
 ): Promise<ChatState<R, H>> {
 
     const r = ctx.app.renderFunc(ctx.chatdata)
-
-    const cd = await sequence<R, H, E>(
-        ctx.app.actionReducer(r.effects.map(_ => _.element.callback()))
-    )({ ...ctx, chatdata: r.chatdata })
+    const cd = r.effects.length
+        ? await sequence<R, H, E>(
+            ctx.app.actionReducer(r.effects.map(_ => _.element.callback()))
+        )({ ...ctx, chatdata: r.chatdata })
+        : r.chatdata
 
     return cd
 }
@@ -84,7 +85,7 @@ export function sequence<R, H, E = BasicAppEvent<R, H>>(
 ): AppChatAction<R, H, E> {
     return async (ctx): Promise<ChatState<R, H>> => {
         let data = ctx.chatdata
-        
+
         for (const h of handlers) {
             data = await h({ ...ctx, chatdata: data })
         }
@@ -138,7 +139,7 @@ export function replyCallback<R, H, E>(
             , mapToChatRendererError
         )
         , TE.fold<ChatRendererError, boolean, ChatState<R, H>>(
-            (e) => T.of({...chatdata, error: e.description })
+            (e) => T.of({ ...chatdata, error: e.description })
             , (_) => T.of(chatdata)
         )
     )()
@@ -162,9 +163,9 @@ export function log<R, H>(
 }
 //  XXX
 // export const lazy = (ca: CA.AppChatAction<unknown, unknown, unknown>) =>
-    // <R, H, E>(): CA.AppChatAction<R, H, E> => ca
+// <R, H, E>(): CA.AppChatAction<R, H, E> => ca
 
-export function withChatState<R, H, E= BasicAppEvent<R, H>>(
+export function withChatState<R, H, E = BasicAppEvent<R, H>>(
     pred: (state: ChatState<R, H>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (
@@ -172,7 +173,7 @@ export function withChatState<R, H, E= BasicAppEvent<R, H>>(
     ) => pred(ctx.chatdata)(ctx)
 }
 
-export function tctx<R, H, E= BasicAppEvent<R, H>>(
+export function tctx<R, H, E = BasicAppEvent<R, H>>(
     pred: (ctx: TelegrafContext) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (
@@ -180,7 +181,7 @@ export function tctx<R, H, E= BasicAppEvent<R, H>>(
     ) => pred(ctx.tctx)(ctx)
 }
 
-export function app<R, H, E= BasicAppEvent<R, H>>(
+export function app<R, H, E = BasicAppEvent<R, H>>(
     pred: (app: Application<R, H, E>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (
@@ -188,13 +189,13 @@ export function app<R, H, E= BasicAppEvent<R, H>>(
     ) => pred(ctx.app)(ctx)
 }
 
-export function chain<R, H, E= BasicAppEvent<R, H>>(
+export function chain<R, H, E = BasicAppEvent<R, H>>(
     f: (ctx: ChatActionContext<R, H, E>) => AppChatAction<R, H, E>,
 ): AppChatAction<R, H, E> {
     return async (ctx) => f(ctx)(ctx)
 }
 
-export type Branch<R, H, T, E= BasicAppEvent<R, H>> = [
+export type Branch<R, H, T, E = BasicAppEvent<R, H>> = [
     (ctx: TelegrafContext) => boolean,
     ChatAction<R, H, T, E>[],
     ChatAction<R, H, T, E>[]
@@ -263,4 +264,4 @@ export const doNothing = async <R, H, E>({ chatdata }: CA.ChatActionContext<R, H
 
 
 export const onTrue = <R, H, E>(p: boolean, a: AppChatAction<R, H, E>)
-: AppChatAction<R, H, E> => p ? a : doNothing
+    : AppChatAction<R, H, E> => p ? a : doNothing

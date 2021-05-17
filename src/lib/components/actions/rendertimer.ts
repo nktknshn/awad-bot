@@ -36,7 +36,7 @@ export function withTimer<R extends WithTimerState, H, Ext, ContextReq>
         startTimer
         , stopTimer
         , wrapInTimer: action =>
-            a.actions([startTimer, action, stopTimer])
+            a.sequence([startTimer, action, stopTimer])
     }))
 
 }

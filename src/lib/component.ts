@@ -65,7 +65,7 @@ export function ConnectedComp<P extends M, S, M, State, E>(
 export function connected0<P, S, E>(
     cons: CompConstructorWithState<P, S, E>
 ) {
-    return (props: P) => ConnectedComp(cons, _ => ({}))(props);
+    return (props: P) => ConnectedComp(cons, (_: never) => ({}))(props);
 }
 
 

@@ -1,11 +1,39 @@
 import { flow, identity } from "fp-ts/lib/function"
 import { E } from "Lib/lib"
 import { StoreF2, storeAction, lens, StoreAction } from "Lib/storeF"
-import { ObsidianVault, ObsidianFile, readdirRe1, dirToVault, ObsidianDir, ObsidianConfig } from "./obs"
+import { ObsidianVault, ObsidianFile, readdirRe1, dirToVault, ObsidianDir, ObsidianConfig, readVaultConfig } from "./obs"
 import path from "path";
 import fs from 'fs/promises';
 import { append } from "bot3/util";
-import { readStore } from "./obsidian";
+import { AP, CA, chatState, FL, TE, T } from 'Lib/lib';
+import { pipe } from "fp-ts/lib/pipeable";
+import { RequiredKeepUndefined } from "Lib/types-util";
+
+export const readStore = (dir: string) => {
+    return pipe(
+        readdirRe1(dir)
+        , TE.map(dirToVault)
+        , TE.chain(vault =>
+            TE.tryCatch(
+                () => readVaultConfig(vault).then(vaultConfig => ({
+                    vaultConfig,
+                    vault
+                })),
+                () => ({ message: 'error loading config' })))
+        , TE.fold(
+            error => async () => ({ error: error.message }) as RequiredKeepUndefined<Store>
+            , ({ vaultConfig, vault }) => async () => ({
+                vault,
+                vaultConfig,
+                error: undefined,
+                openFile: undefined,
+                openFileContent: undefined,
+                openDir: undefined,
+                expandedDirs: []
+            })
+        )
+    )
+}
 
 export type Store = {
     vault?: ObsidianVault,

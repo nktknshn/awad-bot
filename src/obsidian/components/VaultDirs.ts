@@ -10,12 +10,23 @@ import { InputBox } from './InputBox';
 import { VaultOpenDirFiles } from "./VaultOpenDirFiles";
 import { pipe } from "fp-ts/lib/pipeable";
 
+type VaultDirsProps = {
+    showDirLinks: boolean,
+    showEmpty: boolean;
+    expandedDirs: string[];
+}
+
+const vaultDirsContext = select(
+    getCurrentDir, getHidden,
+    getDirs, getVaultPath,
+    getOpenDir, getOpenFile,
+    getStoreActions
+)
+
 export const VaultDirs = connected(
-    select(
-        getCurrentDir, getDirs, getVaultPath, getOpenDir, getOpenFile, getStoreActions, getHidden
-    ),
+    vaultDirsContext,
     function* ({ dirs, openDir, vaultPath, storeActions, openFile, hidden, currentDir },
-        { showEmpty, expandedDirs, showDirLinks }: { showDirLinks: boolean, showEmpty: boolean; expandedDirs: string[]; },
+        { showEmpty, expandedDirs, showDirLinks }: VaultDirsProps,
         { set, getState }: GetSetState<{
             createItem?: 'file' | 'dir';
             itemName?: string;
@@ -34,6 +45,7 @@ export const VaultDirs = connected(
 
             if (!showEmpty && d.files.length == 0)
                 continue;
+
             if (hidden.includes(d.path))
                 continue
 
@@ -41,7 +53,7 @@ export const VaultDirs = connected(
 
             const name = pipe(
                 normPath(vaultPath, d.path)
-                , name => isCurrent ? `[${name}]` : name
+                , name => isCurrent ? `${name}  -` : name
             );
 
             const isRoot = name == '/'
@@ -53,9 +65,9 @@ export const VaultDirs = connected(
 
             if (!isRoot)
                 if (showDirLinks)
-                    yield messagePart(`/dir_${idx}          ${title}`);
+                    yield messagePart(`/dir_${idx}       ${title}`);
                 else
-                    yield messagePart(`${brailleSymbol}           ${title}`);
+                    yield messagePart(`${brailleSymbol}        ${title}`);
 
             if (expandedDirs.includes(d.path) || isRoot) {
                 const dir = itemByPath(d.path)(dirs)?.item;
@@ -79,8 +91,8 @@ export const VaultDirs = connected(
             yield InputBox({
                 title: createItem === 'file' ? 'File name:' : 'Dir name:',
                 cancelTitle: 'Cancel',
-                onCancel: () => [set('createItem')(undefined)],
-                onSuccess: name => [set('itemName')(name)],
+                onCancel: () => resetCreateItem,
+                onSuccess: set('itemName'),
                 onWrongInput: () => resetCreateItem
             });
         }

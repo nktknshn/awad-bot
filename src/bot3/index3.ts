@@ -1,9 +1,10 @@
 import { pipe } from "fp-ts/lib/function";
 import { finishBuild, startBuild } from "Lib/appbuilder";
 import { chatState } from "Lib/chatstate";
+import { withStore } from "Lib/components/actions/store";
 import * as TR from "Lib/components/actions/tracker";
 import { withUserMessages } from 'Lib/context';
-import { addDefaultBehaviour, defaultState, withStore } from "Lib/defaults";
+import { addDefaultBehaviour, defaultState } from "Lib/defaults";
 // import { defaultBehaviour } from "Lib/defaults";
 import * as AP from 'Lib/newapp';
 import { select } from 'Lib/state';

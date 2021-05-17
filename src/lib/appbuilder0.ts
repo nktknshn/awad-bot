@@ -10,6 +10,7 @@ import { eqString } from "fp-ts/lib/Eq";
 import { ChatState } from "./chatstate";
 import { Merge, BasicAppEvent, ComponentReqs, GetState, AppActionsFlatten } from "./types-util";
 import * as AP from 'Lib/newapp';
+import { WithTimer, WithTimerState } from "./components/actions/rendertimer";
 
 const merge = <A, B>(a: A, b: B): Merge<A, B> => {
     const bs = pipe(
@@ -45,16 +46,18 @@ export const startBuild0 = <
         mapState2: () => f => f,
         eventFunc: F.identity,
         sequence: CA.sequence,
-        extend<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => RR): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
+
+        extend<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => RR)
+        : AppBuilder<R, H, Merge<B, RR>, ReqContext> {
             return createBuilder(merge({ }, adds(this)));
         },
         extendF<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R, H, Merge<B, RR>, ReqContext>): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
             return adds(this);
         },
-        // extendFF<RR, R1, H1>(adds: (u: AppBuilder<R, H, B, ReqContext>) => 
-        // AppBuilder<R1, H1, Merge<B, RR>, ReqContext>): AppBuilder<R1, H1, Merge<B, RR>, ReqContext> {
-        //     return adds(this);
-        // },
+        extendFF<RR, R1, H1>(adds: (u: AppBuilder<R, H, B, ReqContext>) => 
+        AppBuilder<R1, H1, Merge<B, RR>, ReqContext>): AppBuilder<R1, H1, Merge<B, RR>, ReqContext> {
+            return adds(this);
+        },
         extendState<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R & RR, H, B, ReqContext>) {
             return adds(this);
         },
@@ -68,44 +71,32 @@ export const startBuild0 = <
 }
 
 
-export const startBuild = <
-    P,
-    ReqContext extends ComponentReqs<RootComponent0>,
-    RootComponent0, T,
-    R = GetState<T>,
-    H = AppActionsFlatten<RootComponent0>
->(component: (props: P) => RootComponent0, state: T)
-    : AppBuilder<R, H, WithComponent<P, ReqContext>
-        & WithState<T>, ReqContext> => {
-    type B = WithComponent<P, ReqContext> & WithState<T>;
+// export function withTimer<R, H, Ext, ContextReq>
+//     (a: AppBuilder<R, H, Ext, ContextReq>)
+//     : AppBuilder<R & WithTimerState, H, Ext & WithTimer<R & WithTimerState, H>, ContextReq> {
 
-    return ({
-        action: F.identity,
-        mapState: F.identity,
-        mapState2: () => f => f,
-        eventFunc: F.identity,
-        sequence: CA.sequence,
-        extend<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => RR): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
-            return createBuilder(merge({
-                state,
-                component: 'component',
-                realfunc: component
-            }, adds(this)));
-        },
-        extendF<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R, H, Merge<B, RR>, ReqContext>): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
-            return adds(this);
-        },
-        extendState<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R & RR, H, B, ReqContext>) {
-            return adds(this);
-        },
-        actionF: f => f(),
-        actionFF: (f) => (...args) => f(...args),
-        ext: { state, component: 'component', realfunc: component as any },
-        reducer: f => f,
-        renderFunc: f => f,
-        reducerFunc: f => f
-    });
-};
+//     // const startTimer = a.action(
+//     //     CA.mapState(s => ({ ...s, timerStarted: Date.now() })))
+
+//     // const stopTimer = a.action(CA.mapState(s => ({
+//     //     ...s,
+//     //     timerFinished: Date.now(),
+//     //     timerDuration: Date.now() - s.timerStarted!
+//     // })))
+    
+//     return a.extendFF(a => a.extend({
+//         startTimer: a.action(
+//             CA.mapState(s => ({ ...s, timerStarted: Date.now() })))
+//         , stopTimer: a.action(CA.mapState(s => ({
+//             ...s,
+//             timerFinished: Date.now(),
+//             timerDuration: Date.now() - s.timerStarted!
+//         })))
+//         , wrapInTimer: action =>
+//             a.sequence([startTimer, action, stopTimer])
+//     }))
+
+// }
 
 export function createBuilder<R, H, Ext, RootComponent>(
     ext: Ext
@@ -120,6 +111,10 @@ export function createBuilder<R, H, Ext, RootComponent>(
             return createBuilder(merge(ext, adds(this)));
         },
         extendF<RR>(adds: (u: AppBuilder<R, H, Ext, RootComponent>) => AppBuilder<R, H, Merge<Ext, RR>, RootComponent>): AppBuilder<R, H, Merge<Ext, RR>, RootComponent> {
+            return adds(this);
+        },
+        extendFF<RR, R1, H1>(adds: (u: AppBuilder<R, H, Ext, RootComponent>) => 
+        AppBuilder<R1, H1, Merge<Ext, RR>, RootComponent>): AppBuilder<R1, H1, Merge<Ext, RR>, RootComponent> {
             return adds(this);
         },
         extendState<RR>(adds: (u: AppBuilder<R, H, Ext, RootComponent>) => AppBuilder<R & RR, H, Ext, RootComponent>) {
@@ -159,6 +154,9 @@ export interface AppBuilder<R, H, Ext, ReqContext, E = BasicAppEvent<R, H>
     extendF<RR>(
         adds: (u: AppBuilder<R, H, Ext, ReqContext>) => AppBuilder<R, H, Merge<Ext, RR>, ReqContext>
     ): AppBuilder<R, H, Merge<Ext, RR>, ReqContext>;
+    extendFF<RR, R1, H1>(adds: (u: AppBuilder<R, H, Ext, ReqContext>) => 
+        AppBuilder<R1, H1, Merge<Ext, RR>, ReqContext>): AppBuilder<R1, H1, Merge<Ext, RR>, ReqContext>
+
     ext: Ext;
     // with<RR>(adds: (u: AppBuilder<R, H, Ext, RootComp>) => RR): AppBuilder<R, H, Merge<Ext, RR>, RootComp>;
     reducer: <H1, H2>(f: ReducerFunction<R, H, H1, E>) => ReducerFunction<R, H, H1, E>;

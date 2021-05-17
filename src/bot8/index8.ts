@@ -6,7 +6,7 @@ import { connected } from 'Lib/component';
 import { withTimer, timerState, WithTimerState } from 'Lib/components/actions/rendertimer';
 import * as TR from "Lib/components/actions/tracker";
 import { contextSelector } from 'Lib/context';
-import { addDefaultBehaviour, DefaultRender, DefaultState, defaultState } from 'Lib/defaults';
+import { addDefaultBehaviour, DefaultState, defaultState } from 'Lib/defaults';
 import { buttonsRow, keyboardButton, message } from 'Lib/elements-constructors';
 import { action, caseText, inputHandler, on } from 'Lib/input';
 import * as AP from 'Lib/newapp';

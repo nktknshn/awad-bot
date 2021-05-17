@@ -104,8 +104,8 @@ export const OpenedFile = connected(
                 storeActions.setOpenFile(undefined)
             ]);
 
-        yield button(`Rename`,
-            () => setRename(true));
+        // yield button(`Rename`,
+        //     () => setRename(true));
 
         if (mode === 'replace') {
             yield button('Replace', () => setMode('append'));

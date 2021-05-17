@@ -25,10 +25,11 @@ import { contextCreatorBot5, store as store5 } from '../bot5/index5'
 import { App as App8, bot8state, context as bot8context } from '../bot8/index8'
 import {
     App as ObsidianApp, store as obsidianStore,
-    stateToContext as obsidianContext
+    context as obsidianContext
 } from '../obsidian/obsidian'
 import { Info, infoContext } from "./infoContext"
 import { toggleInfo, ActiveApp, userId, refreshReducer, clearReducer } from "./asn"
+import { withStore } from "Lib/components/actions/store"
 
 export type ChatState = GetChatState<typeof state>
 
@@ -95,27 +96,26 @@ export const app = <RootComponent extends ComponentElement, P>(
     startBuild(app, st)
     , withTimer
     , a => DE.addDefaultBehaviour(a, {
-        applyInputHandler: a.actions([a.ext.startTimer, CA.applyInputHandler]),
-        applyActionHandler: a.actions([a.ext.startTimer, CA.applyActionHandler]),
-        renderWrapperMessage: ({ action }) => action ?? a.action(CA.doNothing),
-        render: a.actions([CA.render, a.ext.stopTimer]),
-        flushAction: a.actions([
+        applyInputHandler: a.sequence([a.ext.startTimer, CA.applyInputHandler]),
+        applyActionHandler: a.sequence([a.ext.startTimer, CA.applyActionHandler]),
+        renderMessageWrapper: ({ action }) => action ?? a.action(CA.doNothing),
+        render: a.sequence([CA.render, a.ext.stopTimer]),
+        flushAction: a.sequence([
             CA.flush,
             CA.withChatState(({ forgetFlushed, useTrackingRenderer }) =>
                 CA.onTrue(!!useTrackingRenderer && forgetFlushed,
                     useTrackingRenderer!.untrackRendererElementsAction))
         ]),
     })
-    , a => DE.withStore(a, {
+    , a => withStore(a, {
         storeKey: 'store',
-        storeAction: apply => a.actions([
+        storeAction: apply => a.sequence([
             a.ext.startTimer, apply, a.ext.chatActions.render
         ])
     })
     , AP.extend(a => ({
-        init: ({ services }: { services: AwadServices }) => a.actions([
-            a.ext.defaultInit({ cleanOldMessages: true }),
-            a.ext.attachStore_store,
+        init: ({ services }: { services: AwadServices }) => a.sequence([
+            a.ext.init({ cleanOldMessages: true }),
             initBot2('bot2Store')(services)
         ])
     }))
@@ -131,7 +131,7 @@ export const app = <RootComponent extends ComponentElement, P>(
     }))
     , AP.addReducer(_ => bot2Reducers())
     , AP.addReducer(_ => refreshReducer(reloadInterface()))
-    , AP.addReducer(_ => clearReducer(_.actions([
+    , AP.addReducer(_ => clearReducer(_.sequence([
         CA.withChatState(({ useTrackingRenderer }) => useTrackingRenderer
             ? CA.sequence([useTrackingRenderer.cleanChatAction, reloadInterface()])
             : CA.mapState(s => ({ ...s, error: 'no tracker installed' })))

@@ -10,7 +10,7 @@ import { applyActionEventReducer, makeEventReducer } from "./event";
 import { ChatActionReducer, ChatStateAction, composeReducers, defaultReducer, ReducerFunction, reducerToFunction } from "./reducer";
 import { StoreF2 } from "./storeF";
 import { LocalStateAction } from "./tree2";
-import { BasicAppEvent, If, IfDef } from "./types-util";
+import { AppActionsFlatten, BasicAppEvent, ComponentReqs, GetState, If, IfDef } from "./types-util";
 import { RenderFunc, AppBuilder } from "./appbuilder";
 
 
@@ -19,12 +19,12 @@ export function attachStore<K extends keyof R,
     return function attachStore<H, Ext, RootComp>
         (a: AppBuilder<R, H, Ext, RootComp>)
         : AppBuilder<R, H,
-            Ext & Record<`attachStore_${string & K}`,
+            Ext & Record<`attachStore`,
                 CA.AppChatAction<R, H>>, RootComp> {
 
         return a.extend(a => ({
-            [`attachStore_${key}`]: connectFStore(a, key)
-        }) as Record<`attachStore_${string & K}`,
+            [`attachStore`]: connectFStore(a, key)
+        }) as Record<`attachStore`,
             CA.AppChatAction<R, H, BasicAppEvent<R, H>>>)
     }
 
@@ -60,6 +60,32 @@ export function handleEventExtension2<Ext, R extends FlushState, H, T, RootComp>
     }
 }
 
+
+export function component<
+    P,
+    ReqContext extends ComponentReqs<RootComponent0>,
+    RootComponent0,
+    R, Ext,
+    H = AppActionsFlatten<RootComponent0>
+>(component: (props: P) => RootComponent0) {
+    return function (a: AppBuilder<R, unknown, Ext, unknown>)
+        : AppBuilder<R, H, Ext & WithComponent<P, ReqContext>, ReqContext> {
+        return a.extend(_ => ({
+            component: 'component',
+            realfunc: component
+        })) as AppBuilder<R, H, Ext & WithComponent<P, ReqContext>, ReqContext>
+    }
+}
+
+
+export function state<T, H, Ext, ReqContext, R = GetState<T>>(state: T) {
+    return function (a: AppBuilder<unknown, H, Ext, ReqContext>)
+        : AppBuilder<R, H, Ext & WithState<T>, ReqContext> {
+        return a.extend(_ => ({ state })) as AppBuilder<R, H, Ext & WithState<T>, ReqContext>
+    }
+}
+
+
 export type WithInit<R, H, Deps> = {
     init?: (deps: Deps) => CA.AppChatAction<R, H, BasicAppEvent<R, H>>;
 }
@@ -82,9 +108,9 @@ export function props<P>(props: P) {
     }
 }
 
-export function context<Ctx, R, H>(
-    contextCreator: (cs: ChatState<R, H>) => Ctx) {
-    return function withContextCreator<Ext, RootComp>
+export function context<R, Ctx>(
+    contextCreator: (cs: ChatState<R, unknown>) => Ctx) {
+    return function withContextCreator<Ext, RootComp, H>
         (a: AppBuilder<R, H, Ext, RootComp>)
         : AppBuilder<R, H, Ext & WithContextCreator<R, H, Ctx>, RootComp> {
         return a.extend(_ => ({ contextCreator }))
@@ -223,6 +249,12 @@ export function extend<RootComp, R, H, Ext, RR>(f: (a: AppBuilder<R, H, Ext, Roo
         return a.extend(f)
     }
 }
+export function extend0<RootComp, R, H, Ext, RR>(rr: RR) {
+    return function (a: AppBuilder<R, H, Ext, RootComp>)
+        : AppBuilder<R, H, Ext & RR, RootComp> {
+        return a.extend(_ => rr)
+    }
+}
 
 export function extendKey<RootComp, R, H, Ext, RR, K extends keyof any>(
     key: K,
@@ -279,7 +311,8 @@ export function complete<
         & WithState<(d: StateDeps) => (tctx: TelegrafContext) => Promise<ChatState<R, H>>>
         , RootComp>)
     : AppBuilder<R, H,
-        Ext & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
+        Ext 
+        & WithReducerFunction<R, H, H, BasicAppEvent<R, H>>
         & WithRenderFunc<R, H>
         , RootComp> {
 

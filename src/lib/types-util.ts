@@ -56,8 +56,9 @@ export type FindKey<K, X> = X extends { [KK in keyof X]: X[KK] }
     ? K extends keyof X ? X[K] : never : never
 
 
-    export type StateReq<T> = GetRootState<T> extends infer J ?
-    { [K in StatesKeys<T>]: keyof Defined<FindKey<K, J>> extends never ? MakeUnion<FindKey<K, J>> : FindKey<K, J> } : never
+export type StateReq<T> = GetRootState<T> extends infer J ?
+    { [K in StatesKeys<T>]: keyof Defined<FindKey<K, J>> extends never 
+        ? MakeUnion<FindKey<K, J>> : FindKey<K, J> } : never
 
 // export type ComponentReqs<A> = StateReq<GetAllComps<A>>
 
