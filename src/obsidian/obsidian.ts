@@ -2,7 +2,7 @@ import { flow } from "fp-ts/lib/function";
 import { pipe } from "fp-ts/lib/pipeable";
 import { createLevelTracker } from "Lib/botmain";
 import { timerState, withTimer } from 'Lib/components/actions/rendertimer';
-import { withStore } from "Lib/components/actions/store";
+import { withStore, withStore2 } from "Lib/components/actions/store";
 import { withTrackingRenderer } from "Lib/components/actions/tracker";
 import { defaultBuild, defaultState } from "Lib/defaults";
 import { AP, CA, chatState, DE, T } from 'Lib/lib';
@@ -45,7 +45,6 @@ export const context = (cs: GetChatState<typeof state>) => ({
     storeActions: storeActions(cs.store),
 })
 
-
 const app2 = defaultBuild({
     component: App, state, context,
     extensions: flow(
@@ -68,10 +67,14 @@ const app2 = defaultBuild({
                 , log('\n\n\n\n\napplyInputHandler')
                 , actions.applyInputHandler
             ])
+            , renderActionWrapper: act => a.sequence([
+                log('renderActionWrapper'),
+                actions.renderActionWrapper(act)
+            ])
         }))
-        , a => withStore(a, {
-            storeKey: 'store'
-            , storeAction: apply =>
+        , withStore2({
+            storeKey: 'store',
+            storeAction: a => apply =>
                 a.sequence([
                     log('storeAction apply')
                     , apply

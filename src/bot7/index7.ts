@@ -1,4 +1,4 @@
-import { bot2Reducers, contextCreatorBot2 } from "bot2/index2"
+import { bot2Reducers, contextCreatorBot2, initBot2 } from "bot2/index2"
 import { AwadServices } from "bot2/services"
 import { createAwadStore } from "bot2/store"
 import { flow, pipe } from "fp-ts/lib/function"
@@ -8,7 +8,7 @@ import { chatState, empty } from "Lib/chatstate"
 import { connected } from "Lib/component"
 import { reloadInterface } from "Lib/components/actions/misc"
 import { timerState, withTimer } from "Lib/components/actions/rendertimer"
-import { withStore } from "Lib/components/actions/store"
+import { withStore, withStore2 } from "Lib/components/actions/store"
 import * as TR from "Lib/components/actions/tracker"
 import { contextFromKey, contextSelector } from "Lib/context"
 import * as DE from "Lib/defaults"
@@ -65,8 +65,8 @@ const App = connected(
             yield contextFromKey('obsidian', ObsidianApp({ expandAll: false }))
         }
 
-        yield button('refresh', refresh);
-        yield messagePart(`doFlush=`);
+        // yield button('refresh', refresh);
+        // yield messagePart(`doFlush=`);
 
     }
 )
@@ -107,9 +107,9 @@ const app = DE.defaultBuild({
     component: App, state, context,
     extensions: flow(
         withTimer
-        , a => withStore(a, {
+        , withStore2({
             storeKey: 'store',
-            storeAction: apply => a.sequence([
+            storeAction: a => apply => a.sequence([
                 a.ext.startTimer, apply, a.ext.chatActions.render
             ])
         })
@@ -120,6 +120,17 @@ const app = DE.defaultBuild({
                 ? CA.sequence([useTrackingRenderer.cleanChatAction, reloadInterface()])
                 : CA.mapState(s => ({ ...s, error: 'no tracker installed' })))
         ])))
+        // , AP.overload('init', a => ({ services }: { services: AwadServices }) =>
+        //     a.sequence([
+        //         initBot2('bot2Store')(services),
+        //         a.ext.init ? a.ext.init({ cleanOldMessages: true }) : CA.doNothing,
+        //     ]))
+        , AP.extend(a => ({
+            init: ({ services }: { services: AwadServices }) => a.sequence([
+                a.ext.init ? a.ext.init({ cleanOldMessages: true }) : CA.doNothing,
+                initBot2('bot2Store')(services)
+            ])
+        }))
     )
 })
 

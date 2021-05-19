@@ -234,17 +234,15 @@ export type ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext, Ctx, H e
             R, H>
     >
 
-
 export type Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H extends AppActionsFlatten<RootComponent>> =
     (a: DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
         ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
 
 export function defaultBuild<
     StateDeps,
-
     R extends DefaultState,
     Props,
-    AAA extends If<H,
+    OptionalExtensions extends If<H,
         | FL.Flush
         | AP.DefaultActions<R, H>,
         {
@@ -259,7 +257,7 @@ export function defaultBuild<
     T extends StateConstructor<StateDeps, R>,
     Ext1,
     >(
-        app0: AppDef3<Props, RootComponent, R, StateDeps, Ctx, H> & AAA
+        app0: AppDef3<Props, RootComponent, R, StateDeps, Ctx, H> & OptionalExtensions
     ) {
 
     const extensions =
@@ -271,9 +269,7 @@ export function defaultBuild<
         ...app0
     } as
         AppDef3<Props, RootComponent, R, StateDeps, Ctx, H> & {
-            extensions: (b:
-                DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
-                ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+            extensions: Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
         }
 
     return build3(defaultBehaviour, app)
