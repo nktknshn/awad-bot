@@ -59,12 +59,12 @@ const App = connected(
 )
 
 
-const { createApplication } = pipe(
-    startBuild(App, state)
-    , defaultBehaviour
-    , AP.context(cs => ({}))
-    , finishBuild()
-    , AP.withCreateApplication
-)
+// const { createApplication } = pipe(
+//     startBuild(App, state)
+//     , defaultBehaviour
+//     , AP.context(cs => ({}))
+//     , finishBuild()
+//     , AP.withCreateApplication
+// )
 
-runbot({ app: createApplication({}) })
+// runbot({ app: createApplication({}) })

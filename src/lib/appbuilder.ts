@@ -8,7 +8,7 @@ import * as A from 'fp-ts/lib/Array';
 import { pipe } from "fp-ts/lib/pipeable";
 import { eqString } from "fp-ts/lib/Eq";
 import { ChatState } from "./chatstate";
-import { Merge, BasicAppEvent, ComponentReqs, GetState, AppActionsFlatten } from "./types-util";
+import { Merge, BasicAppEvent, ComponentReqs, GetState, AppActionsFlatten, StateConstructor } from "./types-util";
 import * as AP from 'Lib/newapp';
 
 const merge = <A, B>(a: A, b: B): Merge<A, B> => {
@@ -46,7 +46,7 @@ export const startBuild0 = <
         eventFunc: F.identity,
         sequence: CA.sequence,
         extend<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => RR): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
-            return createBuilder(merge({ }, adds(this)));
+            return createBuilder(merge({}, adds(this)));
         },
         extendF<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R, H, Merge<B, RR>, ReqContext>): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
             return adds(this);
@@ -60,7 +60,7 @@ export const startBuild0 = <
         },
         actionF: f => f(),
         actionFF: (f) => (...args) => f(...args),
-        ext: { },
+        ext: {},
         reducer: f => f,
         renderFunc: f => f,
         reducerFunc: f => f
@@ -69,16 +69,14 @@ export const startBuild0 = <
 
 
 export const startBuild = <
-    P,
-    ReqContext extends ComponentReqs<RootComponent0>,
-    RootComponent0, T,
-    R = GetState<T>,
-    H = AppActionsFlatten<RootComponent0>
->(component: (props: P) => RootComponent0, state: T)
-    : AppBuilder<R, H, WithComponent<P, ReqContext>
-        & WithState<T>, ReqContext> => {
+    Props, ContextReq extends ComponentReqs<RootComponent0>,
+    RootComponent0, T extends StateConstructor<Deps, R>,
+    Deps, R, H,
+    >(component: <A>(props: Props) => RootComponent0, state: StateConstructor<Deps, R>)
+    : AppBuilder<R, H, WithComponent<Props, ContextReq>
+        & WithState<R, Deps>, ContextReq> => {
 
-    type B = WithComponent<P, ReqContext> & WithState<T>;
+    type B = WithComponent<Props, ContextReq> & WithState<R, Deps>;
 
     return ({
         action: F.identity,
@@ -86,17 +84,17 @@ export const startBuild = <
         mapState2: () => f => f,
         eventFunc: F.identity,
         sequence: CA.sequence,
-        extend<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => RR): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
+        extend<RR>(adds: (u: AppBuilder<R, H, B, ContextReq>) => RR): AppBuilder<R, H, Merge<B, RR>, ContextReq> {
             return createBuilder(merge({
                 state,
                 component: 'component',
                 realfunc: component
             }, adds(this)));
         },
-        extendF<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R, H, Merge<B, RR>, ReqContext>): AppBuilder<R, H, Merge<B, RR>, ReqContext> {
+        extendF<RR>(adds: (u: AppBuilder<R, H, B, ContextReq>) => AppBuilder<R, H, Merge<B, RR>, ContextReq>): AppBuilder<R, H, Merge<B, RR>, ContextReq> {
             return adds(this);
         },
-        extendState<RR>(adds: (u: AppBuilder<R, H, B, ReqContext>) => AppBuilder<R & RR, H, B, ReqContext>) {
+        extendState<RR>(adds: (u: AppBuilder<R, H, B, ContextReq>) => AppBuilder<R & RR, H, B, ContextReq>) {
             return adds(this);
         },
         actionF: f => f(),
@@ -162,7 +160,7 @@ export interface AppBuilder<R, H, Ext, ReqContext, E = BasicAppEvent<R, H>
     ): AppBuilder<R, H, Merge<Ext, RR>, ReqContext>;
     ext: Ext;
     // with<RR>(adds: (u: AppBuilder<R, H, Ext, RootComp>) => RR): AppBuilder<R, H, Merge<Ext, RR>, RootComp>;
-    reducer: <H1, H2>(f: ReducerFunction<R, H, H1, E>) => ReducerFunction<R, H, H1, E>;
+    reducer: <H1>(f: ReducerFunction<R, H, H1, E>) => ReducerFunction<R, H, H1, E>;
     reducerFunc: <T1>(
         f: ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>) => ChatActionReducer<T1, R, H, BasicAppEvent<R, H>>;
 

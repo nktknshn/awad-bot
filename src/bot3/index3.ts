@@ -55,12 +55,12 @@ const state = () => chatState([
 ])
 
 
-export const { createApplication } = pipe(
-    startBuild(App, state)
-    , defaultBehaviour
-    , a => withStore(a, { storeKey: 'store' })
-    , AP.context(contextCreatorBot3)
-    , AP.props({ password: 'a' })
-    , finishBuild()
-    , AP.withCreateApplication
-)
+// export const { createApplication } = pipe(
+//     startBuild(App, state)
+//     , defaultBehaviour
+//     , a => withStore(a, { storeKey: 'store' })
+//     , AP.context(contextCreatorBot3)
+//     , AP.props({ password: 'a' })
+//     , finishBuild()
+//     , AP.withCreateApplication
+// )

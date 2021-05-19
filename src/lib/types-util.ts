@@ -57,7 +57,7 @@ export type FindKey<K, X> = X extends { [KK in keyof X]: X[KK] }
 
 
 export type StateReq<T> = GetRootState<T> extends infer J ?
-    { [K in StatesKeys<T>]: keyof Defined<FindKey<K, J>> extends never 
+    { [K in StatesKeys<T>]: keyof Defined<FindKey<K, J>> extends never
         ? MakeUnion<FindKey<K, J>> : FindKey<K, J> } : never
 
 // export type ComponentReqs<A> = StateReq<GetAllComps<A>>
@@ -167,6 +167,9 @@ import { TelegrafContext } from "telegraf/typings/context";
 
 export type BasicAppEvent<R, H> = ApplyActionsEvent<R, H, BasicAppEvent<R, H>>
 
+export type StateConstructor<Deps, R> = (<H>(a: Deps) => (tctx: TelegrafContext) => Promise<ChatState<R, H>>)
+// | ((tctx: TelegrafContext) => Promise<ChatState<R, H>>)
+
 export type GetState<T> =
     T extends (a: infer Deps) => (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? R
     : T extends (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? R : never
@@ -176,9 +179,9 @@ export type GetStateDeps<T> =
     : T extends (...a: any[]) => Promise<ChatState<infer R, infer H>> ? R : void
 
 export type GetChatState<T> =
-    T extends (a: infer Deps) => (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? ChatState<R, H> extends infer C ? {[K in keyof C]: C[K]} : never
-    : T extends (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> 
-    ? ChatState<R, H> extends infer C ? {[K in keyof C]: C[K]} : never : never
+    T extends (a: infer Deps) => (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>> ? ChatState<R, H> extends infer C ? { [K in keyof C]: C[K] } : never
+    : T extends (tctx: TelegrafContext) => Promise<ChatState<infer R, infer H>>
+    ? ChatState<R, H> extends infer C ? { [K in keyof C]: C[K] } : never : never
 
 export type Merge<A, B> = A & B
 // export type Merge<A, B> = Omit<A, keyof B> & B
@@ -191,8 +194,8 @@ export type Merge<A, B> = A & B
 //     [P in keyof A ]
 // }
 export type RequiredKeepUndefined<T> = { [K in keyof T]-?: [T[K]] } extends infer U
-? U extends Record<keyof U, [any]> ? { [K in keyof U]: U[K][0] } : never
-: never;
+    ? U extends Record<keyof U, [any]> ? { [K in keyof U]: U[K][0] } : never
+    : never;
 
 import { ChatState } from "./chatstate";
 import { Defined } from "./appbuilder";

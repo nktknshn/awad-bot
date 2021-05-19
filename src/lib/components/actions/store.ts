@@ -13,7 +13,7 @@ import { AppBuilder } from "Lib/appbuilder";
 import { DefaultState } from "Lib/defaults";
 
 export const connectFStore =
-    <R extends Record<K, StoreF2<unknown,unknown>>, H, K extends keyof any = 'store'>
+    <R extends Record<K, StoreF2<unknown, unknown>>, H, K extends keyof any = 'store'>
         (u: AppBuilder<R, H, {}, {}>, key: K) =>
         u.action(
             async ({ app, queue, chatdata }) => ({
@@ -34,22 +34,22 @@ type WithStoreArgs<R, H, K extends keyof R> = {
 };
 
 export const withStore = <
-    R extends DefaultState & Record<K, StoreF2<unknown, unknown>>, H, Ext, RootComp, H1, Deps,
+    R extends Record<K, StoreF2<unknown, unknown>>, H, Ext, RootComp, H1, InitDeps,
     K extends keyof R>(a: AppBuilder<R, H,
-        WithReducer<H1, R, H> & Ext & AP.WithInit<R,H,Deps>, RootComp>, {
+        WithReducer<H1, R, H> & Ext & AP.WithInit<R, H, InitDeps>, RootComp>, {
             storeKey,
             storeAction = apply => a.sequence([apply, CA.render])
         }: WithStoreArgs<R, H, K>): AppBuilder<R, H,
-            Ext 
-            & Record<`attachStore`, CA.AppChatAction<R, H>> 
+            Ext
+            & Record<`attachStore`, CA.AppChatAction<R, H>>
             & WithReducer<H1 | Parameters<R[K]["applyAction"]>[0]
-            & AP.WithInit<R,H,Deps>
-            , R, H>,
+                & AP.WithInit<R, H, InitDeps>
+                , R, H>,
             RootComp> => pipe(a
                 , AP.attachStore(storeKey)
                 , AP.extend(a => ({
-                    init: (deps: Deps) => a.sequence([
-                        a.ext.init ? a.ext.init(deps): CA.doNothing,
+                    init: (deps: InitDeps) => a.sequence([
+                        a.ext.init ? a.ext.init(deps) : CA.doNothing,
                         a.ext.attachStore
                     ])
                 }))

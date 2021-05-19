@@ -4,71 +4,64 @@ import { TelegrafContext } from 'telegraf/typings/context';
 import { AppBuilder, startBuild, startBuild0 } from "./appbuilder";
 import { ChatState } from "./chatstate";
 import { ComponentElement } from './component';
-import { BuildBase, defaultBehaviour, DefaultBuild, DefaultChatActions, DefaultState } from './defaults';
-import { CA, DE } from './lib';
+import { defaultBehaviour, DefaultBuild, DefaultChatActions, DefaultState, ExtensionArg, ExtensionReturn, Extensions } from './defaults';
+import { A, CA, DE } from './lib';
 import { WithComponent, WithHandleEvent } from "./newapp";
-import { AppActionsFlatten, ComponentReqs, GetState } from "./types-util";
+import { AppActionsFlatten, ComponentReqs, GetState, If, StateConstructor } from "./types-util";
 
-type AB<R, H, P, ReqContext, T> =
-    AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T>, ReqContext>
+type AB<R, H, P, ReqContext, T, StateDeps> =
+    AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<R, StateDeps>, ReqContext>
 
-export type AppDef<
-    ContextReq extends ComponentReqs<RootComponent>, Props, T,
-    RootComponent extends ComponentElement, Ctx extends ContextReq,
-    Ext1, R, H
+export type AppDef3<
+    Props,
+    RootComponent extends ComponentElement,
+    R extends DefaultState, StateDeps,
+    Ctx,
+    H extends AppActionsFlatten<RootComponent>,
     > =
     {
-        component: (props: Props) => RootComponent
-        state: T,
-        props?: Props,
-        context: (cs: ChatState<GetState<T>, unknown>) => Ctx,
-        extensions: (a:
-            DefaultBuild<R, H, Props, ContextReq, T>) =>
-            DefaultBuild<R, H, Props, ContextReq, T, Ext1>
+        component: <A>(props: Props) => RootComponent
+        state: StateConstructor<StateDeps, R>,
+        context: <A>(cs: ChatState<R, H>) => Ctx,
     }
 
-
+export type ReplaceExt<K extends keyof any, T, V> =
+    T extends AppBuilder<infer R, infer H, infer Ext, infer ReqContext>
+    ? AppBuilder<R, H, Omit<Ext, K> & V, ReqContext> : never
 
 export const build3 = <
-    ContextReq extends ComponentReqs<RootComponent>, Props, T,
-    RootComponent extends ComponentElement, Ctx extends ContextReq, Ext1, H1
+    Ext1, RootComponent extends ComponentElement,
+     Props,
+    T extends StateConstructor<StateDeps, R>,
+    R extends DefaultState, StateDeps,
+    Ctx,
+    H extends AppActionsFlatten<RootComponent>
 >
     (
-        func: (a: AppBuilder<GetState<T>, AppActionsFlatten<RootComponent>,
-            WithComponent<Props, ContextReq> & AP.WithState<T>, ContextReq>) =>
-
-            DefaultBuild<GetState<T>, AppActionsFlatten<RootComponent>, Props, ContextReq, T>,
-
-        app: AppDef<ContextReq, Props, T, RootComponent, Ctx, Ext1,
-            GetState<T>, AppActionsFlatten<RootComponent>>) =>
-
-    pipe(
+        func: (a: AppBuilder<R, H,
+            WithComponent<Props, Ctx> & AP.WithState<R, StateDeps>, Ctx>) =>
+            ExtensionArg<R, RootComponent, Props, T, StateDeps, AP.WithState<R, StateDeps>, Ctx, H>
+        , app: AppDef3<Props, RootComponent, R, StateDeps, Ctx, H>
+            & Record<'extensions', Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>>
+    ) => pipe(
         app
-        , getBuild
+        , getBuild3
         , func
         , app.extensions
+        , a => a
         , AP.context(app.context)
+        , a => AP.complete(a)
     )
 
-export const getBuild = <
-    ContextReq extends ComponentReqs<RootComponent>, Props, T,
-    RootComponent extends ComponentElement, Ctx extends ContextReq,
-    Ext1, StateDeps, H1,
-    R, H = AppActionsFlatten<RootComponent>
->(app: AppDef<
-    ContextReq, Props, T, RootComponent, Ctx,
-    Ext1,
-    GetState<T>, AppActionsFlatten<RootComponent>
->): AppBuilder<GetState<T>, AppActionsFlatten<RootComponent>,
-    WithComponent<Props, ContextReq>
-    & AP.WithState<T>
-    , ContextReq> =>
-    pipe(
-        startBuild0()
-        , AP.component(app.component)
-        , AP.state(app.state)
-        // , AP.context(app.context)
-    )
+export const getBuild3 = <
+    Props, RootComponent extends ComponentElement,
+    R extends DefaultState, H extends AppActionsFlatten<RootComponent>, Deps,
+    Ctx ,
 
-type HHH<T> = T extends AppDef<infer ContextReq, infer Props, infer T,
-    infer RootComponent, infer Ctx, infer Ext1, infer R, infer H> ? Ext1 : never
+>(app: AppDef3<
+    Props, RootComponent,
+    R, Deps, Ctx, H
+>): AppBuilder<R, H,
+    WithComponent<Props, Ctx>
+    & AP.WithState<R, Deps>
+    , Ctx> => startBuild(app.component, app.state)

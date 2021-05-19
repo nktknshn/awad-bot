@@ -1,4 +1,4 @@
-import { pipe } from "fp-ts/lib/function";
+import { identity, pipe } from "fp-ts/lib/function";
 import * as CA from 'Lib/chatactions';
 import * as FL from "Lib/components/actions/flush";
 import { reloadInterface } from 'Lib/components/actions/misc';
@@ -7,8 +7,11 @@ import * as AP from 'Lib/newapp';
 import { WithComponent } from "Lib/newapp";
 import { ChatActionReducer, chatStateAction, defaultReducer, reducer } from 'Lib/reducer';
 import { AppBuilder } from "Lib/appbuilder";
-import { BasicAppEvent, GetState } from "./types-util";
+import { AppActionsFlatten, BasicAppEvent, ComponentReqs, GetState, If, StateConstructor } from "./types-util";
 import { ChatState } from "./chatstate";
+import { AppDef3, build3, ReplaceExt } from "./appbuilder3";
+import { ComponentElement } from "./component";
+import { DE } from "./lib";
 
 interface ReloadOnStart {
     reloadOnStart: boolean
@@ -78,15 +81,15 @@ export type AnyConstructor<A = object> = new (...input: any[]) => A
 export type Mixin<T extends AnyFunction> = InstanceType<ReturnType<T>>
 
 
-export const addDefaultBehaviour2 = <R extends DefaultState, H, Ext, ReqContext, P, T>
-    (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>) => {
+export const addDefaultBehaviour2 = <R extends DefaultState, H, Ext, ReqContext, P, T, StateDeps = unknown>
+    (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<R, StateDeps> & Ext, ReqContext>) => {
     // return (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>) =>
     //     addDefaultBehaviour(a, f(a)())
     return [a, getDefaultActions(a)] as const
 }
 
-export const modifyActions = <R extends DefaultState, H, Ext, ReqContext, P, T>
-    (a: AB<R, H, P, ReqContext, T, Ext>) => {
+export const modifyActions = <R extends DefaultState, H, Ext, ReqContext, P, T, StateDeps>
+    (a: AB<R, H, P, ReqContext, T, Ext, StateDeps>) => {
     // return (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>) =>
     //     addDefaultBehaviour(a, f(a)())
     const actions = getDefaultActions(a)()
@@ -109,19 +112,22 @@ export const modifyActions = <R extends DefaultState, H, Ext, ReqContext, P, T>
 //     )
 // }
 
-export const getDefaultActions = <R extends DefaultState, H, Ext, ReqContext, P, T>
-    (a: AB<R, H, P, ReqContext, T, Ext>) => (
+export const getDefaultActions = <R extends DefaultState, H, Ext, ReqContext, P, T, StateDeps = unknown>
+    (a: AB<R, H, P, ReqContext, T, Ext, StateDeps>) => (
         {
             render = a.action(CA.render),
-            flushAction = a.action(CA.withChatState(s => s.flushAction())),
-            flushIfNeeded = a.action(FL.flushIfNeeded(flushAction)),
-            renderMessage = a.sequence([render, flushIfNeeded]),
-            replyCallback = CA.replyCallback,
-            renderAction = a.sequence([replyCallback, render, flushIfNeeded]),
-            reloadInterfaceAction = reloadInterface,
             applyEffects = CA.applyEffects,
             applyInputHandler = a.action(CA.applyInputHandler),
             applyActionHandler = a.action(CA.applyActionHandler),
+            replyCallback = CA.replyCallback,
+            deferredRender = FL.deferredRender,
+
+            flushAction = a.action(CA.withChatState(s => s.flushAction())),
+            flushIfNeeded = a.action(FL.flushIfNeeded(flushAction)),
+            renderMessage = a.sequence([render, flushIfNeeded]),
+            renderAction = a.sequence([replyCallback, render, flushIfNeeded]),
+            reloadInterfaceAction = reloadInterface,
+
             renderMessageWrapper = (c: { action: CA.AppChatAction<R, H> }) =>
                 a.action(FL.deferredRender(c)),
             renderActionWrapper = (c: { action: CA.AppChatAction<R, H> }) =>
@@ -155,13 +161,15 @@ export const getDefaultActions = <R extends DefaultState, H, Ext, ReqContext, P,
         render, renderMessage, renderAction, reloadInterfaceAction,
         flushAction, flushIfNeeded, applyEffects, applyInputHandler,
         applyActionHandler, renderMessageWrapper, renderActionWrapper,
-        handleAction, handleMessage, defaultReducerCons, replyCallback, useTracking
+        handleAction, handleMessage, defaultReducerCons, replyCallback,
+        useTracking
     })
 
-type AB<R, H, P, ReqContext, T, Ext> = AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>
+type AB<R, H, P, ReqContext, T, Ext, StateDeps = unknown> = AppBuilder<R, H, WithComponent<P, ReqContext>
+    & AP.WithState<R, StateDeps> & Ext, ReqContext>
 
-export const addHandlers = <R extends DefaultState, H, Ext, ReqContext, P, T>
-    (a: AB<R, H, P, ReqContext, T, Ext>, actions = getDefaultActions(a)()) => {
+export const addHandlers = <R extends DefaultState, H, Ext, ReqContext, P, T, StateDeps>
+    (a: AB<R, H, P, ReqContext, T, Ext, StateDeps>, actions = getDefaultActions(a)()) => {
     return pipe(a
         , AP.extend0({
             chatActions: actions
@@ -194,44 +202,27 @@ export type DefaultChatActions<R, H> = {
     useTracking: boolean;
 }
 
-type WithChatActions<R, H, ChatActions> = { chatActions: ChatActions; }
+export type WithChatActions<R, H, ChatActions> = { chatActions: ChatActions; }
 
-export type BuildBase<BaseState, BaseActions, ReducerActions, ChatActions, InitDeps> =
-    AppBuilder<BaseState, BaseActions,
-        & AP.WithRender<BaseState, BaseActions, unknown, unknown>
-        & AP.WithReducer<ReducerActions, BaseState, BaseActions>
-        & AP.WithHandleEvent<BaseState, BaseActions>
-        & Record<'handleMessage', CA.AppChatAction<BaseState, BaseActions>>
-        & Record<'handleAction', CA.AppChatAction<BaseState, BaseActions>>
-        & AP.WithInit<BaseState, BaseActions, InitDeps>
-        & WithChatActions<BaseState, BaseActions, ChatActions>
-        , unknown>
 
-export type DefaultBuild0 = BuildBase<
-    DefaultState,
-    unknown,
-    AP.DefaultActions<DefaultState, unknown>,
-    DefaultChatActions<DefaultState, unknown>,
-    {}>
-
-export type DefaultBuild<R, H, P, ReqContext, T, Ext = {}> = AppBuilder<R, H,
-    &Ext
-    & AP.WithComponent<P, ReqContext>
-    & AP.WithState<T>
-    & AP.WithRender<R, H, unknown, ReqContext>
-    & AP.WithReducer<AP.DefaultActions<R, H>, R, H>
+export type DefaultBuild<R, H, Props, ContextReq, T, Ext, StateDeps> = AppBuilder<R, H,
+    & Ext
+    & AP.WithComponent<Props, ContextReq>
+    & AP.WithState<R, StateDeps>
+    & AP.WithRender<R, H, unknown, ContextReq>
+    & AP.WithReducer<FL.Flush | AP.DefaultActions<R, H>, R, H>
     & WithChatActions<R, H, DefaultChatActions<R, H>>
     & AP.WithHandleEvent<R, H>
-    & Record<'handleMessage', CA.AppChatAction<R, H>>
-    & Record<'handleAction', CA.AppChatAction<R, H>>
+    & AP.WithHandlerMessage<R, H>
+    & AP.WithHandlerAction<R, H>
     & AP.WithInit<R, H, { cleanOldMessages?: boolean | undefined }>
-    & AP.WithProps<{}>, ReqContext>
-    // & AP.WithContextCreator<GetState<T>, ReqContext>
+    & AP.WithProps<{}>
+    , ContextReq
+>
 
-
-export const defaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, P, T>
-    (a: AB<R, H, P, ReqContext, T, Ext>) => {
-    // : DefaultBuild<R, H, P, ReqContext, T> => {
+export const defaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, P, T, StateDeps>
+    (a: AB<R, H, P, ReqContext, T, Ext, StateDeps>)
+    : DefaultBuild<R, H, P, ReqContext, T, Ext, StateDeps> => {
 
     const actions = getDefaultActions(a)()
 
@@ -250,40 +241,126 @@ export const defaultBehaviour = <R extends DefaultState, H, Ext, ReqContext, P, 
     )
 }
 
+export type ExtensionArg<R, RootComponent, Props, T, StateDeps, Ext, Ctx, H extends AppActionsFlatten<RootComponent>> =
+    DefaultBuild<R, H, Props, Ctx, T, Ext, StateDeps>
 
-// type PartialAppBuilder<R, H, Actions, ChatActions, InitDeps, Ext> =
-//     AppBuilder<R, H,
-//         & AP.WithRender<R, H, unknown, unknown>
-//         & AP.WithReducer<Actions, R, H>
-//         & AP.WithHandleEvent<R, H>
-//         & Record<'handleMessage', CA.AppChatAction<R, H>>
-//         & Record<'handleAction', CA.AppChatAction<R, H>>
-//         & AP.WithInit<R, H, InitDeps>
-//         & WithChatActions<R, H, ChatActions>
-//         , unknown>
+export type ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext, Ctx, H extends AppActionsFlatten<RootComponent>,
+    ReducerActions =
+    | AP.DefaultActions<R, H>
+    | H
+    | FL.Flush
+    > = ReplaceExt<
+        'reducer',
+        ExtensionArg<R, RootComponent, Props, T, StateDeps, Ext, Ctx, H>,
+        AP.WithReducer<ReducerActions,
+            R, H>
+    >
+// type LL = AppBuilder<R, AppActionsFlatten<RootComponent>, Omit<Ext1 & AP.WithComponent<Props, Ctx> 
+// & AP.WithState<R, StateDeps> & AP.WithRender<R, AppActionsFlatten<RootComponent>, unknown, Ctx>
+//  & AP.WithReducer<Flush | AP.DefaultActions<R, AppActionsFlatten<RootComponent>>, R, AppActionsFlatten<RootComponent>> 
+//  & DE.WithChatActions<R, AppActionsFlatten<RootComponent>, DefaultChatActions<R, AppActionsFlatten<RootComponent>>> & AP.WithHandleEvent<R, AppActionsFlatten<RootComponent>> & AP.WithHandlerMessage<R, AppActionsFlatten<RootComponent>> & AP.WithHandlerAction<R, AppActionsFlatten<RootComponent>> & AP.WithInit<R, AppActionsFlatten<RootComponent>, {
+//     cleanOldMessages?: boolean | undefined;
+// }> & AP.WithProps<{}>, "reducer"> & AP.WithReducer<AppActionsFlatten<RootComponent> | Flush | AP.DefaultActions<R, AppActionsFlatten<RootComponent>>, R, AppActionsFlatten<RootComponent>>, Ctx, BasicAppEvent<R, AppActionsFlatten<RootComponent>>>
 
-// export const defaultBehaviour0 =
-//     <R, H, Actions, ChatActions, InitDeps, Ext>(
-//         a: PartialAppBuilder<R, H, Actions, ChatActions, InitDeps, Ext>
-//     )
-//         : PartialAppBuilder<
-//             R & DefaultState,
-//             H,
-//             AP.DefaultActions<DefaultState, H>,
-//             DefaultChatActions<DefaultState, H>,
-//             { cleanOldMessages?: boolean | undefined }, Ext> => {
+type ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H extends AppActionsFlatten<RootComponent>> =
+    AppBuilder<R, H,
+        & AP.WithComponent<Props, Ctx>
+        & AP.WithState<R, StateDeps>
+        & AP.WithRender<R, H, unknown, Ctx>
 
-//         return pipe(a
-//             , AP.extend(AP.handleEventExtension2)
-//             , AP.extend(AP.renderExtension)
-//             , AP.extend(AP.withDefaultReducer2(actions.defaultReducerCons))
-//             , AP.addReducer(_ => FL.flushReducer(actions.flushAction))
-//             , a => addHandlers(a, actions)
-//             , AP.extend0(({
-//                 init: ({ cleanOldMessages = true } = {}) => a.sequence([
-//                     CA.onTrue(actions.useTracking, TR.initTrackingRenderer({ cleanOldMessages })),
-//                 ])
-//             }))
-//             , AP.props({})
-//         )
-//     }
+        & AP.WithReducer<
+            | H
+            | FL.Flush
+            | AP.DefaultActions<R, H>
+            ,
+            R, H
+        >
+
+        & DE.WithChatActions<R, H, DefaultChatActions<R, H>>
+        & AP.WithHandleEvent<R, H>
+        & AP.WithHandlerMessage<R, H>
+        & AP.WithHandlerAction<R, H>
+        & AP.WithInit<R, H, { cleanOldMessages?: boolean | undefined }>
+        & AP.WithProps<{}>
+        & Ext1
+        , Ctx
+    >
+
+export type Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H extends AppActionsFlatten<RootComponent>> =
+    (a: DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
+        ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+// ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx
+//     , | AP.DefaultActions<R, H>
+//     | H
+//     | FL.Flush
+// >
+// AppBuilder<R, H,
+//     & AP.WithComponent<Props, Ctx>
+//     & AP.WithState<R, StateDeps>
+//     & AP.WithRender<R, H, unknown, Ctx>
+
+//     & AP.WithReducer<
+//         | H
+//         | FL.Flush
+//         | AP.DefaultActions<R, H>
+//         ,
+//         R, H
+//     >
+
+//     & DE.WithChatActions<R, H, DefaultChatActions<R, H>>
+//     & AP.WithHandleEvent<R, H>
+//     & AP.WithHandlerMessage<R, H>
+//     & AP.WithHandlerAction<R, H>
+//     & AP.WithInit<R, H, { cleanOldMessages?: boolean | undefined }>
+//     & AP.WithProps<{}>
+//     & Ext1
+//     , Ctx
+// >
+// (b:
+//     ExtensionArg<R, RootComponent, Props, T, StateDeps, {}, Ctx>) =>
+//     ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx>
+
+export function defaultBuild<
+    StateDeps,
+   
+R extends DefaultState,
+    Props,
+    AAA extends If<H,
+        | FL.Flush
+        | AP.DefaultActions<R, H>,
+        {
+
+        },
+        {
+            extensions: (b:
+                DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
+                ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+        }>,
+    Ctx,
+    H extends AppActionsFlatten<RootComponent>,
+    RootComponent extends ComponentElement,
+    T extends StateConstructor<StateDeps, R>,
+    Ext1,
+    // Ctx extends ComponentReqs<RootComponent>
+    >(
+        app0: AppDef3<Props, RootComponent, R, StateDeps, Ctx, H>
+            & AAA
+        // & Record<'extensions', Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>>
+    ) {
+
+    const extensions =
+        (a: DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
+            a as ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+
+    const app = {
+        extensions,
+        ...app0
+    } as
+        AppDef3<Props, RootComponent, R, StateDeps, Ctx, H> & {
+            extensions: (b:
+                DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
+                ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+        }
+
+    return build3(defaultBehaviour, app)
+}

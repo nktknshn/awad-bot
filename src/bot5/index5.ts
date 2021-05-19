@@ -72,35 +72,35 @@ const state = chatState(
         })
     ])
 
-const app = startBuild(App, state).extend(
-    a => ({
-        handleMessage: a.actionF(handleMessage)
-    })
-)
+// const app = startBuild(App, state).extend(
+//     a => ({
+//         handleMessage: a.actionF(handleMessage)
+//     })
+// )
 
-export const createApp = () =>
-    application({
-        state,
-        renderFunc: genericRenderComponent(
-            defaultRenderScheme(),
-            {
-                component: App,
-                contextCreator: contextCreatorBot5,
-                props: {}
-            }),
-        init: CA.sequence([]),
-        actionReducer:
-            extendDefaultReducer(
-                storeReducer('store')
-            ),
-        handleMessage: app.ext.handleMessage,
-        handleAction: CA.sequence([
-            CA.applyActionHandler,
-            CA.replyCallback,
-            CA.applyEffects,
-            CA.render,
-            flushIfNeeded(CA.withChatState(s => s.flushAction())),
-        ]),
-        handleEvent: makeEventReducer(applyActionEventReducer())
-    })
+// export const createApp = () =>
+//     application({
+//         state,
+//         renderFunc: genericRenderComponent(
+//             defaultRenderScheme(),
+//             {
+//                 component: App,
+//                 contextCreator: contextCreatorBot5,
+//                 props: {}
+//             }),
+//         init: CA.sequence([]),
+//         actionReducer:
+//             extendDefaultReducer(
+//                 storeReducer('store')
+//             ),
+//         handleMessage: app.ext.handleMessage,
+//         handleAction: CA.sequence([
+//             CA.applyActionHandler,
+//             CA.replyCallback,
+//             CA.applyEffects,
+//             CA.render,
+//             flushIfNeeded(CA.withChatState(s => s.flushAction())),
+//         ]),
+//         handleEvent: makeEventReducer(applyActionEventReducer())
+//     })
 

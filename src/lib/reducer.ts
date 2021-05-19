@@ -6,6 +6,7 @@ import { TreeState } from "./tree"
 import { LocalStateAction } from 'Lib/tree2'
 import { ChatState } from './chatstate'
 import { mylog } from './logging'
+import { AP } from './lib'
 
 export const hasKind = <S extends {kind: any}>(kind: S['kind']) => (a: unknown): a is S =>
     isObject(a) && hasOwnProperty(a, 'kind') && a.kind === kind
@@ -291,14 +292,14 @@ export function extendReducerFunction<R, H1, H2, H3, E>(
     }
 }
 
-export function reducerToFunction<R, H1, H2, E>(
-    m: ChatActionReducer<H1, R, H2, E>
-): ReducerFunction<R, H1, H2, E> {
+export function reducerToFunction<R, H1, H, E>(
+    m: ChatActionReducer<H1, R, H, E>
+): ReducerFunction<R, H1, H, E> {
     return function (
         a: H1 | H1[],
-    ): CA.AppChatAction<R, H2, E>[] {
+    ): CA.AppChatAction<R, H, E>[] {
 
-        function go(aa: H1 | H1[]): CA.AppChatAction<R, H2, E>[] {
+        function go(aa: H1 | H1[]): CA.AppChatAction<R, H, E>[] {
             if (Array.isArray(aa)) {
                 return A.flatten(aa.map(go))
             }
@@ -311,8 +312,7 @@ export function reducerToFunction<R, H1, H2, E>(
 }
 
 export function defaultReducer<R, H, E>()
-    : ChatActionReducer<LocalStateAction<any> | ChatStateAction<ChatState<R, H>>
-        | undefined, R, H, E> {
+    : ChatActionReducer<AP.DefaultActions<R, H>, R, H, E> {
     const m = stateReducerToChatActionReducer<R, H, E>()
     return composeReducers(
         m(localStateMatcher<ChatState<R, H>>()),

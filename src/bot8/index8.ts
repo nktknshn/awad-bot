@@ -6,16 +6,15 @@ import { connected } from 'Lib/component';
 import { withTimer, timerState, WithTimerState } from 'Lib/components/actions/rendertimer';
 import * as TR from "Lib/components/actions/tracker";
 import { contextSelector } from 'Lib/context';
-import { defaultBehaviour, DefaultState, defaultState } from 'Lib/defaults';
+import { defaultBehaviour, defaultBuild, DefaultState, defaultState } from 'Lib/defaults';
 import { buttonsRow, keyboardButton, message } from 'Lib/elements-constructors';
 import { action, caseText, inputHandler, on } from 'Lib/input';
 import * as AP from 'Lib/newapp';
 import { chatStateAction } from 'Lib/reducer';
 import { select } from 'Lib/state';
-import { GetChatState } from 'Lib/types-util';
+import { AppActionsFlatten, GetChatState } from 'Lib/types-util';
 import * as CA from 'Lib/chatactions';
 import { flow } from 'fp-ts/lib/function';
-import { build } from 'Lib/appbuilder0';
 import { build3 } from 'Lib/appbuilder3';
 
 
@@ -51,6 +50,7 @@ export const App = connected(
         yield message(`Монстр 1 = ${a}, Монстр 2 = ${b}`)
         yield buttonsRow(['ударить 1', 'ударить 2'], (idx,) => [
             chatStateAction<{ a: number }>(s => ({ ...s, a: a + 1 })),
+            // "asas",
             chatStateAction<{ b: number }>(s => ({ ...s, b: b + 1 })),
         ][idx])
 
@@ -85,21 +85,12 @@ const state = () => chatState([
     timerState
 ])
 
-const app = build3(
-    defaultBehaviour,
-    {
-        component: App, state, context: context.fromState,
-        extensions: flow(
-            withTimer
-        )
-    })
+const app = defaultBuild({
+    component: App,
+    state,
+    context: context.fromState,
+})
 
-// const app = pipe(
-//     startBuild(App, state)
-//     , withTimer
-//     , addDefaultBehaviour
-//     , AP.context(context.fromState)
-//     , finishBuild()
-// )
+// type BBB = AppActionsFlatten<typeof App>
 
-export const { createApplication: createApp } = AP.withCreateApplication(AP.complete(app))
+export const { createApplication } = AP.withCreateApplication(app)
