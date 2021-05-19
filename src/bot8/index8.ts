@@ -1,21 +1,16 @@
 import { createLevelTracker } from 'bot3/leveltracker';
-import { pipe } from 'fp-ts/lib/pipeable';
-import { AppBuilder, finishBuild, startBuild } from "Lib/appbuilder";
 import { chatState, empty } from 'Lib/chatstate';
 import { connected } from 'Lib/component';
-import { withTimer, timerState, WithTimerState } from 'Lib/components/actions/rendertimer';
+import { timerState } from 'Lib/components/actions/rendertimer';
 import * as TR from "Lib/components/actions/tracker";
 import { contextSelector } from 'Lib/context';
-import { defaultBehaviour, defaultBuild, DefaultState, defaultState } from 'Lib/defaults';
+import { defaultBuild, defaultState } from 'Lib/defaults';
 import { buttonsRow, keyboardButton, message } from 'Lib/elements-constructors';
 import { action, caseText, inputHandler, on } from 'Lib/input';
 import * as AP from 'Lib/newapp';
 import { chatStateAction } from 'Lib/reducer';
 import { select } from 'Lib/state';
-import { AppActionsFlatten, GetChatState } from 'Lib/types-util';
-import * as CA from 'Lib/chatactions';
-import { flow } from 'fp-ts/lib/function';
-import { build3 } from 'Lib/appbuilder3';
+import { GetChatState } from 'Lib/types-util';
 
 
 const KeyboardMenu = connected(
@@ -90,7 +85,5 @@ const app = defaultBuild({
     state,
     context: context.fromState,
 })
-
-// type BBB = AppActionsFlatten<typeof App>
 
 export const { createApplication } = AP.withCreateApplication(app)

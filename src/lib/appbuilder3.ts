@@ -1,13 +1,11 @@
 import { pipe } from 'fp-ts/lib/pipeable';
 import * as AP from 'Lib/newapp';
-import { TelegrafContext } from 'telegraf/typings/context';
-import { AppBuilder, startBuild, startBuild0 } from "./appbuilder";
+import { AppBuilder, startBuild } from "./appbuilder";
 import { ChatState } from "./chatstate";
 import { ComponentElement } from './component';
-import { defaultBehaviour, DefaultBuild, DefaultChatActions, DefaultState, ExtensionArg, ExtensionReturn, Extensions } from './defaults';
-import { A, CA, DE } from './lib';
-import { WithComponent, WithHandleEvent } from "./newapp";
-import { AppActionsFlatten, ComponentReqs, GetState, If, StateConstructor } from "./types-util";
+import { DefaultState, ExtensionArg, Extensions } from './defaults';
+import { WithComponent } from "./newapp";
+import { AppActionsFlatten, StateConstructor } from "./types-util";
 
 type AB<R, H, P, ReqContext, T, StateDeps> =
     AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<R, StateDeps>, ReqContext>
@@ -31,7 +29,7 @@ export type ReplaceExt<K extends keyof any, T, V> =
 
 export const build3 = <
     Ext1, RootComponent extends ComponentElement,
-     Props,
+    Props,
     T extends StateConstructor<StateDeps, R>,
     R extends DefaultState, StateDeps,
     Ctx,
@@ -48,16 +46,14 @@ export const build3 = <
         , getBuild3
         , func
         , app.extensions
-        , a => a
         , AP.context(app.context)
-        , a => AP.complete(a)
+        , AP.complete
     )
 
 export const getBuild3 = <
     Props, RootComponent extends ComponentElement,
     R extends DefaultState, H extends AppActionsFlatten<RootComponent>, Deps,
-    Ctx ,
-
+    Ctx
 >(app: AppDef3<
     Props, RootComponent,
     R, Deps, Ctx, H

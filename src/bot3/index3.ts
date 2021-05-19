@@ -1,10 +1,9 @@
 import { pipe } from "fp-ts/lib/function";
-import { finishBuild, startBuild } from "Lib/appbuilder";
 import { chatState } from "Lib/chatstate";
 import { withStore } from "Lib/components/actions/store";
 import * as TR from "Lib/components/actions/tracker";
 import { withUserMessages } from 'Lib/context';
-import { defaultBehaviour, defaultState } from "Lib/defaults";
+import { defaultBuild, defaultState } from "Lib/defaults";
 // import { defaultBehaviour } from "Lib/defaults";
 import * as AP from 'Lib/newapp';
 import { select } from 'Lib/state';
@@ -53,6 +52,21 @@ const state = () => chatState([
         store: store(),
     }),
 ])
+
+
+export const app =
+    defaultBuild({
+        component: App,
+        state,
+        context: contextCreatorBot3,
+        extensions: a => pipe(
+            a
+            , a => withStore(a, { storeKey: 'store' })
+            // , AP.props({ password: 'a' })
+        )
+    })
+
+export const { createApplication } = AP.withCreateApplication(app)
 
 
 // export const { createApplication } = pipe(

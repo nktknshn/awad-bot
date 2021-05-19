@@ -63,18 +63,6 @@ export const defaultFlushAction = <R extends TR.UseTrackingRenderer & FL.FlushSt
 
 const zeroReducer = <R, H>() => reducer<never, CA.AppChatAction<R, H>>((_): _ is never => false, _ => CA.doNothing)
 
-// , AP.extend(a => ({
-//     chatActions: defaults({
-//         render: a.action(CA.render),
-//         renderMessage: a.action(render),
-//         renderAction: a.actions([render, CA.replyCallback]),
-//         reloadInterfaceAction: reloadInterface,
-//         flushAction: a.action(CA.withChatState(s => s.flushAction())),
-//         flushIfNeeded: a.action(FL.flushIfNeeded(flushAction)),
-//         applyEffects: CA.applyEffects,
-//         // useTracking: true,
-//     })
-// }))
 export type AnyFunction<A = any> = (...input: any[]) => A
 export type AnyConstructor<A = object> = new (...input: any[]) => A
 
@@ -90,8 +78,7 @@ export const addDefaultBehaviour2 = <R extends DefaultState, H, Ext, ReqContext,
 
 export const modifyActions = <R extends DefaultState, H, Ext, ReqContext, P, T, StateDeps>
     (a: AB<R, H, P, ReqContext, T, Ext, StateDeps>) => {
-    // return (a: AppBuilder<R, H, WithComponent<P, ReqContext> & AP.WithState<T> & Ext, ReqContext>) =>
-    //     addDefaultBehaviour(a, f(a)())
+
     const actions = getDefaultActions(a)()
 
     return {
@@ -100,17 +87,8 @@ export const modifyActions = <R extends DefaultState, H, Ext, ReqContext, P, T, 
             addHandlers(a, getDefaultActions(a)(f(actions)))
     }
 
-    // return (f: (a: AB<R, H, P, ReqContext, T, Ext>, arg: typeof actions) => Partial<typeof actions>) => 
-    // addDefaultBehaviour(a, getDefaultActions(a)(f(a, actions)))
 }
 
-// export const getDefaultActions2 = <R extends DefaultState, H, Ext, ReqContext, P, T>
-// (ac = getDefaultActions(a)) => {
-//     return pipe(
-//         getDefaultActions(a)
-//         , ([a, actions]) => getDefaultActions(a, ac)
-//     )
-// }
 
 export const getDefaultActions = <R extends DefaultState, H, Ext, ReqContext, P, T, StateDeps = unknown>
     (a: AB<R, H, P, ReqContext, T, Ext, StateDeps>) => (
@@ -246,111 +224,47 @@ export type ExtensionArg<R, RootComponent, Props, T, StateDeps, Ext, Ctx, H exte
 
 export type ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext, Ctx, H extends AppActionsFlatten<RootComponent>,
     ReducerActions =
-    | AP.DefaultActions<R, H>
     | H
     | FL.Flush
+    | AP.DefaultActions<R, H>
     > = ReplaceExt<
         'reducer',
         ExtensionArg<R, RootComponent, Props, T, StateDeps, Ext, Ctx, H>,
         AP.WithReducer<ReducerActions,
             R, H>
     >
-// type LL = AppBuilder<R, AppActionsFlatten<RootComponent>, Omit<Ext1 & AP.WithComponent<Props, Ctx> 
-// & AP.WithState<R, StateDeps> & AP.WithRender<R, AppActionsFlatten<RootComponent>, unknown, Ctx>
-//  & AP.WithReducer<Flush | AP.DefaultActions<R, AppActionsFlatten<RootComponent>>, R, AppActionsFlatten<RootComponent>> 
-//  & DE.WithChatActions<R, AppActionsFlatten<RootComponent>, DefaultChatActions<R, AppActionsFlatten<RootComponent>>> & AP.WithHandleEvent<R, AppActionsFlatten<RootComponent>> & AP.WithHandlerMessage<R, AppActionsFlatten<RootComponent>> & AP.WithHandlerAction<R, AppActionsFlatten<RootComponent>> & AP.WithInit<R, AppActionsFlatten<RootComponent>, {
-//     cleanOldMessages?: boolean | undefined;
-// }> & AP.WithProps<{}>, "reducer"> & AP.WithReducer<AppActionsFlatten<RootComponent> | Flush | AP.DefaultActions<R, AppActionsFlatten<RootComponent>>, R, AppActionsFlatten<RootComponent>>, Ctx, BasicAppEvent<R, AppActionsFlatten<RootComponent>>>
 
-type ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H extends AppActionsFlatten<RootComponent>> =
-    AppBuilder<R, H,
-        & AP.WithComponent<Props, Ctx>
-        & AP.WithState<R, StateDeps>
-        & AP.WithRender<R, H, unknown, Ctx>
-
-        & AP.WithReducer<
-            | H
-            | FL.Flush
-            | AP.DefaultActions<R, H>
-            ,
-            R, H
-        >
-
-        & DE.WithChatActions<R, H, DefaultChatActions<R, H>>
-        & AP.WithHandleEvent<R, H>
-        & AP.WithHandlerMessage<R, H>
-        & AP.WithHandlerAction<R, H>
-        & AP.WithInit<R, H, { cleanOldMessages?: boolean | undefined }>
-        & AP.WithProps<{}>
-        & Ext1
-        , Ctx
-    >
 
 export type Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H extends AppActionsFlatten<RootComponent>> =
     (a: DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
-        ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
-// ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx
-//     , | AP.DefaultActions<R, H>
-//     | H
-//     | FL.Flush
-// >
-// AppBuilder<R, H,
-//     & AP.WithComponent<Props, Ctx>
-//     & AP.WithState<R, StateDeps>
-//     & AP.WithRender<R, H, unknown, Ctx>
-
-//     & AP.WithReducer<
-//         | H
-//         | FL.Flush
-//         | AP.DefaultActions<R, H>
-//         ,
-//         R, H
-//     >
-
-//     & DE.WithChatActions<R, H, DefaultChatActions<R, H>>
-//     & AP.WithHandleEvent<R, H>
-//     & AP.WithHandlerMessage<R, H>
-//     & AP.WithHandlerAction<R, H>
-//     & AP.WithInit<R, H, { cleanOldMessages?: boolean | undefined }>
-//     & AP.WithProps<{}>
-//     & Ext1
-//     , Ctx
-// >
-// (b:
-//     ExtensionArg<R, RootComponent, Props, T, StateDeps, {}, Ctx>) =>
-//     ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx>
+        ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
 
 export function defaultBuild<
     StateDeps,
-   
-R extends DefaultState,
+
+    R extends DefaultState,
     Props,
     AAA extends If<H,
         | FL.Flush
         | AP.DefaultActions<R, H>,
         {
-
+            extensions?: Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
         },
         {
-            extensions: (b:
-                DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
-                ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+            extensions: Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
         }>,
     Ctx,
     H extends AppActionsFlatten<RootComponent>,
     RootComponent extends ComponentElement,
     T extends StateConstructor<StateDeps, R>,
     Ext1,
-    // Ctx extends ComponentReqs<RootComponent>
     >(
-        app0: AppDef3<Props, RootComponent, R, StateDeps, Ctx, H>
-            & AAA
-        // & Record<'extensions', Extensions<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>>
+        app0: AppDef3<Props, RootComponent, R, StateDeps, Ctx, H> & AAA
     ) {
 
     const extensions =
         (a: DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
-            a as ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+            a as ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
 
     const app = {
         extensions,
@@ -359,8 +273,32 @@ R extends DefaultState,
         AppDef3<Props, RootComponent, R, StateDeps, Ctx, H> & {
             extensions: (b:
                 DefaultBuild<R, H, Props, Ctx, T, {}, StateDeps>) =>
-                ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
+                ExtensionReturn<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H>
         }
 
     return build3(defaultBehaviour, app)
 }
+
+// type ExtensionReturn2<R, RootComponent, Props, T, StateDeps, Ext1, Ctx, H extends AppActionsFlatten<RootComponent>> =
+//     AppBuilder<R, H,
+//         & AP.WithComponent<Props, Ctx>
+//         & AP.WithState<R, StateDeps>
+//         & AP.WithRender<R, H, unknown, Ctx>
+
+//         & AP.WithReducer<
+//             | H
+//             | FL.Flush
+//             | AP.DefaultActions<R, H>
+//             ,
+//             R, H
+//         >
+
+//         & DE.WithChatActions<R, H, DefaultChatActions<R, H>>
+//         & AP.WithHandleEvent<R, H>
+//         & AP.WithHandlerMessage<R, H>
+//         & AP.WithHandlerAction<R, H>
+//         & AP.WithInit<R, H, { cleanOldMessages?: boolean | undefined }>
+//         & AP.WithProps<{}>
+//         & Ext1
+//         , Ctx
+//     >

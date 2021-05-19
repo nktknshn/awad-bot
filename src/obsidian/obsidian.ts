@@ -1,26 +1,21 @@
+import { flow } from "fp-ts/lib/function";
 import { pipe } from "fp-ts/lib/pipeable";
-import { AppBuilder, Defined, startBuild, startBuild0 } from "Lib/appbuilder";
 import { createLevelTracker } from "Lib/botmain";
 import { timerState, withTimer } from 'Lib/components/actions/rendertimer';
-import { withTrackingRenderer } from "Lib/components/actions/tracker";
-import { defaultBehaviour, defaultBuild, DefaultBuild, DefaultState, defaultState, getDefaultActions } from "Lib/defaults";
 import { withStore } from "Lib/components/actions/store";
+import { withTrackingRenderer } from "Lib/components/actions/tracker";
+import { defaultBuild, defaultState } from "Lib/defaults";
 import { AP, CA, chatState, DE, T } from 'Lib/lib';
 import { mylog } from 'Lib/logging';
 import { storef } from "Lib/storeF";
-import { AppActionsFlatten, ComponentReqs, FindKey, GetAllComps, GetComponent, GetRootState, GetState, MakeUnion, StateConstructor, StatesKeys } from "Lib/types-util";
+import { GetChatState } from "Lib/types-util";
 import { App } from './components/App';
 import { readStore, Store, storeActions } from './store';
-import { ChatState } from "Lib/chatstate";
-import { flow } from "fp-ts/lib/function";
-import { WithComponent, WithReducer, WithState } from "Lib/newapp";
-import { VaultDirs } from "./components/VaultDirs";
-import { VaultOpenDirFiles } from "./components/VaultOpenDirFiles";
-import { OpenedFile } from "./components/OpenedFile";
-// import { build, getApp, getApp2 } from "Lib/appbuilder0";
-import { AppDef3, build3 } from "Lib/appbuilder3";
-import { ComponentElement } from "Lib/component";
 export { App } from './components/App';
+
+const log = <R, H>(f: ((chatdata: R) => string) | string, logger = mylog) => CA.log<R, H>(ctx => {
+    logger((typeof f === 'string' ? () => f : f)(ctx.chatdata));
+})
 
 export const store = (dir: string) => pipe(
     readStore(dir)
@@ -33,13 +28,13 @@ export const store = (dir: string) => pipe(
 const state = (d: { vaultPath: string }) => chatState([
     defaultState(),
     withTrackingRenderer(createLevelTracker('mydb_bot7')),
-    timerState,
     async () => ({
         store: await store(d.vaultPath)
     }),
+    timerState,
 ])
 
-export const context = (cs: GetState<typeof state>) => ({
+export const context = (cs: GetChatState<typeof state>) => ({
     vault: cs.store.state.vault!,
     vaultConfig: cs.store.state.vaultConfig!,
     error: cs.store.state.error,
@@ -50,14 +45,10 @@ export const context = (cs: GetState<typeof state>) => ({
     storeActions: storeActions(cs.store),
 })
 
-const log = <R, H>(f: ((chatdata: R) => string) | string, logger = mylog) => CA.log<R, H>(ctx => {
-    logger((typeof f === 'string' ? () => f : f)(ctx.chatdata));
-})
-
 
 const app2 = defaultBuild({
     component: App, state, context,
-    extensions: a => pipe( a,
+    extensions: flow(
         withTimer
         , DE.modifyActions
         , ({ a, modify }) => modify(actions => ({
